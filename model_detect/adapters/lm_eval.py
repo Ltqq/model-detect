@@ -122,3 +122,46 @@ def run_endpoint(
         "stdout_tail": (proc.stdout or "")[-4000:],
         "stderr_tail": (proc.stderr or "")[-4000:],
     }
+
+
+
+def load_builtin_profiles() -> dict[str, Any]:
+    from importlib.resources import files
+
+    import yaml
+
+    path = files("model_detect").joinpath("data/lm_eval_profiles.yaml")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    tasks = raw.get("tasks") or {}
+    profiles = raw.get("profiles") or {}
+    if not isinstance(tasks, dict) or not isinstance(profiles, dict):
+        raise ValueError("invalid lm-eval profile data")
+    return {
+        "version": raw.get("version"),
+        "tasks": tasks,
+        "profiles": profiles,
+    }
+
+
+def get_builtin_profile(name: str) -> dict[str, Any]:
+    data = load_builtin_profiles()
+    profile = data["profiles"].get(name)
+    if not isinstance(profile, dict):
+        raise KeyError(f"unknown lm-eval profile: {name}")
+    task_names = profile.get("tasks") or []
+    if not isinstance(task_names, list) or not task_names:
+        raise ValueError(f"lm-eval profile {name!r} has no tasks")
+    missing = [task for task in task_names if task not in data["tasks"]]
+    if missing:
+        raise ValueError(
+            f"lm-eval profile {name!r} references unknown tasks: {missing}"
+        )
+    return {
+        "name": name,
+        "tasks": list(task_names),
+        "limit": profile.get("limit"),
+        "task_metadata": {
+            task: data["tasks"][task]
+            for task in task_names
+        },
+    }
