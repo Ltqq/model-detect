@@ -37,6 +37,7 @@ def test_identity_mismatch_hard_caps_total():
                 0.0,
                 status=ProbeStatus.FAIL,
                 verdict="mismatch",
+                identity_strength="strong",
             ),
         ]
     )
@@ -67,3 +68,21 @@ def test_weak_identity_cannot_produce_verified_pass():
     assert summary.overall_score is not None
     assert summary.final_verdict == "review"
     assert summary.confidence in {"medium", "low"}
+
+
+def test_weak_identity_failure_does_not_trigger_mismatch():
+    summary = build_summary(
+        [
+            r("protocol.chat.basic", "protocol", 1.0),
+            r(
+                "identity.self_consistency",
+                "identity",
+                0.3,
+                status=ProbeStatus.FAIL,
+                identity_strength="weak",
+            ),
+            r("integrity.max_tokens", "integrity", 1.0),
+        ]
+    )
+    assert summary.hard_cap is None
+    assert summary.final_verdict != "mismatch"
