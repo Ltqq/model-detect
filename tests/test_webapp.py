@@ -1,5 +1,8 @@
+import asyncio
+
 from fastapi.testclient import TestClient
 
+from model_detect.models import AuditReport, AuditSummary
 from model_detect.webapp import create_app
 
 
@@ -409,3 +412,121 @@ def test_delete_reference_history_does_not_delete_reference_artifacts(tmp_path):
     assert response.status_code == 200
     assert reference_root.exists()
     assert report_html.exists()
+
+
+
+def test_local_e2e_audit_history_reports_filter_and_delete(tmp_path, monkeypatch):
+    pending = []
+    real_create_task = asyncio.create_task
+
+    async def fake_run_audit(config, **kwargs):
+        return AuditReport(
+            profile=config.profile,
+            target={
+                "base_url": config.target.base_url,
+                "model": config.target.model,
+                "protocol": config.target.protocol,
+            },
+            summary=AuditSummary(
+                overall_score=97.5,
+                final_verdict="MATCH",
+                confidence="high",
+            ),
+            adapters={
+                "model_rule": {
+                    "id": "kimi-k3",
+                    "sources": [],
+                },
+                "promptfoo_regression": {
+                    "status": "not_configured",
+                    "suites": [],
+                },
+            },
+        )
+
+    def capture_task(coro):
+        pending.append(coro)
+        return None
+
+    monkeypatch.setattr("model_detect.webapp.run_audit", fake_run_audit)
+    monkeypatch.setattr(
+        "model_detect.webapp.asyncio.create_task",
+        capture_task,
+    )
+
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    client = TestClient(app)
+
+    submitted = client.post(
+        "/api/audits",
+        json={
+            "base_url": "https://example.com/v1",
+            "api_key": "secret",
+            "model": "kimi-k3",
+            "profile": "quick",
+            "proxy_sleuth": False,
+        },
+    )
+    assert submitted.status_code == 200
+    job_id = submitted.json()["id"]
+    assert submitted.json()["status"] == "queued"
+    assert len(pending) == 1
+
+    monkeypatch.setattr(
+        "model_detect.webapp.asyncio.create_task",
+        real_create_task,
+    )
+    asyncio.run(pending.pop())
+
+    completed = client.get(f"/api/jobs/{job_id}")
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "done"
+    assert completed.json()["meta"]["verdict"] == "MATCH"
+    assert completed.json()["meta"]["score"] == 97.5
+
+    history = client.get("/")
+    assert history.status_code == 200
+    assert job_id in history.text
+    assert "MATCH" in history.text
+    assert "97.5" in history.text
+
+    html_report = client.get(f"/reports/{job_id}")
+    assert html_report.status_code == 200
+    assert "MATCH" in html_report.text
+
+    json_report = client.get(f"/api/audits/{job_id}/report")
+    assert json_report.status_code == 200
+    assert json_report.json()["summary"]["final_verdict"] == "MATCH"
+    assert json_report.json()["summary"]["overall_score"] == 97.5
+
+    zip_report = client.get(f"/api/audits/{job_id}/download")
+    assert zip_report.status_code == 200
+    assert zip_report.headers["content-type"].startswith("application/zip")
+    assert zip_report.content.startswith(b"PK")
+
+    filtered = client.get(
+        "/",
+        params={
+            "model": "kimi-k3",
+            "status": "done",
+            "kind": "audit",
+        },
+    )
+    assert filtered.status_code == 200
+    assert job_id in filtered.text
+
+    report_root = tmp_path / "out" / job_id
+    archive = tmp_path / "state" / f"{job_id}-report.zip"
+    assert report_root.exists()
+    assert archive.exists()
+
+    deleted = client.delete(f"/api/jobs/{job_id}")
+    assert deleted.status_code == 200
+    assert deleted.json() == {"ok": True, "id": job_id}
+    assert client.get(f"/api/jobs/{job_id}").status_code == 404
+    assert not report_root.exists()
+    assert not archive.exists()
