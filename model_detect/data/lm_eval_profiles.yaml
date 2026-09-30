@@ -1,0 +1,32 @@
+version: 1
+tasks:
+  truthfulqa_gen:
+    output_type: generate_until
+    dimension: truthfulness
+    native_overlap: false
+  gsm8k:
+    output_type: generate_until
+    dimension: math
+    native_overlap: true
+  ifeval:
+    output_type: generate_until
+    dimension: instruction_following
+    native_overlap: true
+
+profiles:
+  smoke:
+    tasks:
+      - truthfulqa_gen
+    limit: 5
+  standard:
+    tasks:
+      - truthfulqa_gen
+      - gsm8k
+      - ifeval
+    limit: 25
+  deep:
+    tasks:
+      - truthfulqa_gen
+      - gsm8k
+      - ifeval
+    limit: 100
