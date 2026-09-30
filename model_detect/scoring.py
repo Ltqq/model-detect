@@ -47,10 +47,8 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
 
     identity_mismatch = any(
         r.category == "identity"
-        and (
-            r.status == ProbeStatus.FAIL
-            or r.metadata.get("verdict") == "mismatch"
-        )
+        and r.metadata.get("identity_strength") == "strong"
+        and r.metadata.get("verdict") == "mismatch"
         for r in results
     )
     mixed_routing = any(
