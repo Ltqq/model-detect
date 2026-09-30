@@ -230,7 +230,7 @@ tasks:
       pattern: "^ping,ping,ping,ping$"
     - id: brackets-1
       prompt: "Output exactly the five characters [OK] and nothing else."
-      pattern: '^\\[OK\\]$'
+      pattern: '^\[OK\]$'
     - id: prefix-suffix-1
       prompt: "Output exactly X42Y and nothing else."
       pattern: "^X42Y$"
@@ -249,90 +249,6 @@ tasks:
     - id: pipe-format-1
       prompt: "Output exactly A|B|C with uppercase letters and vertical bars, no spaces."
       pattern: '^A[|]B[|]C$'
-    - id: alternating-case-1
-      prompt: "Convert abcdef to alternating case starting uppercase. Output only the result."
-      pattern: "^AbCdEf$"
-    - id: replace-1
-      prompt: "Replace every hyphen in a-b-c with a colon. Output only the result."
-      pattern: "^a:b:c$"
-    - id: select-second-1
-      prompt: "From the tokens alpha beta gamma, output only the second token."
-      pattern: "^beta$"
-    - id: concatenate-1
-      prompt: "Concatenate left, 7, and right with no spaces or punctuation. Output only the result."
-      pattern: "^left7right$"
-    - id: literal-json-ish-1
-      prompt: "Output exactly key=value;status=ok with no spaces."
-      pattern: "^key=value;status=ok$"
-
-    - id: prefix-suffix-1
-      prompt: "Output exactly X42Y and nothing else."
-      pattern: "^X42Y$"
-    - id: extract-1
-      prompt: "Given red=3 blue=8 green=5, output only the value assigned to blue."
-      pattern: "^8$"
-    - id: first-last-1
-      prompt: "For the word gateway, output its first and last letters joined by a hyphen. Output nothing else."
-      pattern: "^g-y$"
-    - id: remove-spaces-1
-      prompt: "Remove all spaces from the text 'a b  c' and output only the result."
-      pattern: "^abc$"
-    - id: duplicate-1
-      prompt: "Repeat the string ab exactly three times with no separator and output nothing else."
-      pattern: "^ababab$"
-    - id: pipe-format-1
-      prompt: "Output exactly A|B|C with uppercase letters and vertical bars, no spaces."
-      pattern: '^A\|B\|C
-    - id: alternating-case-1
-      prompt: "Convert abcdef to alternating case starting uppercase. Output only the result."
-      pattern: "^AbCdEf$"
-    - id: replace-1
-      prompt: "Replace every hyphen in a-b-c with a colon. Output only the result."
-      pattern: "^a:b:c$"
-    - id: select-second-1
-      prompt: "From the tokens alpha beta gamma, output only the second token."
-      pattern: "^beta$"
-    - id: concatenate-1
-      prompt: "Concatenate left, 7, and right with no spaces or punctuation. Output only the result."
-      pattern: "^left7right$"
-    - id: literal-json-ish-1
-      prompt: "Output exactly key=value;status=ok with no spaces."
-      pattern: "^key=value;status=ok$"
-
-    - id: alternating-case-1
-      prompt: "Convert abcdef to alternating case starting uppercase. Output only the result."
-      pattern: "^AbCdEf$"
-    - id: replace-1
-      prompt: "Replace every hyphen in a-b-c with a colon. Output only the result."
-      pattern: "^a:b:c$"
-    - id: select-second-1
-      prompt: "From the tokens alpha beta gamma, output only the second token."
-      pattern: "^beta$"
-    - id: concatenate-1
-      prompt: "Concatenate left, 7, and right with no spaces or punctuation. Output only the result."
-      pattern: "^left7right$"
-    - id: literal-json-ish-1
-      prompt: "Output exactly key=value;status=ok with no spaces."
-      pattern: "^key=value;status=ok$"
-
-    - id: prefix-suffix-1
-      prompt: "Output exactly X42Y and nothing else."
-      pattern: "^X42Y$"
-    - id: extract-1
-      prompt: "Given red=3 blue=8 green=5, output only the value assigned to blue."
-      pattern: "^8$"
-    - id: first-last-1
-      prompt: "For the word gateway, output its first and last letters joined by a hyphen. Output nothing else."
-      pattern: "^g-y$"
-    - id: remove-spaces-1
-      prompt: "Remove all spaces from the text 'a b  c' and output only the result."
-      pattern: "^abc$"
-    - id: duplicate-1
-      prompt: "Repeat the string ab exactly three times with no separator and output nothing else."
-      pattern: "^ababab$"
-    - id: pipe-format-1
-      prompt: "Output exactly A|B|C with uppercase letters and vertical bars, no spaces."
-      pattern: '^A\|B\|C
     - id: alternating-case-1
       prompt: "Convert abcdef to alternating case starting uppercase. Output only the result."
       pattern: "^AbCdEf$"
