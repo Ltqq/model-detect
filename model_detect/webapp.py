@@ -314,16 +314,25 @@ async def _run_reference_job(
         store.update(job_id, progress=0.55, detail="protocol baseline collected")
 
         fp_path = None
+        fp_meta = None
         if payload.fingerprint and fingerprint.availability().get("available"):
             fp_path = registry.path_for(payload.id) / "fingerprint.json"
             store.update(job_id, progress=0.60, detail="collecting statistical fingerprint")
-            await asyncio.to_thread(
+            collected = await asyncio.to_thread(
                 fingerprint.collect,
                 base_url=payload.base_url,
                 model=payload.model,
                 api_key=payload.api_key,
                 output=fp_path,
             )
+            fp_meta = {
+                **(collected.get("fingerprint") or {}),
+                "collection": {
+                    "split_half_jsd": collected.get("split_half_jsd"),
+                    "adapter": collected.get("adapter"),
+                    "warnings": collected.get("warnings") or [],
+                },
+            }
 
         manifest = registry.create_from_report(
             reference_id=payload.id,
@@ -332,6 +341,8 @@ async def _run_reference_job(
             protocol="openai",
             report=report,
             fingerprint_path=fp_path,
+            fingerprint_metadata=fp_meta,
+            fingerprint_source="collected" if fp_path else None,
         )
         report_root = registry.path_for(payload.id) / "baseline-report"
         write_report(report, report_root)

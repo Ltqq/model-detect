@@ -28,6 +28,9 @@ class ReferenceManifest(BaseModel):
     base_url_hint: str | None = None
     collected_at: str = Field(default_factory=_now)
     fingerprint_artifact: str | None = None
+    fingerprint_source: str | None = None
+    fingerprint_reference: str | None = None
+    fingerprint_metadata: dict[str, Any] = Field(default_factory=dict)
     protocol_signature: str | None = None
     notes: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -74,10 +77,7 @@ class ReferenceRegistry:
         root = self.path_for(manifest.id)
         root.mkdir(parents=True, exist_ok=True)
         path = root / "manifest.json"
-        path.write_text(
-            manifest.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
         return path
 
     def create_from_report(
@@ -89,6 +89,8 @@ class ReferenceRegistry:
         protocol: str,
         report: AuditReport,
         fingerprint_path: str | Path | None = None,
+        fingerprint_metadata: dict[str, Any] | None = None,
+        fingerprint_source: str | None = None,
         notes: list[str] | None = None,
     ) -> ReferenceManifest:
         root = self.path_for(reference_id)
@@ -116,6 +118,11 @@ class ReferenceRegistry:
             protocol=protocol,
             base_url_hint=_base_url_hint(str(report.target.get("base_url", ""))),
             fingerprint_artifact=fp_name,
+            fingerprint_source=(
+                fingerprint_source or ("collected" if fp_name else None)
+            ),
+            fingerprint_reference=fp_name,
+            fingerprint_metadata=fingerprint_metadata or {},
             protocol_signature=signature_path.name,
             notes=notes or [],
             metadata={
@@ -131,6 +138,14 @@ class ReferenceRegistry:
             return None
         path = self.path_for(manifest.id) / manifest.fingerprint_artifact
         return path if path.exists() else None
+
+    def fingerprint_reference_value(self, manifest: ReferenceManifest) -> str | None:
+        path = self.fingerprint_path(manifest)
+        if path:
+            return str(path)
+        if manifest.fingerprint_source == "bundled" and manifest.fingerprint_reference:
+            return manifest.fingerprint_reference
+        return None
 
     def signature(self, manifest: ReferenceManifest) -> dict[str, Any] | None:
         if not manifest.protocol_signature:

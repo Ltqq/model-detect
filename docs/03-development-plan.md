@@ -50,7 +50,9 @@ TTFT / ITL / TPS / RPM / TPM / 吞吐 / 并发 / 429 压测继续由独立工具
 
 ---
 
-## P0-A：Fingerprint 深化
+## P0-A：Fingerprint 深化 ✅
+
+完成于 V1.1-1。实现设计见 `docs/design/07-fingerprint-deepening.md`。
 
 ### 目标
 
@@ -58,14 +60,14 @@ TTFT / ITL / TPS / RPM / TPM / 吞吐 / 并发 / 429 压测继续由独立工具
 
 ### 任务
 
-- [ ] 解析 per-cell JSD
-- [ ] split-half JSD
-- [ ] identity.self_consistency
-- [ ] Reference fingerprint metadata/version
-- [ ] 显示 fingerprint cell 明细
-- [ ] 在 HTML/Web 展示 fingerprint evidence
-- [ ] fingerprint consistency 纳入 routing
-- [ ] 支持 bundled reference 导入与来源标识
+- [x] 解析 per-cell JSD
+- [x] split-half JSD
+- [x] identity.self_consistency
+- [x] Reference fingerprint metadata/version
+- [x] 显示 fingerprint cell 明细
+- [x] 在 HTML/Web 展示 fingerprint evidence
+- [x] fingerprint consistency 纳入 routing
+- [x] 支持 bundled reference 导入与来源标识
 
 ### 验收
 
