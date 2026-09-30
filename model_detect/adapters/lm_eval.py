@@ -170,6 +170,80 @@ def get_builtin_profile(name: str) -> dict[str, Any]:
     }
 
 
+def resolve_builtin_profile(
+    name: str,
+    *,
+    include_native_overlap: bool = False,
+) -> dict[str, Any]:
+    profile = get_builtin_profile(name)
+    original_tasks = list(profile["tasks"])
+    if include_native_overlap:
+        selected_tasks = original_tasks
+        skipped_tasks: list[str] = []
+    else:
+        selected_tasks = [
+            task
+            for task in original_tasks
+            if not bool(profile["task_metadata"][task].get("native_overlap"))
+        ]
+        skipped_tasks = [
+            task
+            for task in original_tasks
+            if task not in selected_tasks
+        ]
+
+    if not selected_tasks:
+        raise ValueError(
+            f"lm-eval profile {name!r} has no non-overlapping tasks to run"
+        )
+
+    return {
+        **profile,
+        "tasks": selected_tasks,
+        "candidate_tasks": original_tasks,
+        "skipped_tasks": skipped_tasks,
+        "include_native_overlap": include_native_overlap,
+    }
+
+
+def run_builtin_profile(
+    *,
+    profile_name: str,
+    base_url: str,
+    model: str,
+    api_key: str,
+    output_path: str | Path,
+    include_native_overlap: bool = False,
+    num_concurrent: int = 1,
+    max_retries: int = 3,
+    timeout_seconds: float = 1800,
+    binary: str | None = None,
+) -> dict[str, Any]:
+    profile = resolve_builtin_profile(
+        profile_name,
+        include_native_overlap=include_native_overlap,
+    )
+    result = run_endpoint(
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        tasks=profile["tasks"],
+        output_path=output_path,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        limit=profile["limit"],
+        timeout_seconds=timeout_seconds,
+        binary=binary,
+    )
+    return {
+        **result,
+        "profile": profile_name,
+        "tasks": profile["tasks"],
+        "skipped_tasks": profile["skipped_tasks"],
+        "deduplicated_against_capability_lite": not include_native_overlap,
+    }
+
+
 
 _PRIMARY_METRICS: dict[str, list[str]] = {
     "gsm8k": [
