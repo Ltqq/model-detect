@@ -502,6 +502,210 @@ async def probe_json_mode(
     ], [ev]
 
 
+
+async def probe_bad_enum(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.invalid.bad_enum"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "hello"}],
+            "temperature": "definitely-not-a-number",
+            "max_tokens": 8,
+        },
+    )
+    ev = call.evidence
+    if ev.error:
+        return [_error_result(probe_id, "protocol", call)], [ev]
+    rejected = ev.response_status is not None and 400 <= ev.response_status < 500
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
+            score=1.0 if rejected else 0.6,
+            confidence=0.85,
+            summary=(
+                f"invalid temperature rejected with HTTP {ev.response_status}"
+                if rejected
+                else f"invalid temperature accepted/coerced (HTTP {ev.response_status})"
+            ),
+            expected={"preferred": "4xx validation error"},
+            observed={"http_status": ev.response_status},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_reasoning_valid(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.reasoning.valid_field"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "What is 17 * 23? Answer only the integer."}],
+            "reasoning_effort": "low",
+            "max_tokens": 64,
+        },
+    )
+    ev = call.evidence
+    if ev.error:
+        return [_error_result(probe_id, "protocol", call)], [ev]
+    accepted = ev.response_status == 200
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if accepted else ProbeStatus.WARN,
+            score=1.0 if accepted else 0.5,
+            confidence=0.8,
+            summary=(
+                "reasoning_effort=low accepted"
+                if accepted
+                else f"reasoning_effort=low not accepted (HTTP {ev.response_status})"
+            ),
+            observed={"http_status": ev.response_status, "body": ev.response_body},
+            evidence_ids=[ev.id],
+            metadata={"reasoning_effort_supported": accepted},
+        )
+    ], [ev]
+
+
+async def probe_json_schema(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.json_schema"
+    schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "value": {"type": "integer"},
+        },
+        "required": ["name", "value"],
+        "additionalProperties": False,
+    }
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": 'Return an object with name="model-detect" and value=7.',
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "model_detect_probe",
+                    "strict": True,
+                    "schema": schema,
+                },
+            },
+            "temperature": 0,
+            "max_tokens": 96,
+        },
+    )
+    ev = call.evidence
+    if ev.error:
+        return [_error_result(probe_id, "protocol", call)], [ev]
+    text = _message_text(call.json_body)
+    parsed = None
+    valid = False
+    if ev.response_status == 200:
+        try:
+            parsed = json.loads(text)
+            valid = (
+                isinstance(parsed, dict)
+                and parsed.get("name") == "model-detect"
+                and parsed.get("value") == 7
+                and set(parsed.keys()) == {"name", "value"}
+            )
+        except Exception:
+            valid = False
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if valid else ProbeStatus.WARN,
+            score=1.0 if valid else 0.5,
+            confidence=0.9,
+            summary=(
+                "strict JSON Schema output satisfied"
+                if valid
+                else f"JSON Schema unsupported or schema not satisfied (HTTP {ev.response_status})"
+            ),
+            observed={"http_status": ev.response_status, "parsed": parsed, "text": text[:500]},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_routing_model_consistency(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "routing.response_model_consistency"
+    evidences: list[Evidence] = []
+    returned_models: list[str] = []
+    statuses: list[int | None] = []
+    for i in range(5):
+        call = await client.post_json(
+            probe_id=probe_id,
+            path="/chat/completions",
+            payload={
+                "model": model,
+                "messages": [{"role": "user", "content": f"Reply exactly ROUTE_{i}."}],
+                "temperature": 0,
+                "max_tokens": 24,
+            },
+        )
+        evidences.append(call.evidence)
+        statuses.append(call.evidence.response_status)
+        if isinstance(call.json_body, dict):
+            returned = call.json_body.get("model")
+            if returned:
+                returned_models.append(str(returned))
+
+    unique = sorted(set(returned_models))
+    all_ok = all(x == 200 for x in statuses)
+    if len(unique) > 1:
+        status = ProbeStatus.FAIL
+        score = 0.0
+        summary = f"response model field changed across repeats: {unique}"
+    elif all_ok and unique:
+        status = ProbeStatus.PASS
+        score = 1.0
+        summary = f"response model field stable across 5 repeats: {unique[0]}"
+    elif all_ok:
+        status = ProbeStatus.WARN
+        score = 0.6
+        summary = "all repeated calls succeeded but response model field was absent"
+    else:
+        status = ProbeStatus.WARN
+        score = 0.5
+        summary = f"repeated routing probe had non-200 responses: {statuses}"
+
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="routing",
+            status=status,
+            score=score,
+            confidence=0.8,
+            summary=summary,
+            observed={"returned_models": returned_models, "statuses": statuses},
+            evidence_ids=[x.id for x in evidences],
+            metadata={"unique_response_models": unique},
+        )
+    ], evidences
+
 QUICK_PROBES = [
     probe_basic,
     probe_stream,
@@ -512,4 +716,14 @@ QUICK_PROBES = [
     probe_multiturn,
     probe_tool_call,
     probe_json_mode,
+]
+
+STANDARD_PROBES = QUICK_PROBES + [
+    probe_bad_enum,
+    probe_reasoning_valid,
+    probe_json_schema,
+]
+
+DEEP_PROBES = STANDARD_PROBES + [
+    probe_routing_model_consistency,
 ]
