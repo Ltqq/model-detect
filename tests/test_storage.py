@@ -77,3 +77,25 @@ def test_job_store_filters_model_status_and_kind(tmp_path):
         status="done",
         kind="audit",
     )] == ["audit_kimi"]
+
+
+
+def test_job_store_delete(tmp_path):
+    store = JobStore(tmp_path / "jobs.sqlite3")
+    store.create(
+        job_id="audit_delete",
+        kind="audit",
+        model="m",
+        base_url="https://example/v1",
+        profile="quick",
+    )
+
+    assert store.delete("audit_delete") is True
+    assert store.delete("audit_delete") is False
+
+    try:
+        store.get("audit_delete")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("deleted job should not exist")

@@ -240,10 +240,10 @@
 
 ## Stage 4 — History Delete
 
-- [ ] 删除 SQLite 记录
-- [ ] 同步删除对应报告目录
-- [ ] 清理对应临时 ZIP
-- [ ] 禁止删除运行中任务
+- [x] 删除 SQLite 记录
+- [x] 同步删除对应报告目录
+- [x] 清理对应临时 ZIP
+- [x] 禁止删除运行中任务
 
 ## Stage 5 — Local E2E Acceptance
 

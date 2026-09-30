@@ -13,7 +13,7 @@ a{color:#58a6ff;text-decoration:none}.top{display:flex;justify-content:space-bet
 label{display:block;font-size:12px;color:#8b949e;margin-bottom:6px}
 input,select{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;color:#e6edf3}
 details{margin-top:5px}summary{cursor:pointer;color:#58a6ff}.knowledge{font-size:12px;line-height:1.45}
-button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 18px;font-weight:600;cursor:pointer}
+button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 18px;font-weight:600;cursor:pointer}.danger{background:#b62324;padding:5px 9px;font-size:12px}
 button:disabled{opacity:.5}.muted{color:#8b949e;font-size:13px}.row{display:flex;gap:10px;align-items:center}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px;border-bottom:1px solid #21262d}
 .badge{padding:3px 8px;border-radius:99px;background:#21262d}.done{color:#3fb950}.failed{color:#f85149}.running{color:#d29922}
@@ -56,10 +56,10 @@ progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
   <button type="submit" style="padding:8px 14px">筛选</button>
   <a href="/" class="muted">清空</a>
 </form>
-<table><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>档位</th><th>状态</th><th>Verdict</th><th>Score</th><th>Regression</th><th>Knowledge</th><th>进度</th><th>结果</th></tr></thead>
+<table><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>档位</th><th>状态</th><th>Verdict</th><th>Score</th><th>Regression</th><th>Knowledge</th><th>进度</th><th>结果</th><th>操作</th></tr></thead>
 <tbody id="jobs">
 {% for j in jobs %}
-<tr data-job="{{ j.id }}"><td>{{ j.created_at[:19] }}</td><td>{{ j.kind }}</td><td>{{ j.model }}</td><td>{{ j.profile }}</td><td class="{{ j.status }}">{{ j.status }}</td><td>{% if j.kind == 'audit' and j.meta.get('verdict') %}<span class="badge">{{ j.meta.get('verdict') }}</span>{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' and j.meta.get('score') is not none %}{{ j.meta.get('score') }}{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' %}<span class="badge">{{ j.meta.get('regression_status','not_configured') }}</span>{% if j.meta.get('regression_suites') %}<div class="muted">{{ j.meta.get('regression_suites')|join(', ') }}</div>{% endif %}{% else %}—{% endif %}</td><td class="knowledge">{% if j.meta.get('model_rule') %}<details><summary>{{ j.meta.get('model_rule').get('id','model rule') }}</summary>{% for s in j.meta.get('model_rule').get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}</details>{% endif %}{% for p in j.meta.get('provider_provenance',[]) %}<details><summary>{{ p.get('label') or p.get('provider') }}</summary>{% for s in p.get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}{% for note in p.get('false_positive_notes',[]) %}<div class="muted">{{ note }}</div>{% endfor %}</details>{% endfor %}{% if not j.meta.get('model_rule') and not j.meta.get('provider_provenance') %}—{% endif %}</td><td><progress max="1" value="{{ j.progress }}"></progress><div class="muted">{{ j.detail or '' }}</div></td><td>{% if j.report_path %}<a href="/reports/{{ j.id }}">HTML</a> · <a href="/api/audits/{{ j.id }}/report">JSON</a> · <a href="/api/audits/{{ j.id }}/download">ZIP</a>{% elif j.error %}<span class="err">{{ j.error }}</span>{% else %}—{% endif %}</td></tr>
+<tr data-job="{{ j.id }}"><td>{{ j.created_at[:19] }}</td><td>{{ j.kind }}</td><td>{{ j.model }}</td><td>{{ j.profile }}</td><td class="{{ j.status }}">{{ j.status }}</td><td>{% if j.kind == 'audit' and j.meta.get('verdict') %}<span class="badge">{{ j.meta.get('verdict') }}</span>{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' and j.meta.get('score') is not none %}{{ j.meta.get('score') }}{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' %}<span class="badge">{{ j.meta.get('regression_status','not_configured') }}</span>{% if j.meta.get('regression_suites') %}<div class="muted">{{ j.meta.get('regression_suites')|join(', ') }}</div>{% endif %}{% else %}—{% endif %}</td><td class="knowledge">{% if j.meta.get('model_rule') %}<details><summary>{{ j.meta.get('model_rule').get('id','model rule') }}</summary>{% for s in j.meta.get('model_rule').get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}</details>{% endif %}{% for p in j.meta.get('provider_provenance',[]) %}<details><summary>{{ p.get('label') or p.get('provider') }}</summary>{% for s in p.get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}{% for note in p.get('false_positive_notes',[]) %}<div class="muted">{{ note }}</div>{% endfor %}</details>{% endfor %}{% if not j.meta.get('model_rule') and not j.meta.get('provider_provenance') %}—{% endif %}</td><td><progress max="1" value="{{ j.progress }}"></progress><div class="muted">{{ j.detail or '' }}</div></td><td>{% if j.report_path %}<a href="/reports/{{ j.id }}">HTML</a> · <a href="/api/audits/{{ j.id }}/report">JSON</a> · <a href="/api/audits/{{ j.id }}/download">ZIP</a>{% elif j.error %}<span class="err">{{ j.error }}</span>{% else %}—{% endif %}</td><td>{% if j.status in ['done','failed'] %}<button class="danger" onclick="deleteJob('{{ j.id }}')">删除</button>{% else %}<span class="muted">运行中</span>{% endif %}</td></tr>
 {% endfor %}
 </tbody></table>
 </div>
@@ -98,6 +98,14 @@ async function previewModelRule(){
   }catch(e){}
 }
 q('model').addEventListener('blur',previewModelRule);
+async function deleteJob(id){
+  if(!confirm('删除这条历史记录及本地报告文件？'))return;
+  try{
+    const r=await fetch('/api/jobs/'+encodeURIComponent(id),{method:'DELETE'});
+    const data=await r.json(); if(!r.ok) throw new Error(data.detail||JSON.stringify(data));
+    location.reload();
+  }catch(e){alert('删除失败: '+e.message)}
+}
 async function poll(id){
   const timer=setInterval(async()=>{
     const r=await fetch('/api/jobs/'+id); if(!r.ok)return;
