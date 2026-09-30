@@ -22,6 +22,8 @@ Capability + Coding Sandbox
   ↓
 Reference / Statistical Fingerprint / OSS Adapters
   ↓
+Declarative Regression / Model Knowledge
+  ↓
 Score / Verdict
   ↓
 Evidence / Report / Web
@@ -34,7 +36,7 @@ Evidence / Report / Web
 | Audit Core | ✅ | CLI / Web |
 | Evidence / Redaction | ✅ | request/response/evidence links |
 | OpenAI-compatible Protocol | ✅ | chat/stream/responses/tools/json/reasoning |
-| Provider Fingerprint | ✅ | YAML DB |
+| Provider Fingerprint | ✅ | v2 provenance YAML DB |
 | Fingerprint Deepening | ✅ | mean/per-cell JSD + split-half |
 | Parameter Integrity | ✅ | system/tool/schema/temp/top_p/max_tokens/stop |
 | Context | ✅ | 8K/16K/32K |
@@ -48,11 +50,14 @@ Evidence / Report / Web
 | llm-fingerprint | ✅ | structured evidence |
 | proxy-sleuth | ✅ | layered mapping |
 | lm-eval Endpoint | ✅ | local-chat-completions |
-| lm-eval Profiles | 🟡 | built-in profiles complete; user-configurable pending |
+| lm-eval Profiles | ✅ | built-in + user-configurable YAML |
 | lm-eval Result Mapping | ✅ | Unified ProbeResult |
+| promptfoo Regression | ✅ | YAML -> compile -> eval -> ProbeResult |
+| Model Rule provenance | ✅ | schema v2 + sources + source_refs |
+| Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 |
+| Provider Rule provenance | ✅ | schema v2 + source refs + false-positive notes |
 | Report Drift Compare | ✅ | manual report compare |
-| promptfoo Regression | ❌ | next stage |
-| Model Rule provenance | ❌ | next stage |
+| Regression Audit Orchestration | 🟡 | runner complete; not yet wired into default audit profile |
 | Scheduler / Trend | ❌ | later |
 | Anthropic/Gemini Native | ❌ | later |
 | PostgreSQL / Redis / RBAC | ❌ | V2 |
@@ -67,9 +72,10 @@ Evidence / Report / Web
 - Statistical Fingerprint
 - per-cell JSD
 - self consistency
-- Model Rule
-- Provider Fingerprint
+- Model Rule v2 provenance
+- Provider Fingerprint v2 provenance
 - Routing Consistency
+- Declarative Regression
 
 仍坚持：
 
@@ -84,19 +90,29 @@ Evidence / Report / Web
 
 并同时展示 Confidence 与 Evidence。
 
-## 4. 当前能力评测边界
+## 4. 当前知识规则
 
-Capability 用于供应商准入和明显降级检查，不用于做公开排行榜。
+首批正式可追溯 Model Rule：
 
-lm-eval 是外部 benchmark 参照，不替代自有 deterministic / executable Probe。
+- Kimi K3
+- GLM-5.2
+- Qwen3.8
+- DeepSeek V4 / V4.1
+
+原则：
+
+- 官方事实与 empirical observation 分开记录；
+- `expected != null` 的 v2 feature 必须有 `source_refs`；
+- Gateway 差异默认不直接升级成模型身份强证据；
+- 不确定的能力保持 `expected: null`。
 
 ## 5. 当前真正缺口
 
-最重要的不是更多题目，而是：
+下一步最有价值的是：
 
-1. 客户问题如何快速沉淀成 declarative regression；
-2. Model Rule 如何记录版本和官方/Reference/empirical 来源；
-3. Provider Fingerprint 如何逐步成为可追溯知识库；
-4. 后续如何把成熟准入能力接入自动重测与 Drift。
+1. 把 regression suite 接入默认 Audit Orchestrator，而不是只能独立 runner；
+2. 扩充 Claude / GPT / Gemini 等 Model Knowledge；
+3. Web 完整展示 Model/Provider provenance 与 regression evidence；
+4. 在上述能力稳定后再做 Saved Endpoint / Scheduler / Drift automation。
 
-下一批 5 项见 `03-development-plan.md`。
+性能测试继续保持独立。

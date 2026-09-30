@@ -167,11 +167,11 @@
 
 ## Stage 5 — First formal model knowledge rules
 
-- [ ] GLM
-- [ ] Qwen
-- [ ] DeepSeek
-- [ ] 官方来源 / empirical 来源分离
-- [ ] 每条 feature 可追溯
+- [x] GLM
+- [x] Qwen
+- [x] DeepSeek
+- [x] 官方来源 / empirical 来源分离
+- [x] 每条 feature 可追溯
 
 # 6. 后续优先级
 
@@ -251,5 +251,5 @@ Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol A
 仍需：
 
 - [x] promptfoo 可作为 declarative regression adapter
-- [ ] Model Rule 有版本和来源
+- [x] Model Rule 有版本和来源
 - [ ] Web 更完整展示 identity/routing evidence
