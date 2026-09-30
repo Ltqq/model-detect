@@ -4,7 +4,9 @@ from unittest.mock import patch
 from model_detect.config import AuditConfig
 from model_detect.models import AuditTarget, ProbeStatus
 from model_detect.probes.coding import coding_tasks, extract_code, run_coding_suite
-from model_detect.sandbox import DockerSandbox, SandboxLimits, _redact_mount_source
+from model_detect.http_client import CallResult
+from model_detect.models import Evidence
+from model_detect.sandbox import DockerSandbox, SandboxLimits, SandboxResult, _redact_mount_source
 
 
 class NoCallClient:
@@ -95,3 +97,65 @@ def test_coding_suite_skips_without_docker():
     assert results[0].status == ProbeStatus.SKIPPED
     assert evidence == []
     assert meta["status"] == "unavailable"
+
+
+class GeneratedCodeClient:
+    def __init__(self):
+        self.count = 0
+
+    async def post_json(self, **kwargs):
+        self.count += 1
+        prompt = kwargs["payload"]["messages"][-1]["content"]
+        if "Python" in prompt or "def " in prompt:
+            code = "def sum_even(numbers):\n    return sum(x for x in numbers if x % 2 == 0)"
+        else:
+            code = "package main\nfunc SumEven(numbers []int) int { total := 0; for _, x := range numbers { if x%2==0 { total += x } }; return total }"
+        body = {"choices": [{"message": {"content": code}, "finish_reason": "stop"}]}
+        return CallResult(
+            evidence=Evidence(
+                id=f"ev_gen_{self.count}",
+                probe_id="coding",
+                url="https://example.com/v1/chat/completions",
+                response_status=200,
+                response_body=body,
+            ),
+            json_body=body,
+            text_body=json.dumps(body),
+        )
+
+
+class AlwaysPassRunner:
+    def __init__(self, *args, **kwargs):
+        self.calls = []
+
+    def run(self, **kwargs):
+        self.calls.append(kwargs)
+        return SandboxResult(
+            status="pass",
+            exit_code=0,
+            stdout="OK",
+            image="test-image",
+        )
+
+
+def test_standard_coding_suite_runs_two_tasks_per_language():
+    runner = AlwaysPassRunner()
+    client = GeneratedCodeClient()
+    with patch(
+        "model_detect.probes.coding.sandbox_availability",
+        return_value={"available": True, "binary": "docker"},
+    ), patch(
+        "model_detect.probes.coding.DockerSandbox",
+        return_value=runner,
+    ):
+        results, evidence, meta = asyncio.run(
+            run_coding_suite(client, "m", profile="standard")
+        )
+    assert meta["tasks"] == 4
+    assert meta["passed"] == 4
+    assert client.count == 4
+    assert len(evidence) == 4
+    assert next(x for x in results if x.probe_id == "capability.coding_execute").score == 1.0
+    go_calls = [x for x in runner.calls if x["language"] == "go"]
+    assert len(go_calls) == 2
+    assert all("go.mod" in x["files"] for x in go_calls)
