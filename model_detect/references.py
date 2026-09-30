@@ -41,6 +41,9 @@ class ReferenceRegistry:
     def path_for(self, reference_id: str) -> Path:
         return self.root / _safe(reference_id)
 
+    def exists(self, reference_id: str) -> bool:
+        return (self.path_for(reference_id) / "manifest.json").exists()
+
     def list(self) -> list[ReferenceManifest]:
         out: list[ReferenceManifest] = []
         for manifest in sorted(self.root.glob("*/manifest.json")):
@@ -59,6 +62,13 @@ class ReferenceRegistry:
         if not path.exists():
             raise FileNotFoundError(f"reference not found: {reference_id}")
         return ReferenceManifest.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def delete(self, reference_id: str) -> bool:
+        root = self.path_for(reference_id)
+        if not root.exists():
+            return False
+        shutil.rmtree(root)
+        return True
 
     def save_manifest(self, manifest: ReferenceManifest) -> Path:
         root = self.path_for(manifest.id)

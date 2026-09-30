@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>References - model-detect</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#0d1117;color:#e6edf3}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:28px 20px}a{color:#58a6ff;text-decoration:none}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin:18px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
+label{display:block;color:#8b949e;font-size:12px;margin-bottom:6px}input{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;color:white}
+button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 16px;cursor:pointer}.danger{background:#da3633}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #21262d}.muted{color:#8b949e;font-size:13px}
+</style></head>
+<body><div class="wrap"><a href="/">← 返回审计</a><h1>Trusted References</h1>
+<div class="card"><h2 style="margin-top:0">采集官方 / 可信基准</h2>
+<div class="grid">
+<div><label>Reference ID</label><input id="rid" placeholder="kimi-k3-official"></div>
+<div><label>Provider</label><input id="provider" value="official"></div>
+<div><label>Base URL</label><input id="url" placeholder="https://official.example.com/v1"></div>
+<div><label>Model</label><input id="model" placeholder="kimi-k3"></div>
+<div class="wide"><label>API Key（不会落库）</label><input id="key" type="password"></div>
+</div>
+<div style="margin-top:14px"><label><input id="fp" type="checkbox" checked style="width:auto"> 同时采集 Statistical Fingerprint（需要 Node/npm）</label></div>
+<button id="collect">开始采集</button> <span id="msg" class="muted"></span>
+</div>
+<div class="card"><h2>现有 References</h2>
+<table><thead><tr><th>ID</th><th>Model</th><th>Provider</th><th>时间</th><th>Fingerprint</th><th></th></tr></thead><tbody>
+{% for r in references %}<tr><td>{{ r.id }}</td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td><td>{{ '✓' if r.fingerprint_artifact else '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td></tr>{% endfor %}
+</tbody></table></div>
+<div class="card"><h2>Reference 任务</h2><table><thead><tr><th>ID</th><th>模型</th><th>状态</th><th>详情</th></tr></thead><tbody>
+{% for j in jobs %}<tr><td>{{ j.id }}</td><td>{{ j.model }}</td><td>{{ j.status }}</td><td>{{ j.detail or j.error or '' }}{% if j.report_path %} · <a href="/reports/{{ j.id }}">基准报告</a>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+</div>
+<script>
+const q=id=>document.getElementById(id);
+q('collect').onclick=async()=>{
+ const body={id:q('rid').value.trim(),provider:q('provider').value.trim()||'trusted',base_url:q('url').value.trim(),model:q('model').value.trim(),api_key:q('key').value,fingerprint:q('fp').checked};
+ if(!body.id||!body.base_url||!body.model||!body.api_key){q('msg').textContent='请填写完整';return}
+ q('collect').disabled=true;q('msg').textContent='创建任务...';
+ try{const r=await fetch('/api/references',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.detail||JSON.stringify(d));q('key').value='';q('msg').textContent='任务 '+d.id+' 已启动';poll(d.id)}catch(e){q('msg').textContent=e.message;q('collect').disabled=false}
+};
+async function poll(id){const t=setInterval(async()=>{const r=await fetch('/api/jobs/'+id);if(!r.ok)return;const j=await r.json();q('msg').textContent=j.status+' — '+(j.detail||'');if(j.status==='done'||j.status==='failed'){clearInterval(t);q('collect').disabled=false;setTimeout(()=>location.reload(),600)}},1200)}
+async function delRef(id){if(!confirm('删除 Reference '+id+' ?'))return;const r=await fetch('/api/references/'+encodeURIComponent(id),{method:'DELETE'});if(r.ok)location.reload();else alert('删除失败')}
+</script></body></html>
