@@ -230,7 +230,8 @@ tasks:
       pattern: "^ping,ping,ping,ping$"
     - id: brackets-1
       prompt: "Output exactly the five characters [OK] and nothing else."
-      pattern: '^\\[OK\\]    - id: prefix-suffix-1
+      pattern: '^\\[OK\\]$'
+    - id: prefix-suffix-1
       prompt: "Output exactly X42Y and nothing else."
       pattern: "^X42Y$"
     - id: extract-1
@@ -247,7 +248,8 @@ tasks:
       pattern: "^ababab$"
     - id: pipe-format-1
       prompt: "Output exactly A|B|C with uppercase letters and vertical bars, no spaces."
-      pattern: '^A[|]B[|]C    - id: alternating-case-1
+      pattern: '^A[|]B[|]C$'
+    - id: alternating-case-1
       prompt: "Convert abcdef to alternating case starting uppercase. Output only the result."
       pattern: "^AbCdEf$"
     - id: replace-1
