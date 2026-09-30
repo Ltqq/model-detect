@@ -1,0 +1,8 @@
+id: default
+patterns:
+  - "*"
+strict: false
+declared_context_tokens: null
+features: {}
+notes:
+  - Generic fallback rule. It does not impose model-specific expectations.

@@ -39,4 +39,29 @@ jobs:
         run: |
           model-detect version
           model-detect oss-status
+          model-detect reference --help
+          model-detect web --help
+          model-detect compare --help
           python -m model_detect version
+
+      - name: Build wheel and sdist
+        run: |
+          pip install build
+          python -m build
+          python - <<'PY'
+          import glob, zipfile
+          wheel = glob.glob("dist/*.whl")[0]
+          with zipfile.ZipFile(wheel) as z:
+              names = set(z.namelist())
+          required = {
+              "model_detect/data/providers.yaml",
+              "model_detect/data/capability_lite.yaml",
+              "model_detect/data/models/default.yaml",
+              "model_detect/data/models/kimi-k3.yaml",
+              "model_detect/templates/index.html",
+              "model_detect/templates/references.html",
+          }
+          missing = sorted(required - names)
+          assert not missing, f"missing package data: {missing}"
+          print("wheel package data OK")
+          PY

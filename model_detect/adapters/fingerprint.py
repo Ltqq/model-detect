@@ -24,40 +24,56 @@ def availability() -> dict:
     }
 
 
-def _command(base_url: str, model: str, reference: str) -> list[str]:
+def _prefix() -> list[str]:
     direct = shutil.which("llm-fingerprint")
     if direct:
-        return [
-            direct,
-            "verify",
-            "--base-url",
-            base_url,
-            "--model",
-            model,
-            "--reference",
-            reference,
-            "--api-key-env",
-            "LLM_FINGERPRINT_API_KEY",
-        ]
+        return [direct]
     npx = shutil.which("npx")
     if npx:
-        return [
-            npx,
-            "--yes",
-            "llm-fingerprint-detector",
-            "verify",
-            "--base-url",
-            base_url,
-            "--model",
-            model,
-            "--reference",
-            reference,
-            "--api-key-env",
-            "LLM_FINGERPRINT_API_KEY",
-        ]
+        return [npx, "--yes", "llm-fingerprint-detector"]
     raise RuntimeError(
         "llm-fingerprint-detector is unavailable; install Node.js/npm or the llm-fingerprint CLI"
     )
+
+
+def collect(
+    *,
+    base_url: str,
+    model: str,
+    api_key: str,
+    output: str | Path,
+    timeout_seconds: float = 1200,
+) -> dict:
+    out = Path(output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env["LLM_FINGERPRINT_API_KEY"] = api_key
+    cmd = _prefix() + [
+        "fingerprint",
+        "--base-url", base_url,
+        "--model", model,
+        "--out", str(out),
+        "--api-key-env", "LLM_FINGERPRINT_API_KEY",
+    ]
+    proc = subprocess.run(
+        cmd,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout_seconds,
+        check=False,
+    )
+    text = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    if proc.returncode != 0 or not out.exists():
+        raise RuntimeError(
+            f"fingerprint collection failed (exit {proc.returncode}): {text[-1500:]}"
+        )
+    return {
+        "engine": "llm-fingerprint-detector",
+        "returncode": proc.returncode,
+        "path": str(out),
+        "stdout_tail": text[-4000:],
+    }
 
 
 def verify(
@@ -74,7 +90,13 @@ def verify(
 
     env = dict(os.environ)
     env["LLM_FINGERPRINT_API_KEY"] = api_key
-    cmd = _command(base_url, model, str(ref))
+    cmd = _prefix() + [
+        "verify",
+        "--base-url", base_url,
+        "--model", model,
+        "--reference", str(ref),
+        "--api-key-env", "LLM_FINGERPRINT_API_KEY",
+    ]
     proc = subprocess.run(
         cmd,
         env=env,
@@ -101,7 +123,10 @@ def verify(
         "mismatch": 0.0,
         "insufficient": None,
     }
-    status = status_map.get(verdict, ProbeStatus.ERROR if proc.returncode == 1 else ProbeStatus.INSUFFICIENT)
+    status = status_map.get(
+        verdict,
+        ProbeStatus.ERROR if proc.returncode == 1 else ProbeStatus.INSUFFICIENT,
+    )
     result = ProbeResult(
         probe_id="identity.fingerprint.reference_compare",
         category="identity",
@@ -113,7 +138,7 @@ def verify(
             + (f", mean JSD={mean_jsd:.3f}" if mean_jsd is not None else "")
         ),
         observed={"verdict": verdict, "mean_jsd": mean_jsd, "returncode": proc.returncode},
-        metadata={"verdict": verdict, "engine": "llm-fingerprint-detector"},
+        metadata={"verdict": verdict, "engine": "llm-fingerprint-detector", "identity_strength": "strong"},
     )
     meta = {
         "available": True,

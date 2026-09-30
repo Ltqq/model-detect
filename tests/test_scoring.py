@@ -18,7 +18,7 @@ def test_category_score_and_pass():
         [
             r("protocol.chat.basic", "protocol", 1.0),
             r("protocol.chat.stream", "protocol", 1.0),
-            r("identity.fp", "identity", 0.9),
+            r("identity.fp", "identity", 0.9, identity_strength="strong"),
         ]
     )
     assert summary.category_scores["protocol"] == 100.0
@@ -53,3 +53,17 @@ def test_critical_protocol_failure_caps_score():
         ]
     )
     assert summary.hard_cap == 60.0
+
+
+def test_weak_identity_cannot_produce_verified_pass():
+    summary = build_summary(
+        [
+            r("protocol.chat.basic", "protocol", 1.0),
+            r("identity.family_features.x", "identity", 1.0, identity_strength="weak"),
+            r("integrity.max_tokens", "integrity", 1.0),
+            r("context.summary", "context", 1.0),
+        ]
+    )
+    assert summary.overall_score is not None
+    assert summary.final_verdict == "review"
+    assert summary.confidence in {"medium", "low"}

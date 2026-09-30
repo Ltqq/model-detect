@@ -65,8 +65,10 @@ class ProviderHypothesis(BaseModel):
 class AuditSummary(BaseModel):
     overall_score: float | None = None
     category_scores: dict[str, float] = Field(default_factory=dict)
+    coverage: dict[str, bool] = Field(default_factory=dict)
     hard_cap: float | None = None
     final_verdict: str = "insufficient"
+    confidence: str = "low"
     warnings: list[str] = Field(default_factory=list)
 
 

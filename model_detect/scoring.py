@@ -30,6 +30,10 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for category, values in by_category.items()
         if values
     }
+    coverage = {
+        category: bool(by_category.get(category))
+        for category in DEFAULT_CATEGORY_WEIGHTS
+    }
 
     weighted = 0.0
     weight_total = 0.0
@@ -60,6 +64,20 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for r in results
     )
 
+    strong_identity = any(
+        r.category == "identity"
+        and r.score is not None
+        and r.metadata.get("identity_strength") == "strong"
+        and r.status in {ProbeStatus.PASS, ProbeStatus.WARN, ProbeStatus.FAIL}
+        for r in results
+    )
+    medium_identity = any(
+        r.category == "identity"
+        and r.score is not None
+        and r.metadata.get("identity_strength") in {"medium", "strong"}
+        for r in results
+    )
+
     if identity_mismatch:
         hard_cap = 40.0
     elif mixed_routing:
@@ -70,11 +88,25 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     if overall is not None and hard_cap is not None:
         overall = min(overall, hard_cap)
 
+    covered_count = sum(coverage.values())
+    if strong_identity and covered_count >= 4:
+        confidence = "high"
+    elif medium_identity or covered_count >= 3:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    if not strong_identity:
+        warnings.append(
+            "strong model-identity evidence is missing; configure a trusted statistical "
+            "fingerprint/reference or enable an equivalent strong identity detector"
+        )
+
     if overall is None:
         verdict = "insufficient"
     elif identity_mismatch:
         verdict = "mismatch"
-    elif overall >= 85:
+    elif overall >= 85 and strong_identity:
         verdict = "pass"
     elif overall >= 70:
         verdict = "review"
@@ -84,7 +116,9 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     return AuditSummary(
         overall_score=overall,
         category_scores=category_scores,
+        coverage=coverage,
         hard_cap=hard_cap,
         final_verdict=verdict,
-        warnings=warnings,
+        confidence=confidence,
+        warnings=list(dict.fromkeys(warnings)),
     )

@@ -706,8 +706,399 @@ async def probe_routing_model_consistency(
         )
     ], evidences
 
+
+async def probe_response_metadata(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "provider.response.metadata"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "Reply exactly META_OK."}],
+            "temperature": 0,
+            "max_tokens": 24,
+        },
+    )
+    ev = call.evidence
+    body = call.json_body if isinstance(call.json_body, dict) else {}
+    response_id = body.get("id")
+    response_model = body.get("model")
+    prefix = None
+    if isinstance(response_id, str):
+        import re as _re
+        m = _re.match(r"^([A-Za-z_-]+)", response_id)
+        prefix = m.group(1) if m else None
+
+    return [
+        ProbeResult(
+            probe_id="provider.response.headers",
+            category="provider",
+            status=ProbeStatus.PASS if ev.response_headers else ProbeStatus.WARN,
+            score=None,
+            confidence=1.0,
+            summary=f"captured {len(ev.response_headers)} response headers",
+            observed=ev.response_headers,
+            evidence_ids=[ev.id],
+        ),
+        ProbeResult(
+            probe_id="provider.response.id_pattern",
+            category="provider",
+            status=ProbeStatus.PASS if response_id else ProbeStatus.WARN,
+            score=None,
+            confidence=0.8,
+            summary=(
+                f"response id prefix={prefix!r}"
+                if response_id
+                else "response id missing"
+            ),
+            observed={
+                "id": response_id,
+                "id_prefix": prefix,
+                "model": response_model,
+            },
+            evidence_ids=[ev.id],
+        ),
+    ], [ev]
+
+
+async def probe_reasoning_invalid_value(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.reasoning.invalid_value"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "Reply OK."}],
+            "reasoning_effort": "__model_detect_invalid__",
+            "max_tokens": 16,
+        },
+    )
+    ev = call.evidence
+    rejected = ev.response_status is not None and 400 <= ev.response_status < 500
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
+            score=1.0 if rejected else 0.6,
+            confidence=0.85,
+            summary=(
+                f"invalid reasoning_effort rejected with HTTP {ev.response_status}"
+                if rejected
+                else f"invalid reasoning_effort accepted/ignored (HTTP {ev.response_status})"
+            ),
+            observed={"http_status": ev.response_status, "body": ev.response_body},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_thinking_disable(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.thinking.disable"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "What is 8 + 9? Answer only the integer."}],
+            "thinking": {"type": "disabled"},
+            "max_tokens": 32,
+        },
+    )
+    ev = call.evidence
+    accepted = ev.response_status == 200
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if accepted else ProbeStatus.WARN,
+            score=None,
+            confidence=0.7,
+            summary=(
+                "thinking disable field accepted"
+                if accepted
+                else f"thinking disable field rejected (HTTP {ev.response_status})"
+            ),
+            observed={"http_status": ev.response_status},
+            evidence_ids=[ev.id],
+            metadata={"disable_thinking_supported": accepted},
+        )
+    ], [ev]
+
+
+async def probe_tool_choice(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.tools.tool_choice"
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_time",
+                "description": "Get local time",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        },
+    ]
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "Check Hangzhou weather using the required tool."}],
+            "tools": tools,
+            "tool_choice": {
+                "type": "function",
+                "function": {"name": "get_weather"},
+            },
+            "temperature": 0,
+            "max_tokens": 128,
+        },
+    )
+    ev = call.evidence
+    name = None
+    try:
+        name = call.json_body["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    except Exception:
+        pass
+    ok = ev.response_status == 200 and name == "get_weather"
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
+            score=1.0 if ok else 0.5,
+            confidence=0.9,
+            summary="specific tool_choice respected" if ok else "specific tool_choice was not confirmed",
+            observed={"tool_name": name, "http_status": ev.response_status},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_tools_parallel(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.tools.parallel"
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_time",
+                "description": "Get time",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        },
+    ]
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Use tools to get both the weather and local time for Hangzhou. Do not answer directly.",
+                }
+            ],
+            "tools": tools,
+            "tool_choice": "required",
+            "parallel_tool_calls": True,
+            "temperature": 0,
+            "max_tokens": 192,
+        },
+    )
+    ev = call.evidence
+    names = []
+    try:
+        calls = call.json_body["choices"][0]["message"].get("tool_calls") or []
+        names = [
+            x.get("function", {}).get("name")
+            for x in calls
+            if isinstance(x, dict)
+        ]
+    except Exception:
+        pass
+    ok = {"get_weather", "get_time"}.issubset(set(names))
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
+            score=1.0 if ok else 0.5,
+            confidence=0.75,
+            summary="parallel tool calls returned both requested tools" if ok else "parallel tool calling was not confirmed",
+            observed={"tool_names": names, "http_status": ev.response_status},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_tools_invalid_schema(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.tools.invalid_schema"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "Call the tool."}],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "broken_tool",
+                        "description": "Intentionally invalid schema",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"x": {"type": "__invalid_json_type__"}},
+                        },
+                    },
+                }
+            ],
+            "tool_choice": "required",
+            "max_tokens": 64,
+        },
+    )
+    ev = call.evidence
+    rejected = ev.response_status is not None and 400 <= ev.response_status < 500
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
+            score=1.0 if rejected else 0.6,
+            confidence=0.8,
+            summary="invalid tool schema rejected" if rejected else "invalid tool schema accepted or passed through",
+            observed={"http_status": ev.response_status},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_json_invalid_schema(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    probe_id = "protocol.json.invalid_schema"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/chat/completions",
+        payload={
+            "model": model,
+            "messages": [{"role": "user", "content": "Return JSON."}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "broken",
+                    "strict": True,
+                    "schema": {
+                        "type": "__invalid_json_type__",
+                    },
+                },
+            },
+            "max_tokens": 64,
+        },
+    )
+    ev = call.evidence
+    rejected = ev.response_status is not None and 400 <= ev.response_status < 500
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
+            score=1.0 if rejected else 0.6,
+            confidence=0.8,
+            summary="invalid JSON Schema rejected" if rejected else "invalid JSON Schema accepted or ignored",
+            observed={"http_status": ev.response_status},
+            evidence_ids=[ev.id],
+        )
+    ], [ev]
+
+
+async def probe_responses_basic(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    """Optional OpenAI Responses API feature probe. Unsupported is not penalized."""
+    probe_id = "protocol.responses.basic"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/responses",
+        payload={
+            "model": model,
+            "input": "Reply exactly RESPONSES_OK.",
+            "max_output_tokens": 32,
+        },
+    )
+    ev = call.evidence
+    supported = ev.response_status == 200 and isinstance(call.json_body, dict)
+    if supported:
+        status = ProbeStatus.PASS
+        summary = "Responses API accepted the request"
+    elif ev.response_status in {400, 404, 405, 422}:
+        status = ProbeStatus.SKIPPED
+        summary = f"Responses API not supported/compatible (HTTP {ev.response_status})"
+    elif ev.error:
+        status = ProbeStatus.ERROR
+        summary = ev.error
+    else:
+        status = ProbeStatus.WARN
+        summary = f"Responses API returned unexpected HTTP {ev.response_status}"
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=status,
+            score=None,
+            confidence=0.8,
+            summary=summary,
+            observed={"http_status": ev.response_status, "body": ev.response_body},
+            evidence_ids=[ev.id],
+            metadata={"responses_api_supported": supported},
+        )
+    ], [ev]
+
 QUICK_PROBES = [
     probe_basic,
+    probe_response_metadata,
     probe_stream,
     probe_invalid_model,
     probe_unknown_field,
@@ -719,11 +1110,18 @@ QUICK_PROBES = [
 ]
 
 STANDARD_PROBES = QUICK_PROBES + [
+    probe_responses_basic,
     probe_bad_enum,
     probe_reasoning_valid,
+    probe_reasoning_invalid_value,
+    probe_thinking_disable,
     probe_json_schema,
+    probe_json_invalid_schema,
+    probe_tool_choice,
+    probe_tools_invalid_schema,
 ]
 
 DEEP_PROBES = STANDARD_PROBES + [
+    probe_tools_parallel,
     probe_routing_model_consistency,
 ]

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>model-detect</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0d1117;color:#e6edf3}
+body{margin:0} .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+a{color:#58a6ff;text-decoration:none}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
+label{display:block;font-size:12px;color:#8b949e;margin-bottom:6px}
+input,select{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;color:#e6edf3}
+button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 18px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5}.muted{color:#8b949e;font-size:13px}.row{display:flex;gap:10px;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px;border-bottom:1px solid #21262d}
+.badge{padding:3px 8px;border-radius:99px;background:#21262d}.done{color:#3fb950}.failed{color:#f85149}.running{color:#d29922}
+progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="top"><div><h1 style="margin:0">model-detect</h1><div class="muted">LLM API 真实性 / 协议 / 完整性 / 能力审计</div></div><a href="/references">Reference 管理 →</a></div>
+
+<div class="card">
+<h2 style="margin-top:0">新建审计</h2>
+<div class="grid">
+<div><label>Base URL</label><input id="base_url" placeholder="https://example.com/v1"></div>
+<div><label>Model</label><input id="model" placeholder="kimi-k3"></div>
+<div class="wide"><label>API Key（只保存在本次后台任务内存，不写数据库/报告）</label><input id="api_key" type="password" placeholder="sk-..."></div>
+<div><label>检测档位</label><select id="profile"><option value="quick">Quick</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
+<div><label>Trusted Reference</label><select id="reference_id"><option value="">不使用 Reference</option>{% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}</select></div>
+<div><label>声明 Context Tokens（可空）</label><input id="context_tokens" type="number" placeholder="32768"></div>
+<div><label>&nbsp;</label><div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>有 proxy-sleuth 时同时运行开源多层检测</span></div></div>
+</div>
+<div style="margin-top:16px"><button id="run">开始审计</button> <span id="msg" class="muted"></span></div>
+</div>
+
+<div class="card">
+<div class="row" style="justify-content:space-between"><h2 style="margin:0">任务历史</h2><button onclick="location.reload()" style="background:#30363d">刷新</button></div>
+<table><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>档位</th><th>状态</th><th>进度</th><th>结果</th></tr></thead>
+<tbody id="jobs">
+{% for j in jobs %}
+<tr data-job="{{ j.id }}"><td>{{ j.created_at[:19] }}</td><td>{{ j.kind }}</td><td>{{ j.model }}</td><td>{{ j.profile }}</td><td class="{{ j.status }}">{{ j.status }}</td><td><progress max="1" value="{{ j.progress }}"></progress><div class="muted">{{ j.detail or '' }}</div></td><td>{% if j.report_path %}<a href="/reports/{{ j.id }}">报告</a> · <a href="/api/audits/{{ j.id }}/download">ZIP</a>{% elif j.error %}<span class="err">{{ j.error }}</span>{% else %}—{% endif %}</td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+</div>
+<script>
+const q=id=>document.getElementById(id);
+q('run').onclick=async()=>{
+  const body={
+    base_url:q('base_url').value.trim(),
+    api_key:q('api_key').value,
+    model:q('model').value.trim(),
+    profile:q('profile').value,
+    reference_id:q('reference_id').value||null,
+    declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
+    proxy_sleuth:q('proxy').checked
+  };
+  if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='Base URL / Key / Model 必填';return}
+  q('run').disabled=true;q('msg').textContent='创建任务中...';
+  try{
+    const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const data=await r.json(); if(!r.ok) throw new Error(data.detail||JSON.stringify(data));
+    q('msg').textContent='任务 '+data.id+' 已启动'; q('api_key').value='';
+    poll(data.id);
+  }catch(e){q('msg').textContent='失败: '+e.message;q('run').disabled=false}
+};
+async function poll(id){
+  const timer=setInterval(async()=>{
+    const r=await fetch('/api/jobs/'+id); if(!r.ok)return;
+    const j=await r.json(); q('msg').textContent=j.status+' — '+(j.detail||'');
+    if(j.status==='done'||j.status==='failed'){clearInterval(timer);q('run').disabled=false;setTimeout(()=>location.reload(),500)}
+  },1200);
+}
+</script>
+</body></html>

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 from typing import Optional
 
@@ -14,13 +13,16 @@ from .adapters import fingerprint, proxy_sleuth
 from .audit import run_audit
 from .config import AuditConfig, load_config
 from .models import AuditTarget
+from .reference_cli import reference_app
 from .reporting import safe_name, write_report
+from .drift import compare_reports
 
 
 app = typer.Typer(
     no_args_is_help=True,
     help="LLM API model authenticity, protocol and capability audit toolkit.",
 )
+app.add_typer(reference_app, name="reference")
 console = Console()
 
 
@@ -30,10 +32,17 @@ def audit(
     base_url: Optional[str] = typer.Option(None, "--base-url", help="OpenAI-compatible base URL, usually ending in /v1"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Claimed model id"),
     api_key_env: str = typer.Option("OPENAI_API_KEY", "--api-key-env", help="Environment variable containing the API key"),
-    profile: str = typer.Option("quick", "--profile", help="quick / standard / deep (V0.1 native runner executes quick probes)"),
+    profile: str = typer.Option("quick", "--profile", help="quick / standard / deep"),
     output_dir: Path = typer.Option(Path("model-detect-output"), "--output-dir", "-o"),
     fingerprint_reference: Optional[Path] = typer.Option(None, "--fingerprint-reference", help="Trusted llm-fingerprint reference JSON"),
-    with_proxy_sleuth: bool = typer.Option(False, "--with-proxy-sleuth", help="Also run optional proxy-sleuth quick detector"),
+    reference_id: Optional[str] = typer.Option(None, "--reference-id", help="Trusted reference registry ID"),
+    reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
+    declared_context_tokens: Optional[int] = typer.Option(None, "--declared-context-tokens"),
+    with_proxy_sleuth: Optional[bool] = typer.Option(
+        None,
+        "--with-proxy-sleuth/--without-proxy-sleuth",
+        help="Enable/disable proxy-sleuth OSS augmentation; default follows config.",
+    ),
 ) -> None:
     """Run a model audit and write report.json, report.html and raw evidence."""
     if config:
@@ -42,6 +51,12 @@ def audit(
             cfg.output_dir = str(output_dir)
         if fingerprint_reference:
             cfg.fingerprint_reference = str(fingerprint_reference)
+        if reference_id:
+            cfg.reference_id = reference_id
+        if reference_dir != Path("references"):
+            cfg.reference_dir = str(reference_dir)
+        if declared_context_tokens:
+            cfg.declared_context_tokens = declared_context_tokens
     else:
         if not base_url or not model:
             raise typer.BadParameter("--base-url and --model are required when --config is not used")
@@ -55,6 +70,9 @@ def audit(
             profile=profile,
             output_dir=str(output_dir),
             fingerprint_reference=str(fingerprint_reference) if fingerprint_reference else None,
+            reference_id=reference_id,
+            reference_dir=str(reference_dir),
+            declared_context_tokens=declared_context_tokens,
         )
 
     def progress(name: str, current: int, total: int) -> None:
@@ -63,7 +81,11 @@ def audit(
     console.print(f"[bold]model-detect v{__version__}[/bold]")
     console.print(f"Target: {cfg.target.base_url}  Model: {cfg.target.model}")
     report = asyncio.run(
-        run_audit(cfg, progress=progress, use_proxy_sleuth=with_proxy_sleuth)
+        run_audit(
+            cfg,
+            progress=progress,
+            use_proxy_sleuth=with_proxy_sleuth,
+        )
     )
 
     target_dir = Path(cfg.output_dir) / safe_name(cfg.target.model)
@@ -80,6 +102,76 @@ def audit(
     console.print(f"HTML: {root / 'report.html'}")
 
 
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+    state_dir: Path = typer.Option(Path(".model-detect"), "--state-dir"),
+    reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
+    output_dir: Path = typer.Option(Path("model-detect-output"), "--output-dir"),
+) -> None:
+    """Start the local Web UI."""
+    import uvicorn
+    from .webapp import create_app
+
+    console.print(
+        f"[bold]model-detect web[/bold] http://{host}:{port} "
+        f"(state={state_dir}, references={reference_dir})"
+    )
+    uvicorn.run(
+        create_app(
+            state_dir=state_dir,
+            reference_dir=reference_dir,
+            output_dir=output_dir,
+        ),
+        host=host,
+        port=port,
+    )
+
+
+@app.command("compare")
+def compare_command(
+    old_report: Path = typer.Argument(..., exists=True, readable=True),
+    new_report: Path = typer.Argument(..., exists=True, readable=True),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Compare two report.json files to spot provider/model drift."""
+    data = compare_reports(old_report, new_report)
+    if json_output:
+        console.print_json(data=data)
+        return
+
+    console.print(
+        f"Old: {data['old']['verdict']} / {data['old']['overall_score']}  "
+        f"→ New: {data['new']['verdict']} / {data['new']['overall_score']}"
+    )
+    table = Table("Category", "Old", "New", "Delta")
+    for name, item in data["category_deltas"].items():
+        table.add_row(
+            name,
+            str(item["old"]),
+            str(item["new"]),
+            str(item["delta"]),
+        )
+    console.print(table)
+    if data["provider_changes"]["added"] or data["provider_changes"]["removed"]:
+        console.print(
+            "Provider changes: "
+            f"+{data['provider_changes']['added']} "
+            f"-{data['provider_changes']['removed']}"
+        )
+    if data["probe_changes"]:
+        ptable = Table("Probe", "Old", "New")
+        for item in data["probe_changes"][:50]:
+            ptable.add_row(
+                item["probe_id"],
+                str(item["old_status"]),
+                str(item["new_status"]),
+            )
+        console.print(ptable)
+
+
 @app.command("oss-status")
 def oss_status() -> None:
     """Show availability of optional open-source engines."""
@@ -94,7 +186,7 @@ def oss_status() -> None:
     table.add_row(
         "proxy-sleuth",
         "yes" if ps["available"] else "no",
-        ps.get("binary") or "pip install proxy-sleuth / install from source",
+        ps.get("binary") or "install Babapei/proxy-sleuth",
     )
     console.print(table)
 
