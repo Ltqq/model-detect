@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feature/core-mvp]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit tests
+        run: pytest
+
+      - name: Compile
+        run: python -m compileall -q model_detect
+
+      - name: CLI smoke test
+        run: |
+          model-detect version
+          model-detect oss-status
+          python -m model_detect version
