@@ -128,7 +128,52 @@
 > Model Rule schema version/source 顺延到下一批第 1 项，设计仍见
 > `docs/design/12-model-provider-knowledge.md`。
 
-# 5. 后续优先级
+# 5. Knowledge Asset 下一批 5 个小阶段
+
+严格继续一项一个 branch / commit / PR / CI / merge。
+
+## Stage 1 — Model Rule v2 schema + backward compatibility
+
+- [x] schema_version
+- [x] family / model_version / aliases / updated_at
+- [x] sources[]
+- [x] source type / confidence enum
+- [x] feature source_refs
+- [x] v1 YAML backward compatibility
+- [x] strict rule provenance guard
+
+## Stage 2 — Kimi-K3 v2 Rule migration
+
+- [ ] 迁移 kimi-k3.yaml
+- [ ] 官方文档 / empirical source
+- [ ] feature source_refs
+- [ ] 不改变现有 non-strict 判定语义
+
+## Stage 3 — Provider Fingerprint provenance schema
+
+- [ ] provider schema_version
+- [ ] source registry
+- [ ] source_refs
+- [ ] false_positive_notes
+- [ ] confidence calibration metadata
+- [ ] v1 backward compatibility
+
+## Stage 4 — Provider DB migration
+
+- [ ] 现有 providers.yaml 迁移到新版格式
+- [ ] 保留原有 header/pattern 权重
+- [ ] 每个 provider 有 provenance
+- [ ] detection behavior regression test
+
+## Stage 5 — First formal model knowledge rules
+
+- [ ] GLM
+- [ ] Qwen
+- [ ] DeepSeek
+- [ ] 官方来源 / empirical 来源分离
+- [ ] 每条 feature 可追溯
+
+# 6. 后续优先级
 
 完成以上 5 项后：
 
@@ -168,7 +213,7 @@ Provider DB 增加：
 - Notification Hook
 - Trend
 
-# 6. 为什么现在不先做 Scheduler / Native Anthropic / Gemini
+# 7. 为什么现在不先做 Scheduler / Native Anthropic / Gemini
 
 当前主要业务输入仍是 OpenAI-compatible 中转 Endpoint。
 
@@ -188,7 +233,7 @@ Scheduler / Drift
 
 Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol Abstraction 设计后开发。
 
-# 7. V1.1 Definition of Done
+# 8. V1.1 Definition of Done
 
 已满足：
 
