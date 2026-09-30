@@ -61,9 +61,32 @@ class SandboxResult:
 
 def availability() -> dict[str, Any]:
     binary = shutil.which("docker")
+    daemon_available = False
+    server_version = None
+    error = None
+    if binary:
+        try:
+            proc = subprocess.run(
+                [binary, "info", "--format", "{{.ServerVersion}}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=8,
+                check=False,
+            )
+            daemon_available = proc.returncode == 0
+            if daemon_available:
+                server_version = (proc.stdout or "").strip() or None
+            else:
+                error = (proc.stderr or proc.stdout or "").strip()[-500:] or "docker daemon unavailable"
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
     return {
-        "available": bool(binary),
+        "available": bool(binary and daemon_available),
         "binary": binary,
+        "daemon_available": daemon_available,
+        "server_version": server_version,
+        "error": error,
         "images": DEFAULT_IMAGES.copy(),
         "security": "docker-isolated-only",
     }
