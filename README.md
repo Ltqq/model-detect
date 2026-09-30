@@ -61,7 +61,7 @@ SQLite 保存历史
 
 不会继续建设 Saved Endpoint、Scheduler、通知、RBAC、PostgreSQL、Redis 等平台能力。
 
-最后只剩历史记录 UX 与本地 E2E 验收；之后主要维护 Model Rule、Provider Rule 和真实 Regression Case。
+历史记录 UX 与本地 E2E 已完成。当前功能范围收口，后续主要维护 Model Rule、Provider Rule、真实 Regression Case，并修复实际使用中发现的问题。
 
 详细文档：
 
