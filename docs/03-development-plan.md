@@ -233,10 +233,10 @@
 
 ## Stage 3 — History Filters
 
-- [ ] 模型筛选
-- [ ] 状态筛选
-- [ ] Audit / Reference 类型筛选
-- [ ] 保持 SQLite 简单查询，不引入搜索服务
+- [x] 模型筛选
+- [x] 状态筛选
+- [x] Audit / Reference 类型筛选
+- [x] 保持 SQLite 简单查询，不引入搜索服务
 
 ## Stage 4 — History Delete
 

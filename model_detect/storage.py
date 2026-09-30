@@ -130,12 +130,35 @@ class JobStore:
             raise KeyError(job_id)
         return self._row(row)
 
-    def list(self, limit: int = 100) -> list[dict[str, Any]]:
+    def list(
+        self,
+        limit: int = 100,
+        *,
+        model: str | None = None,
+        status: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        args: list[Any] = []
+
+        if model and model.strip():
+            clauses.append("LOWER(model) LIKE ?")
+            args.append(f"%{model.strip().lower()}%")
+        if status and status.strip():
+            clauses.append("status = ?")
+            args.append(status.strip())
+        if kind and kind.strip():
+            clauses.append("kind = ?")
+            args.append(kind.strip())
+
+        sql = "SELECT * FROM jobs"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        args.append(max(1, min(limit, 500)))
+
         with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?",
-                (max(1, min(limit, 500)),),
-            ).fetchall()
+            rows = conn.execute(sql, args).fetchall()
         return [self._row(row) for row in rows]
 
     @staticmethod
