@@ -35,12 +35,12 @@ async def run_capability_suite(
     if profile.lower() == "quick":
         return [], []
 
-    per_category = 2 if profile.lower() == "standard" else 5
+    per_category = 3 if profile.lower() == "standard" else None
     results: list[ProbeResult] = []
     evidences: list[Evidence] = []
 
     for category, tasks in _tasks().items():
-        selected = tasks[:per_category]
+        selected = tasks[:per_category] if per_category is not None else list(tasks)
         rows = []
         for task in selected:
             probe_id = f"capability.{category}.{task['id']}"
@@ -98,37 +98,97 @@ async def run_capability_suite(
     return results, evidences
 
 
-def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]:
+def _aggregate_dimension(
+    existing: list[ProbeResult],
+    *,
+    probe_id: str,
+    source_ids: list[str],
+    label: str,
+) -> ProbeResult | None:
     by_id = {r.probe_id: r for r in existing}
+    sources = [by_id[x] for x in source_ids if x in by_id]
+    scored = [r for r in sources if r.score is not None]
+    if not sources:
+        return None
+    if scored:
+        score = sum(float(r.score) for r in scored) / len(scored)
+        if score >= 0.8:
+            status = ProbeStatus.PASS
+        elif score >= 0.5:
+            status = ProbeStatus.WARN
+        else:
+            status = ProbeStatus.FAIL
+    else:
+        score = None
+        status = ProbeStatus.INSUFFICIENT
+
+    evidence_ids = []
+    for source in sources:
+        evidence_ids.extend(source.evidence_ids)
+
+    return ProbeResult(
+        probe_id=probe_id,
+        category="capability",
+        status=status,
+        score=score,
+        confidence=min(
+            0.95,
+            sum(source.confidence for source in sources) / len(sources),
+        ),
+        summary=(
+            f"{label}: aggregated {len(sources)} scenario probes"
+            + (f", score={score:.2f}" if score is not None else "")
+        ),
+        observed={
+            "sources": [
+                {
+                    "probe_id": source.probe_id,
+                    "status": source.status.value,
+                    "score": source.score,
+                    "summary": source.summary,
+                }
+                for source in sources
+            ]
+        },
+        evidence_ids=list(dict.fromkeys(evidence_ids)),
+        metadata={
+            "capability_dimension": label,
+            "derived_from": [source.probe_id for source in sources],
+            "aggregation": "mean-of-available-scores",
+        },
+    )
+
+
+def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]:
     out: list[ProbeResult] = []
 
-    tool = by_id.get("protocol.tools.basic")
+    tool = _aggregate_dimension(
+        existing,
+        probe_id="capability.tool_use",
+        label="tool_use",
+        source_ids=[
+            "protocol.tools.basic",
+            "protocol.tools.arguments_schema",
+            "protocol.tools.tool_choice",
+            "protocol.tools.parallel",
+            "integrity.tool_definitions",
+            "integrity.tools.preserved",
+        ],
+    )
     if tool:
-        out.append(
-            ProbeResult(
-                probe_id="capability.tool_use",
-                category="capability",
-                status=tool.status,
-                score=tool.score,
-                confidence=tool.confidence,
-                summary="derived from protocol.tools.basic: " + tool.summary,
-                evidence_ids=tool.evidence_ids,
-                metadata={"derived_from": tool.probe_id},
-            )
-        )
+        out.append(tool)
 
-    structured = by_id.get("protocol.json_schema") or by_id.get("protocol.json_mode")
+    structured = _aggregate_dimension(
+        existing,
+        probe_id="capability.structured_output",
+        label="structured_output",
+        source_ids=[
+            "protocol.json_mode",
+            "protocol.json_schema",
+            "integrity.json_schema.preserved",
+        ],
+    )
     if structured:
-        out.append(
-            ProbeResult(
-                probe_id="capability.structured_output",
-                category="capability",
-                status=structured.status,
-                score=structured.score,
-                confidence=structured.confidence,
-                summary="derived from structured-output protocol probe: " + structured.summary,
-                evidence_ids=structured.evidence_ids,
-                metadata={"derived_from": structured.probe_id},
-            )
-        )
+        out.append(structured)
+
     return out
