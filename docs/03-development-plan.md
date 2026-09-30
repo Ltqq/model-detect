@@ -123,7 +123,9 @@ System Prompt Injection 使用可复现 challenge set，不以“模型说自己
 
 ---
 
-## P0-C：Mixed Routing 深化
+## P0-C：Mixed Routing 深化 ✅
+
+完成于 V1.1-3。设计见 `docs/design/09-mixed-routing.md`。
 
 当前已有：
 
@@ -135,12 +137,12 @@ System Prompt Injection 使用可复现 challenge set，不以“模型说自己
 
 继续补：
 
-- [ ] `routing.fingerprint.consistency`
-- [ ] `routing.fact_inversion`
-- [ ] `routing.cluster`
-- [ ] 多时间窗口采样
-- [ ] 简单题 / 复杂题分层
-- [ ] Reference fingerprint cluster 对比
+- [x] `routing.fingerprint.consistency`
+- [x] `routing.fact_inversion`
+- [x] `routing.cluster`
+- [x] 多时间窗口采样
+- [x] 简单题 / 复杂题分层
+- [x] Reference fingerprint cluster 对比
 
 ### 第一版聚类
 
