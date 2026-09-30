@@ -179,3 +179,66 @@ def test_web_serves_persisted_regression_artifact_and_job_status(tmp_path):
     )
     assert artifact_response.status_code == 200
     assert artifact_response.json() == {"ok": True}
+
+
+
+def test_history_shows_verdict_score_and_all_report_links(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    report_root = tmp_path / "out" / "audit_history"
+    report_root.mkdir(parents=True)
+    (report_root / "report.html").write_text("<h1>report</h1>", encoding="utf-8")
+    (report_root / "report.json").write_text('{"ok": true}', encoding="utf-8")
+
+    app.state.store.create(
+        job_id="audit_history",
+        kind="audit",
+        model="kimi-k3",
+        base_url="https://example.com/v1",
+        profile="standard",
+        meta={},
+    )
+    app.state.store.finish(
+        "audit_history",
+        report_path=str(report_root / "report.html"),
+        meta={
+            "verdict": "MATCH",
+            "score": 93.5,
+            "regression_status": "completed",
+        },
+    )
+
+    client = TestClient(app)
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "MATCH" in page.text
+    assert "93.5" in page.text
+    assert 'href="/reports/audit_history"' in page.text
+    assert 'href="/api/audits/audit_history/report"' in page.text
+    assert 'href="/api/audits/audit_history/download"' in page.text
+
+
+def test_failed_history_keeps_error_reason_visible(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    app.state.store.create(
+        job_id="audit_failed",
+        kind="audit",
+        model="bad-model",
+        base_url="https://example.com/v1",
+        profile="quick",
+        meta={},
+    )
+    app.state.store.fail("audit_failed", "RuntimeError: upstream rejected request")
+
+    page = TestClient(app).get("/")
+
+    assert page.status_code == 200
+    assert "RuntimeError: upstream rejected request" in page.text

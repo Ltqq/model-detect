@@ -227,9 +227,9 @@
 
 ## Stage 2 — History Result UX
 
-- [ ] 历史列表直接显示 Verdict / Score
-- [ ] HTML / JSON / ZIP 都有直接入口
-- [ ] 失败任务仍显示错误原因
+- [x] 历史列表直接显示 Verdict / Score
+- [x] HTML / JSON / ZIP 都有直接入口
+- [x] 失败任务仍显示错误原因
 
 ## Stage 3 — History Filters
 
