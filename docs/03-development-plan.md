@@ -201,10 +201,10 @@
 
 ## Stage 4 — Web provenance / regression UX
 
-- [ ] Web 展示 Model Rule provenance
-- [ ] Web 展示 Provider Rule provenance
-- [ ] Web 发起 audit 时选择 regression suite
-- [ ] Job detail 展示 regression 状态
+- [x] Web 展示 Model Rule provenance
+- [x] Web 展示 Provider Rule provenance
+- [x] Web 发起 audit 时选择 regression suite
+- [x] Job detail 展示 regression 状态
 
 ## Stage 5 — Claude / GPT / Gemini Model Knowledge
 
@@ -293,4 +293,4 @@ Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol A
 
 - [x] promptfoo 可作为 declarative regression adapter
 - [x] Model Rule 有版本和来源
-- [ ] Web 更完整展示 identity/routing evidence
+- [x] Web 更完整展示 identity/routing evidence
