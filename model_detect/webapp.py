@@ -122,14 +122,29 @@ def create_app(
     app.state.regression_dir = regression_root
 
     @app.get("/", response_class=HTMLResponse)
-    async def index(request: Request):
+    async def index(
+        request: Request,
+        model: str | None = None,
+        status: str | None = None,
+        kind: str | None = None,
+    ):
         return templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
-                "jobs": store.list(50),
+                "jobs": store.list(
+                    50,
+                    model=model,
+                    status=status,
+                    kind=kind,
+                ),
                 "references": registry.list(),
                 "regression_suites": _list_regression_suites(regression_root),
+                "history_filters": {
+                    "model": model or "",
+                    "status": status or "",
+                    "kind": kind or "",
+                },
             },
         )
 
@@ -161,8 +176,19 @@ def create_app(
         }
 
     @app.get("/api/jobs")
-    async def jobs():
-        return {"jobs": store.list(100)}
+    async def jobs(
+        model: str | None = None,
+        status: str | None = None,
+        kind: str | None = None,
+    ):
+        return {
+            "jobs": store.list(
+                100,
+                model=model,
+                status=status,
+                kind=kind,
+            )
+        }
 
     @app.get("/api/jobs/{job_id}")
     async def job(job_id: str):

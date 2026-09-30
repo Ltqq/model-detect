@@ -42,6 +42,20 @@ progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
 
 <div class="card">
 <div class="row" style="justify-content:space-between"><h2 style="margin:0">任务历史</h2><button onclick="location.reload()" style="background:#30363d">刷新</button></div>
+<form method="get" action="/" class="row" style="margin:14px 0;flex-wrap:wrap">
+  <input name="model" value="{{ history_filters.model }}" placeholder="模型筛选，如 kimi" style="max-width:240px">
+  <select name="status" style="max-width:150px">
+    <option value="">全部状态</option>
+    {% for value in ['queued','running','done','failed'] %}<option value="{{ value }}" {% if history_filters.status == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+  </select>
+  <select name="kind" style="max-width:150px">
+    <option value="">全部类型</option>
+    <option value="audit" {% if history_filters.kind == 'audit' %}selected{% endif %}>audit</option>
+    <option value="reference" {% if history_filters.kind == 'reference' %}selected{% endif %}>reference</option>
+  </select>
+  <button type="submit" style="padding:8px 14px">筛选</button>
+  <a href="/" class="muted">清空</a>
+</form>
 <table><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>档位</th><th>状态</th><th>Verdict</th><th>Score</th><th>Regression</th><th>Knowledge</th><th>进度</th><th>结果</th></tr></thead>
 <tbody id="jobs">
 {% for j in jobs %}

@@ -242,3 +242,72 @@ def test_failed_history_keeps_error_reason_visible(tmp_path):
 
     assert page.status_code == 200
     assert "RuntimeError: upstream rejected request" in page.text
+
+
+
+def test_history_filters_apply_to_page_and_api(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    store = app.state.store
+
+    store.create(
+        job_id="audit_kimi",
+        kind="audit",
+        model="kimi-k3",
+        base_url="https://example.com/v1",
+        profile="standard",
+        meta={},
+    )
+    store.finish(
+        "audit_kimi",
+        meta={"verdict": "MATCH", "score": 90},
+    )
+
+    store.create(
+        job_id="audit_glm",
+        kind="audit",
+        model="glm-5.2",
+        base_url="https://example.com/v1",
+        profile="standard",
+        meta={},
+    )
+    store.fail("audit_glm", "failed")
+
+    store.create(
+        job_id="ref_kimi",
+        kind="reference",
+        model="kimi-k3",
+        base_url="https://official.example/v1",
+        profile="standard",
+        meta={},
+    )
+
+    client = TestClient(app)
+
+    page = client.get(
+        "/",
+        params={
+            "model": "kimi",
+            "status": "done",
+            "kind": "audit",
+        },
+    )
+    assert page.status_code == 200
+    assert "audit_kimi" in page.text
+    assert "glm-5.2" not in page.text
+    assert 'value="kimi"' in page.text
+    assert 'value="done" selected' in page.text
+    assert 'value="audit" selected' in page.text
+
+    api = client.get(
+        "/api/jobs",
+        params={
+            "model": "kimi",
+            "kind": "reference",
+        },
+    )
+    assert api.status_code == 200
+    assert [job["id"] for job in api.json()["jobs"]] == ["ref_kimi"]
