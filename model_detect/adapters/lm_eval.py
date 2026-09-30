@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
+
+from ..models import ProbeResult, ProbeStatus
 
 
 def availability() -> dict[str, Any]:
@@ -165,3 +168,128 @@ def get_builtin_profile(name: str) -> dict[str, Any]:
             for task in task_names
         },
     }
+
+
+
+_PRIMARY_METRICS: dict[str, list[str]] = {
+    "gsm8k": [
+        "exact_match,flexible-extract",
+        "exact_match,strict-match",
+        "exact_match",
+    ],
+    "ifeval": [
+        "prompt_level_strict_acc",
+        "inst_level_strict_acc",
+        "prompt_level_loose_acc",
+    ],
+    "truthfulqa_gen": [
+        "bleu_acc",
+        "rougeL_acc",
+        "rouge1_acc",
+    ],
+}
+
+
+def _numeric_metrics(values: dict[str, Any]) -> dict[str, float]:
+    metrics: dict[str, float] = {}
+    for key, value in values.items():
+        if "stderr" in key.lower() or key == "alias":
+            continue
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            metrics[str(key)] = float(value)
+    return metrics
+
+
+def _select_primary_metric(
+    task: str,
+    metrics: dict[str, float],
+) -> tuple[str | None, float | None]:
+    for key in _PRIMARY_METRICS.get(task, []):
+        if key in metrics:
+            return key, metrics[key]
+
+    generic_priority = ["acc", "acc_norm", "exact_match", "f1"]
+    for preferred in generic_priority:
+        if preferred in metrics:
+            return preferred, metrics[preferred]
+
+    bounded = [
+        (key, value)
+        for key, value in metrics.items()
+        if 0.0 <= value <= 1.0
+    ]
+    if bounded:
+        return bounded[0]
+    if metrics:
+        key = next(iter(metrics))
+        return key, metrics[key]
+    return None, None
+
+
+def parse_result_payload(
+    data: dict[str, Any],
+    *,
+    source_path: str | None = None,
+) -> list[ProbeResult]:
+    raw_results = data.get("results")
+    if not isinstance(raw_results, dict):
+        raise ValueError("lm-eval result JSON is missing the results object")
+
+    versions = data.get("versions") if isinstance(data.get("versions"), dict) else {}
+    out: list[ProbeResult] = []
+    for task, raw_metrics in raw_results.items():
+        if not isinstance(raw_metrics, dict):
+            continue
+        metrics = _numeric_metrics(raw_metrics)
+        metric_name, metric_value = _select_primary_metric(str(task), metrics)
+
+        score = None
+        if metric_value is not None and 0.0 <= metric_value <= 1.0:
+            score = metric_value
+
+        status = ProbeStatus.PASS if metric_name is not None else ProbeStatus.INSUFFICIENT
+        summary = (
+            f"lm-eval {task}: {metric_name}={metric_value:.4f}"
+            if metric_name is not None and metric_value is not None
+            else f"lm-eval {task}: no numeric metric found"
+        )
+        safe_task = "".join(
+            char if char.isalnum() or char in {"_", "-", "."} else "_"
+            for char in str(task)
+        )
+        out.append(
+            ProbeResult(
+                probe_id=f"capability.external.lm_eval.{safe_task}",
+                category="capability",
+                status=status,
+                score=score,
+                confidence=0.8 if score is not None else 0.4,
+                summary=summary,
+                observed={
+                    "task": task,
+                    "primary_metric": metric_name,
+                    "primary_value": metric_value,
+                    "metrics": metrics,
+                    "version": versions.get(task),
+                },
+                metadata={
+                    "engine": "lm-evaluation-harness",
+                    "task": task,
+                    "primary_metric": metric_name,
+                    "benchmark_score_only": True,
+                    "threshold_interpretation": False,
+                    "source_path": source_path,
+                },
+            )
+        )
+    return out
+
+
+def parse_result_file(path: str | Path) -> list[ProbeResult]:
+    result_path = Path(path)
+    raw = json.loads(result_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("lm-eval result JSON root must be an object")
+    return parse_result_payload(raw, source_path=str(result_path))

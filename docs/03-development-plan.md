@@ -232,7 +232,7 @@ Capability score
 
 - [x] API Endpoint 调通
 - [x] 选择少量 task
-- [ ] 统一结果格式
+- [x] 统一结果格式
 - [ ] 不重复运行 Capability Lite 已覆盖内容
 - [ ] 可配置 benchmark profile
 
