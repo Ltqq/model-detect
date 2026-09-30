@@ -157,6 +157,51 @@ tasks:
     - id: reading-1
       prompt: "句子“虽然下雨，但是比赛照常进行”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。"
       pattern: "^A$"
+    - id: idiom-2
+      prompt: "“刻舟求剑”最接近哪个意思？A 拘泥不变 B 随机应变 C 乐于助人。只回答选项字母。"
+      pattern: "^A$"
+    - id: antonym-1
+      prompt: "“宽阔”的反义词更接近：A 狭窄 B 辽阔 C 宽广。只回答选项字母。"
+      pattern: "^A$"
+    - id: relation-cause-1
+      prompt: "句子“因为道路结冰，所以学校停课”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。"
+      pattern: "^B$"
+    - id: logic-zh-2
+      prompt: "如果甲成立就一定有乙成立。现在乙不成立，那么甲能成立吗？只回答“能”或“不能”。"
+      pattern: "^不能$"
+    - id: order-zh-1
+      prompt: "王强比李明早到，李明比赵乐早到。三人中谁最晚到？只回答名字。"
+      pattern: "^赵乐$"
+    - id: category-1
+      prompt: "苹果、香蕉、梨共同属于哪一类？A 水果 B 蔬菜 C 谷物。只回答选项字母。"
+      pattern: "^A$"
+    - id: necessary-condition-1
+      prompt: "规则是“只有完成作业，才能看电视”。小明正在看电视，按这条规则他是否已经完成作业？只回答“是”或“否”。"
+      pattern: "^是$"
+    - id: double-negative-1
+      prompt: "“他不得不参加会议”最接近哪个意思？A 他必须参加 B 他不能参加 C 他可能参加。只回答选项字母。"
+      pattern: "^A$"
+    - id: idiom-3
+      prompt: "“雪中送炭”最接近哪个意思？A 困难时给予帮助 B 锦上添花 C 趁火打劫。只回答选项字母。"
+      pattern: "^A$"
+    - id: synonym-2
+      prompt: "“谨慎”的近义词更接近：A 小心 B 鲁莽 C 草率。只回答选项字母。"
+      pattern: "^A$"
+    - id: ordering-zh-2
+      prompt: "甲在乙左边，丙在乙右边。按从左到右顺序输出三个字，用英文逗号分隔且不要空格。"
+      pattern: "^甲,乙,丙$"
+    - id: logic-chain-zh
+      prompt: "所有甲都是乙，所有乙都是丙。如果某物是甲，它一定是丙吗？只回答“是”或“否”。"
+      pattern: "^是$"
+    - id: antonym-2
+      prompt: "“临时”的反义词更接近：A 长期 B 短暂 C 暂时。只回答选项字母。"
+      pattern: "^A$"
+    - id: reading-2
+      prompt: "句子“即使天气寒冷，他仍然坚持晨跑”主要表达：A 条件让步 B 因果 C 时间先后。只回答选项字母。"
+      pattern: "^A$"
+    - id: implication-zh
+      prompt: "若今天是周一，则明天是周二。今天确实是周一。明天是周二吗？只回答“是”或“否”。"
+      pattern: "^是$"
 
   instruction_following:
     - id: exact-token
