@@ -194,10 +194,10 @@
 
 ## Stage 3 — Report regression evidence
 
-- [ ] report 复制/持久化 promptfoo artifact
-- [ ] HTML Regression section
-- [ ] case / status / reason / output 展示
-- [ ] ZIP 报告包含 regression artifacts
+- [x] report 复制/持久化 promptfoo artifact
+- [x] HTML Regression section
+- [x] case / status / reason / output 展示
+- [x] ZIP 报告包含 regression artifacts
 
 ## Stage 4 — Web provenance / regression UX
 

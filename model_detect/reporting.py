@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import shutil
 from pathlib import Path
 
 from .models import AuditReport
@@ -13,9 +14,75 @@ def safe_name(value: str) -> str:
     return value[:80] or "model"
 
 
+def _portable_path(path: str | Path) -> str:
+    return str(path).replace("\\", "/")
+
+
+def _rewrite_regression_path(
+    value: object,
+    *,
+    source_root: Path,
+) -> object:
+    if not isinstance(value, str) or not value:
+        return value
+    try:
+        relative = Path(value).resolve().relative_to(source_root.resolve())
+    except (OSError, ValueError):
+        return value
+    return _portable_path(Path("regression") / relative)
+
+
+def _persist_regression_artifacts(
+    report: AuditReport,
+    root: Path,
+) -> None:
+    adapter = report.adapters.get("promptfoo_regression")
+    if not isinstance(adapter, dict):
+        return
+
+    source_value = adapter.get("artifact_root")
+    if not isinstance(source_value, str) or not source_value:
+        return
+    if source_value == "regression":
+        return
+
+    source_root = Path(source_value)
+    if not source_root.exists() or not source_root.is_dir():
+        return
+
+    destination = root / "regression"
+    shutil.copytree(source_root, destination, dirs_exist_ok=True)
+
+    for result in report.results:
+        if result.metadata.get("engine") != "promptfoo":
+            continue
+        artifact_path = result.metadata.get("artifact_path")
+        if artifact_path:
+            result.metadata["artifact_path"] = _rewrite_regression_path(
+                artifact_path,
+                source_root=source_root,
+            )
+
+    suites = adapter.get("suites")
+    if isinstance(suites, list):
+        for suite in suites:
+            if not isinstance(suite, dict):
+                continue
+            for key in ("config_path", "output_path"):
+                if suite.get(key):
+                    suite[key] = _rewrite_regression_path(
+                        suite[key],
+                        source_root=source_root,
+                    )
+
+    adapter["artifact_root"] = "regression"
+    adapter["persisted"] = True
+
+
 def write_report(report: AuditReport, output_dir: str | Path) -> Path:
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)
+    _persist_regression_artifacts(report, root)
     evidence_dir = root / "evidence"
     evidence_dir.mkdir(exist_ok=True)
 
@@ -119,6 +186,73 @@ def _fingerprint_section(report: AuditReport) -> str:
 {table}
 </div>"""
 
+
+def _regression_section(report: AuditReport) -> str:
+    results = [
+        result
+        for result in report.results
+        if result.probe_id.startswith("regression.")
+    ]
+    if not results:
+        return ""
+
+    rows: list[str] = []
+    for result in results:
+        observed = result.observed if isinstance(result.observed, dict) else {}
+        runs = observed.get("runs") if isinstance(observed.get("runs"), list) else []
+        reason = ""
+        output = ""
+        if runs:
+            first = runs[0] if isinstance(runs[0], dict) else {}
+            reason = str(first.get("reason") or "")
+            output = str(first.get("output") or "")
+        if len(reason) > 500:
+            reason = reason[:500] + "…"
+        if len(output) > 800:
+            output = output[:800] + "…"
+
+        artifact = result.metadata.get("artifact_path")
+        artifact_html = "—"
+        if isinstance(artifact, str) and artifact.startswith("regression/"):
+            escaped = html.escape(artifact)
+            artifact_html = f'<a href="{escaped}">{escaped}</a>'
+
+        score = (
+            "—"
+            if result.score is None
+            else f"{result.score * 100:.0f}"
+        )
+        rows.append(
+            "<tr>"
+            f"<td><code>{html.escape(result.probe_id)}</code></td>"
+            f'<td class="{_status_class(result.status.value)}">'
+            f"{html.escape(result.status.value)}</td>"
+            f"<td>{score}</td>"
+            f"<td>{html.escape(reason) or '—'}</td>"
+            f"<td><pre>{html.escape(output) or '—'}</pre></td>"
+            f"<td>{artifact_html}</td>"
+            "</tr>"
+        )
+
+    adapter = report.adapters.get("promptfoo_regression")
+    status = (
+        adapter.get("status")
+        if isinstance(adapter, dict)
+        else "unknown"
+    )
+    return (
+        '<div class="card">'
+        "<h2>Regression Suites</h2>"
+        f"<p><b>Status:</b> {html.escape(str(status))} · "
+        f"<b>Cases:</b> {len(results)}</p>"
+        "<table><thead><tr>"
+        "<th>Case</th><th>Status</th><th>Score</th>"
+        "<th>Reason</th><th>Output</th><th>Artifact</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></div>"
+    )
+
 def _render_html(report: AuditReport) -> str:
     rows = []
     for result in report.results:
@@ -154,6 +288,7 @@ def _render_html(report: AuditReport) -> str:
     ) or "<li>None</li>"
 
     fingerprint_section = _fingerprint_section(report)
+    regression_section = _regression_section(report)
 
     adapter_rows = []
     for name, value in report.adapters.items():
@@ -195,6 +330,7 @@ pre{{white-space:pre-wrap;overflow:auto;background:rgba(127,127,127,.1);padding:
 <div class="card"><h2>Provider hypotheses</h2><ul>{providers}</ul></div>
 <div class="card"><h2>Warnings</h2><ul>{warnings}</ul></div>
 {fingerprint_section}
+{regression_section}
 <h2>Probe results</h2>
 <table><thead><tr><th>Probe</th><th>Category</th><th>Status</th><th>Score</th><th>Summary</th><th>Evidence</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
 <div class="card"><h2>Adapters / Reference</h2>{''.join(adapter_rows)}</div>

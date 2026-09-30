@@ -1,3 +1,5 @@
+import json
+
 from model_detect.models import AuditReport, Evidence, ProbeResult, ProbeStatus
 from model_detect.reporting import write_report
 
@@ -83,3 +85,86 @@ def test_report_renders_fingerprint_cells(tmp_path):
     assert "Per-cell JSD" in html
     assert "random-number-1-100:en" in html
     assert "collected" in html
+
+
+
+def test_report_persists_and_renders_regression_artifacts(tmp_path):
+    source = tmp_path / "working-regression"
+    suite_dir = source / "01"
+    suite_dir.mkdir(parents=True)
+    config_path = suite_dir / "promptfooconfig.yaml"
+    result_path = suite_dir / "promptfoo-result.json"
+    config_path.write_text("providers: []\n", encoding="utf-8")
+    result_path.write_text('{"results": []}', encoding="utf-8")
+
+    report = AuditReport(
+        target={
+            "base_url": "https://example.com/v1",
+            "model": "kimi-k3",
+        },
+        results=[
+            ProbeResult(
+                probe_id="regression.kimi-k3.invalid-field",
+                category="protocol",
+                status=ProbeStatus.FAIL,
+                score=0.0,
+                summary="regression failed",
+                observed={
+                    "runs": [
+                        {
+                            "reason": "expected HTTP 400",
+                            "output": "received 200 OK",
+                        }
+                    ]
+                },
+                metadata={
+                    "engine": "promptfoo",
+                    "identity_strength": "none",
+                    "artifact_path": str(result_path),
+                },
+            )
+        ],
+        adapters={
+            "promptfoo_regression": {
+                "status": "completed",
+                "artifact_root": str(source),
+                "suites": [
+                    {
+                        "suite": "kimi-k3",
+                        "config_path": str(config_path),
+                        "output_path": str(result_path),
+                        "status": "completed",
+                    }
+                ],
+            }
+        },
+    )
+
+    root = write_report(report, tmp_path / "report")
+
+    assert (
+        root / "regression" / "01" / "promptfooconfig.yaml"
+    ).exists()
+    assert (
+        root / "regression" / "01" / "promptfoo-result.json"
+    ).exists()
+
+    data = json.loads(
+        (root / "report.json").read_text(encoding="utf-8")
+    )
+    result_meta = data["results"][0]["metadata"]
+    assert result_meta["artifact_path"] == (
+        "regression/01/promptfoo-result.json"
+    )
+    adapter = data["adapters"]["promptfoo_regression"]
+    assert adapter["artifact_root"] == "regression"
+    assert adapter["persisted"] is True
+    assert adapter["suites"][0]["config_path"] == (
+        "regression/01/promptfooconfig.yaml"
+    )
+
+    rendered = (root / "report.html").read_text(encoding="utf-8")
+    assert "Regression Suites" in rendered
+    assert "expected HTTP 400" in rendered
+    assert "received 200 OK" in rendered
+    assert 'href="regression/01/promptfoo-result.json"' in rendered
