@@ -30,6 +30,7 @@ class WebAuditRequest(BaseModel):
     reference_id: str | None = None
     declared_context_tokens: int | None = None
     proxy_sleuth: bool = True
+    coding_sandbox: bool = False
 
 
 class WebReferenceRequest(BaseModel):
@@ -104,7 +105,10 @@ def create_app(
             model=payload.model,
             base_url=payload.base_url,
             profile=payload.profile,
-            meta={"reference_id": payload.reference_id},
+            meta={
+                "reference_id": payload.reference_id,
+                "coding_sandbox": payload.coding_sandbox,
+            },
         )
         asyncio.create_task(
             _run_audit_job(
@@ -221,8 +225,9 @@ def _progress_value(name: str, current: int, total: int) -> float:
         "integrity-suite": 0.45,
         "context-suite": 0.58,
         "routing-suite": 0.68,
-        "capability-suite": 0.80,
-        "fingerprint-reference": 0.88,
+        "capability-suite": 0.76,
+        "coding-sandbox": 0.84,
+        "fingerprint-reference": 0.89,
         "proxy-sleuth": 0.94,
     }
     return phase.get(name, 0.5)
@@ -250,6 +255,7 @@ async def _run_audit_job(
             reference_dir=str(registry.root),
             declared_context_tokens=payload.declared_context_tokens,
             proxy_sleuth_enabled=payload.proxy_sleuth,
+            coding_sandbox_enabled=payload.coding_sandbox,
         )
 
         def progress(name: str, current: int, total: int) -> None:

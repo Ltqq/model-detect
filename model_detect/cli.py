@@ -43,6 +43,11 @@ def audit(
         "--with-proxy-sleuth/--without-proxy-sleuth",
         help="Enable/disable proxy-sleuth OSS augmentation; default follows config.",
     ),
+    coding_sandbox: Optional[bool] = typer.Option(
+        None,
+        "--coding-sandbox/--no-coding-sandbox",
+        help="Explicitly enable/disable Docker-isolated executable coding evaluation.",
+    ),
 ) -> None:
     """Run a model audit and write report.json, report.html and raw evidence."""
     if config:
@@ -57,6 +62,8 @@ def audit(
             cfg.reference_dir = str(reference_dir)
         if declared_context_tokens:
             cfg.declared_context_tokens = declared_context_tokens
+        if coding_sandbox is not None:
+            cfg.coding_sandbox_enabled = coding_sandbox
     else:
         if not base_url or not model:
             raise typer.BadParameter("--base-url and --model are required when --config is not used")
@@ -73,6 +80,7 @@ def audit(
             reference_id=reference_id,
             reference_dir=str(reference_dir),
             declared_context_tokens=declared_context_tokens,
+            coding_sandbox_enabled=bool(coding_sandbox),
         )
 
     def progress(name: str, current: int, total: int) -> None:
@@ -178,6 +186,8 @@ def oss_status() -> None:
     table = Table("Engine", "Available", "Details")
     fp = fingerprint.availability()
     ps = proxy_sleuth.availability()
+    from .sandbox import availability as sandbox_availability
+    sb = sandbox_availability()
     table.add_row(
         "llm-fingerprint-detector",
         "yes" if fp["available"] else "no",
@@ -187,6 +197,11 @@ def oss_status() -> None:
         "proxy-sleuth",
         "yes" if ps["available"] else "no",
         ps.get("binary") or "install Babapei/proxy-sleuth",
+    )
+    table.add_row(
+        "Docker coding sandbox",
+        "yes" if sb["available"] else "no",
+        sb.get("binary") or "install Docker; host execution fallback is intentionally disabled",
     )
     console.print(table)
 

@@ -33,6 +33,7 @@ progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
 <div><label>Trusted Reference</label><select id="reference_id"><option value="">不使用 Reference</option>{% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}</select></div>
 <div><label>声明 Context Tokens（可空）</label><input id="context_tokens" type="number" placeholder="32768"></div>
 <div><label>&nbsp;</label><div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>有 proxy-sleuth 时同时运行开源多层检测</span></div></div>
+<div><label>&nbsp;</label><div class="row"><input id="coding_sandbox" type="checkbox" style="width:auto"><span>运行 Docker Coding Sandbox（会执行模型生成代码）</span></div><div class="muted">显式开启；无 Docker 时不会回退宿主执行。</div></div>
 </div>
 <div style="margin-top:16px"><button id="run">开始审计</button> <span id="msg" class="muted"></span></div>
 </div>
@@ -57,7 +58,8 @@ q('run').onclick=async()=>{
     profile:q('profile').value,
     reference_id:q('reference_id').value||null,
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
-    proxy_sleuth:q('proxy').checked
+    proxy_sleuth:q('proxy').checked,
+    coding_sandbox:q('coding_sandbox').checked
   };
   if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='Base URL / Key / Model 必填';return}
   q('run').disabled=true;q('msg').textContent='创建任务中...';

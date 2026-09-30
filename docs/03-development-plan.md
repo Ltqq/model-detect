@@ -162,9 +162,11 @@ System Prompt Injection 使用可复现 challenge set，不以“模型说自己
 
 ---
 
-## P0-D：Coding 执行评测
+## P0-D：Coding 执行评测 ✅
 
-当前 Coding 是代码理解题，不是真正代码生成验证。
+完成于 V1.1-4。安全设计见 `docs/design/10-coding-sandbox.md`。
+
+当前 Coding Lite 仍保留代码理解题，同时新增 Docker 隔离的 Python/Go 可执行代码生成评测。
 
 目标：
 
@@ -186,13 +188,13 @@ Capability score
 
 首选 Docker sandbox：
 
-- 无网络
-- CPU 限制
-- 内存限制
-- 超时
-- 只读基础文件系统
-- 临时工作目录
-- 禁止宿主目录挂载
+- [x] 无网络
+- [x] CPU 限制
+- [x] 内存限制
+- [x] 超时
+- [x] 只读基础文件系统
+- [x] 临时工作目录
+- [x] 禁止宿主目录挂载
 
 首批语言：
 

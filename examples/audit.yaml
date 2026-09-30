@@ -21,6 +21,10 @@ reference_dir: references
 # declared_context_tokens: 32768
 
 capability_enabled: true
+
+# Explicit opt-in: executes model-generated code only inside the Docker sandbox.
+coding_sandbox_enabled: false
+coding_sandbox_auto_pull: true
 proxy_sleuth_enabled: true
 
 extra_headers: {}

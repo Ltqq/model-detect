@@ -1,0 +1,188 @@
+version: 1
+tasks:
+  python:
+    - id: py-sum-even
+      prompt: |
+        Write Python code defining:
+            def sum_even(numbers: list[int]) -> int
+        Return the sum of all even integers. Return only code.
+      filename: solution.py
+      test_filename: test_solution.py
+      command: ["python", "/workspace/test_solution.py"]
+      test_content: |
+        from solution import sum_even
+        assert sum_even([]) == 0
+        assert sum_even([1,2,3,4,5,6]) == 12
+        assert sum_even([-2,-1,0,3]) == -2
+        assert sum_even([7,9]) == 0
+        print("OK")
+
+    - id: py-balanced
+      prompt: |
+        Write Python code defining:
+            def is_balanced(text: str) -> bool
+        It must validate (), [], and {} brackets with proper nesting.
+        Ignore non-bracket characters. Return only code.
+      filename: solution.py
+      test_filename: test_solution.py
+      command: ["python", "/workspace/test_solution.py"]
+      test_content: |
+        from solution import is_balanced
+        assert is_balanced("") is True
+        assert is_balanced("a(b[c]{d})") is True
+        assert is_balanced("([)]") is False
+        assert is_balanced("(()") is False
+        assert is_balanced("{[()]}") is True
+        print("OK")
+
+    - id: py-dedupe
+      prompt: |
+        Write Python code defining:
+            def dedupe_preserve(items: list[int]) -> list[int]
+        Remove duplicate integers while preserving first-occurrence order.
+        Return only code.
+      filename: solution.py
+      test_filename: test_solution.py
+      command: ["python", "/workspace/test_solution.py"]
+      test_content: |
+        from solution import dedupe_preserve
+        assert dedupe_preserve([]) == []
+        assert dedupe_preserve([1,1,2,1,3,2]) == [1,2,3]
+        assert dedupe_preserve([-1,-1,0,-1]) == [-1,0]
+        print("OK")
+
+    - id: py-rotate
+      prompt: |
+        Write Python code defining:
+            def rotate_right(items: list[int], k: int) -> list[int]
+        Return a new list rotated right by k positions. Handle empty lists and k larger than length.
+        Return only code.
+      filename: solution.py
+      test_filename: test_solution.py
+      command: ["python", "/workspace/test_solution.py"]
+      test_content: |
+        from solution import rotate_right
+        assert rotate_right([], 3) == []
+        assert rotate_right([1,2,3,4], 1) == [4,1,2,3]
+        assert rotate_right([1,2,3,4], 6) == [3,4,1,2]
+        assert rotate_right([1], 99) == [1]
+        print("OK")
+
+    - id: py-run-length
+      prompt: |
+        Write Python code defining:
+            def run_lengths(text: str) -> list[tuple[str, int]]
+        Return consecutive character runs in order.
+        Example: "aaabbc" -> [("a",3),("b",2),("c",1)].
+        Return only code.
+      filename: solution.py
+      test_filename: test_solution.py
+      command: ["python", "/workspace/test_solution.py"]
+      test_content: |
+        from solution import run_lengths
+        assert run_lengths("") == []
+        assert run_lengths("a") == [("a",1)]
+        assert run_lengths("aaabbc") == [("a",3),("b",2),("c",1)]
+        assert run_lengths("a  ") == [("a",1),(" ",2)]
+        print("OK")
+
+  go:
+    - id: go-sum-even
+      prompt: |
+        Write a complete Go source file using package main that defines:
+            func SumEven(numbers []int) int
+        Return the sum of all even integers. Return only code.
+      filename: solution.go
+      test_filename: solution_test.go
+      command: ["go", "test", "-count=1", "."]
+      test_content: |
+        package main
+        import "testing"
+        func TestSumEven(t *testing.T) {
+          cases := []struct{ in []int; want int }{
+            {[]int{}, 0}, {[]int{1,2,3,4,5,6}, 12},
+            {[]int{-2,-1,0,3}, -2}, {[]int{7,9}, 0},
+          }
+          for _, c := range cases { if got := SumEven(c.in); got != c.want { t.Fatalf("got %d want %d", got, c.want) } }
+        }
+
+    - id: go-balanced
+      prompt: |
+        Write a complete Go source file using package main that defines:
+            func IsBalanced(text string) bool
+        It must validate (), [], and {} brackets with proper nesting and ignore other characters.
+        Return only code.
+      filename: solution.go
+      test_filename: solution_test.go
+      command: ["go", "test", "-count=1", "."]
+      test_content: |
+        package main
+        import "testing"
+        func TestIsBalanced(t *testing.T) {
+          cases := []struct{ s string; want bool }{
+            {"",true},{"a(b[c]{d})",true},{"([)]",false},{"(()",false},{"{[()]}",true},
+          }
+          for _, c := range cases { if got := IsBalanced(c.s); got != c.want { t.Fatalf("%q got %v want %v", c.s, got, c.want) } }
+        }
+
+    - id: go-unique
+      prompt: |
+        Write a complete Go source file using package main that defines:
+            func Unique(items []int) []int
+        Remove duplicate integers while preserving first-occurrence order.
+        Return only code.
+      filename: solution.go
+      test_filename: solution_test.go
+      command: ["go", "test", "-count=1", "."]
+      test_content: |
+        package main
+        import ("reflect"; "testing")
+        func TestUnique(t *testing.T) {
+          cases := []struct{ in, want []int }{
+            {[]int{}, []int{}}, {[]int{1,1,2,1,3,2}, []int{1,2,3}},
+            {[]int{-1,-1,0,-1}, []int{-1,0}},
+          }
+          for _, c := range cases { if got := Unique(c.in); !reflect.DeepEqual(got,c.want) { t.Fatalf("got %#v want %#v", got,c.want) } }
+        }
+
+    - id: go-rotate
+      prompt: |
+        Write a complete Go source file using package main that defines:
+            func RotateRight(items []int, k int) []int
+        Return a new slice rotated right by k positions. Handle empty slices and k larger than length.
+        Return only code.
+      filename: solution.go
+      test_filename: solution_test.go
+      command: ["go", "test", "-count=1", "."]
+      test_content: |
+        package main
+        import ("reflect"; "testing")
+        func TestRotateRight(t *testing.T) {
+          cases := []struct{ in []int; k int; want []int }{
+            {[]int{},3,[]int{}},{[]int{1,2,3,4},1,[]int{4,1,2,3}},
+            {[]int{1,2,3,4},6,[]int{3,4,1,2}},{[]int{1},99,[]int{1}},
+          }
+          for _, c := range cases { if got := RotateRight(c.in,c.k); !reflect.DeepEqual(got,c.want) { t.Fatalf("got %#v want %#v",got,c.want) } }
+        }
+
+    - id: go-runs
+      prompt: |
+        Write a complete Go source file using package main that defines:
+            type Run struct { Ch rune; Count int }
+            func RunLengths(text string) []Run
+        It must return consecutive rune runs in order.
+        Return only code.
+      filename: solution.go
+      test_filename: solution_test.go
+      command: ["go", "test", "-count=1", "."]
+      test_content: |
+        package main
+        import ("reflect"; "testing")
+        func TestRunLengths(t *testing.T) {
+          cases := []struct{ s string; want []Run }{
+            {"", []Run{}}, {"a", []Run{{'a',1}}},
+            {"aaabbc", []Run{{'a',3},{'b',2},{'c',1}}},
+            {"你你好", []Run{{'你',2},{'好',1}}},
+          }
+          for _, c := range cases { if got := RunLengths(c.s); !reflect.DeepEqual(got,c.want) { t.Fatalf("got %#v want %#v",got,c.want) } }
+        }
