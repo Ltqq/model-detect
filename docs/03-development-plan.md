@@ -173,7 +173,48 @@
 - [x] 官方来源 / empirical 来源分离
 - [x] 每条 feature 可追溯
 
-# 6. 后续优先级
+# 6. Audit Closure 下一批 5 个小阶段
+
+设计：`docs/design/13-regression-audit-integration.md`
+
+## Stage 1 — Regression Suite -> Audit Orchestrator
+
+- [x] Audit 可执行多个 regression suite
+- [x] Unified ProbeResult 合并进入主报告
+- [x] suite 失败隔离，不中断整次 audit
+- [x] adapter metadata 记录 artifact root / suite 状态
+- [x] regression 仍不产生 strong identity evidence
+
+## Stage 2 — Audit Profile 配置 regression suites
+
+- [ ] AuditConfig 定义 regression suites
+- [ ] quick / standard / deep 可分别启用
+- [ ] CLI config 与直接参数支持
+- [ ] 默认无 regression，保持 backward compatibility
+
+## Stage 3 — Report regression evidence
+
+- [ ] report 复制/持久化 promptfoo artifact
+- [ ] HTML Regression section
+- [ ] case / status / reason / output 展示
+- [ ] ZIP 报告包含 regression artifacts
+
+## Stage 4 — Web provenance / regression UX
+
+- [ ] Web 展示 Model Rule provenance
+- [ ] Web 展示 Provider Rule provenance
+- [ ] Web 发起 audit 时选择 regression suite
+- [ ] Job detail 展示 regression 状态
+
+## Stage 5 — Claude / GPT / Gemini Model Knowledge
+
+- [ ] Claude
+- [ ] GPT
+- [ ] Gemini
+- [ ] 只写官方可验证能力
+- [ ] expected feature 必须可追溯
+
+# 7. 后续优先级
 
 完成以上 5 项后：
 
@@ -213,7 +254,7 @@ Provider DB 增加：
 - Notification Hook
 - Trend
 
-# 7. 为什么现在不先做 Scheduler / Native Anthropic / Gemini
+# 8. 为什么现在不先做 Scheduler / Native Anthropic / Gemini
 
 当前主要业务输入仍是 OpenAI-compatible 中转 Endpoint。
 
@@ -233,7 +274,7 @@ Scheduler / Drift
 
 Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol Abstraction 设计后开发。
 
-# 8. V1.1 Definition of Done
+# 9. V1.1 Definition of Done
 
 已满足：
 

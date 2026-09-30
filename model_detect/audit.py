@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
+import uuid
 from typing import Callable
 
 from .adapters import fingerprint, proxy_sleuth
@@ -16,6 +18,7 @@ from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
 from .probes.provider import detect_provider_hypotheses
 from .probes.routing import finalize_routing_analysis, run_routing_suite
 from .references import ReferenceRegistry, compare_protocol_signature
+from .regression_promptfoo import run_regression_file
 from .rules import evaluate_rule_expectations, match_model_rule
 from .scoring import build_summary
 
@@ -94,12 +97,98 @@ def _rule_results(model: str, results: list[ProbeResult]) -> list[ProbeResult]:
     return out
 
 
+async def _run_regression_suites(
+    report: AuditReport,
+    config: AuditConfig,
+    api_key: str,
+    regression_files: list[str | Path],
+    *,
+    output_dir: str | Path | None = None,
+    progress: ProgressCallback | None = None,
+) -> None:
+    if not regression_files:
+        report.adapters["promptfoo_regression"] = {
+            "status": "not_configured",
+            "suites": [],
+        }
+        return
+
+    root = Path(
+        output_dir
+        or (
+            Path(config.output_dir)
+            / "_regression_runs"
+            / uuid.uuid4().hex
+        )
+    )
+    root.mkdir(parents=True, exist_ok=True)
+
+    suites: list[dict[str, object]] = []
+    for index, regression_file in enumerate(regression_files, 1):
+        if progress:
+            progress("regression-suite", index, len(regression_files))
+        suite_dir = root / f"{index:02d}"
+        try:
+            results, meta = await asyncio.to_thread(
+                run_regression_file,
+                regression_file,
+                base_url=config.target.base_url,
+                model=config.target.model,
+                api_key=api_key,
+                output_dir=suite_dir,
+            )
+            report.results.extend(results)
+            suites.append(
+                {
+                    **meta,
+                    "status": "completed",
+                }
+            )
+        except Exception as exc:
+            suites.append(
+                {
+                    "status": "error",
+                    "regression_file": str(regression_file),
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            report.results.append(
+                ProbeResult(
+                    probe_id=f"internal.regression.{index}",
+                    category="internal",
+                    status=ProbeStatus.ERROR,
+                    score=None,
+                    confidence=1.0,
+                    summary=(
+                        "regression suite failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                    metadata={
+                        "engine": "promptfoo",
+                        "regression_file": str(regression_file),
+                    },
+                )
+            )
+
+    report.adapters["promptfoo_regression"] = {
+        "status": (
+            "completed"
+            if all(item.get("status") == "completed" for item in suites)
+            else "partial"
+        ),
+        "artifact_root": str(root),
+        "suites": suites,
+    }
+
+
 async def run_audit(
     config: AuditConfig,
     *,
     progress: ProgressCallback | None = None,
     use_proxy_sleuth: bool | None = None,
     api_key_override: str | None = None,
+    regression_files: list[str | Path] | None = None,
+    regression_output_dir: str | Path | None = None,
 ) -> AuditReport:
     if config.target.protocol != "openai":
         raise NotImplementedError(
@@ -315,6 +404,17 @@ async def run_audit(
             **proxy_sleuth.availability(),
             "status": "disabled",
         }
+
+    # 8. Declarative regression suites. These are supporting protocol/integrity
+    # checks only; mapped results explicitly carry identity_strength=none.
+    await _run_regression_suites(
+        report,
+        config,
+        api_key,
+        list(regression_files or []),
+        output_dir=regression_output_dir,
+        progress=progress,
+    )
 
     # Final routing verdict is computed after fingerprint/proxy-sleuth signals exist.
     report.results.append(finalize_routing_analysis(report.results))
