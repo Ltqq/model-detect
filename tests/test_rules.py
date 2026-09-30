@@ -11,8 +11,24 @@ from model_detect.rules import (
 def test_kimi_rule_matches():
     rule = match_model_rule("kimi-k3")
     assert rule.id == "kimi-k3"
-    assert rule.schema_version == 1
+    assert rule.schema_version == 2
+    assert rule.family == "kimi"
+    assert rule.model_version == "k3"
     assert "reasoning_effort" in rule.features
+    assert rule.features["reasoning_effort"]["values"] == [
+        "low",
+        "high",
+        "max",
+    ]
+    assert rule.features["reasoning_effort"]["default"] == "max"
+    assert rule.features["disable_thinking"]["expected"] is False
+    assert {
+        source.id
+        for source in rule.sources
+    } >= {
+        "moonshot-kimi-k3-readme",
+        "kimi-api-troubleshooting",
+    }
 
 
 def test_default_rule_matches_unknown_model():
@@ -32,7 +48,10 @@ def test_non_strict_mismatch_is_warning():
     statuses = {x["feature"]: x["status"] for x in rows}
     assert statuses["reasoning_effort"] == "warn"
     assert statuses["disable_thinking"] == "warn"
-    assert all(row["rule_schema_version"] == 1 for row in rows)
+    assert all(row["rule_schema_version"] == 2 for row in rows)
+    refs = {x["feature"]: x["source_refs"] for x in rows}
+    assert "moonshot-kimi-k3-readme" in refs["reasoning_effort"]
+    assert "kimi-api-troubleshooting" in refs["disable_thinking"]
 
 
 def test_v1_rule_without_schema_version_is_backward_compatible():

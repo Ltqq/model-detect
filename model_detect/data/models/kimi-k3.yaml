@@ -1,18 +1,61 @@
+schema_version: 2
+
 id: kimi-k3
+family: kimi
+model_version: k3
 patterns:
   - "kimi-k3"
   - "kimi-k3-*"
+aliases:
+  - "Kimi-K3"
+updated_at: "2026-09-30"
+
+sources:
+  - id: moonshot-kimi-k3-readme
+    type: official_doc
+    title: "MoonshotAI Kimi-K3 model usage"
+    url: "https://github.com/MoonshotAI/Kimi-K3/blob/main/README.md"
+    collected_at: "2026-09-30"
+    confidence: high
+
+  - id: kimi-api-troubleshooting
+    type: official_doc
+    title: "Kimi API troubleshooting"
+    url: "https://www.kimi.ai/help/kimi-api/api-troubleshooting"
+    collected_at: "2026-09-30"
+    confidence: high
+
+  - id: model-detect-kimi-k3-provider-observations
+    type: empirical
+    title: "model-detect Kimi-K3 supplier regression observations"
+    collected_at: "2026-09-30"
+    confidence: medium
+
 strict: false
+
 features:
   reasoning_effort:
     expected: true
-    values: [low, medium, high]
+    values: [low, high, max]
+    default: max
+    source_refs:
+      - moonshot-kimi-k3-readme
+      - kimi-api-troubleshooting
+
   disable_thinking:
     expected: false
+    source_refs:
+      - moonshot-kimi-k3-readme
+      - kimi-api-troubleshooting
+
   tools:
     expected: null
+
   json_schema:
     expected: null
+
 notes:
-  - "This rule is intentionally non-strict: provider behavior can differ from the official endpoint."
-  - "Keep model-specific expectations evidence-based and update this file when official behavior changes."
+  - "Kimi K3 always has thinking enabled; use reasoning_effort instead of disabling thinking."
+  - "Current official reasoning_effort values are low, high, and max; max is the default."
+  - "This rule is intentionally non-strict: provider/gateway behavior can differ from the official endpoint."
+  - "Empirical supplier observations are registered separately and should only become expected features after stored Evidence supports them."
