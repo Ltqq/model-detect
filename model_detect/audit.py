@@ -10,6 +10,7 @@ from .http_client import AuditHttpClient
 from .models import AuditReport, ProbeResult, ProbeStatus
 from .probes.capability import derived_capability_results, run_capability_suite
 from .probes.context import run_context_suite
+from .probes.coding import run_coding_suite
 from .probes.integrity import run_integrity_suite
 from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
 from .probes.provider import detect_provider_hypotheses
@@ -199,6 +200,28 @@ async def run_audit(
         report.evidences.extend(evs)
         if profile != "quick":
             report.results.extend(derived_capability_results(report.results))
+
+        if config.coding_sandbox_enabled and profile != "quick":
+            if progress:
+                progress("coding-sandbox", 6, 8)
+            coding_results, coding_evidence, coding_meta = await run_coding_suite(
+                client,
+                config.target.model,
+                profile=profile,
+                auto_pull=config.coding_sandbox_auto_pull,
+            )
+            report.results.extend(coding_results)
+            report.evidences.extend(coding_evidence)
+            report.adapters["coding_sandbox"] = coding_meta
+        else:
+            report.adapters["coding_sandbox"] = {
+                "status": "disabled",
+                "reason": (
+                    "quick profile"
+                    if profile == "quick"
+                    else "coding_sandbox_enabled=false"
+                ),
+            }
 
     # Provider inference uses all native raw responses.
     report.provider_hypotheses = detect_provider_hypotheses(report.evidences)
