@@ -220,7 +220,7 @@ Capability score
 
 - [x] Reasoning 20+
 - [x] Math 20+
-- [ ] Coding execute 10+
+- [x] Coding execute 10+
 - [ ] Chinese 20+
 - [ ] Instruction Following 20+
 - [ ] Tool Use 场景化
