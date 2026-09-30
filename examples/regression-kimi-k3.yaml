@@ -1,0 +1,29 @@
+version: 1
+suite: kimi-k3-regression
+
+model_patterns:
+  - kimi-k3
+
+cases:
+  - id: reasoning-invalid-field
+    category: protocol
+    prompt: Reply exactly OK
+    request:
+      reasoning_effor: medium
+    expect:
+      http_status: 400
+
+  - id: json-object
+    category: protocol
+    prompt: Return a JSON object with ok=true
+    request:
+      response_format:
+        type: json_object
+    assertions:
+      - type: is-json
+        schema:
+          type: object
+          required: [ok]
+          properties:
+            ok:
+              type: boolean
