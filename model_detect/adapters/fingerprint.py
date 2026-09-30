@@ -138,7 +138,7 @@ def verify(
             + (f", mean JSD={mean_jsd:.3f}" if mean_jsd is not None else "")
         ),
         observed={"verdict": verdict, "mean_jsd": mean_jsd, "returncode": proc.returncode},
-        metadata={"verdict": verdict, "engine": "llm-fingerprint-detector"},
+        metadata={"verdict": verdict, "engine": "llm-fingerprint-detector", "identity_strength": "strong"},
     )
     meta = {
         "available": True,
