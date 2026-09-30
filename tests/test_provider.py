@@ -3,6 +3,7 @@ import pytest
 from model_detect.models import Evidence
 from model_detect.probes.provider import (
     detect_provider_hypotheses,
+    load_provider_rule_set,
     normalize_provider_rule_set,
 )
 
@@ -157,3 +158,61 @@ def test_v2_provider_rule_rejects_invalid_source_enum():
                 "providers": {},
             }
         )
+
+
+
+def test_bundled_provider_db_is_v2_and_every_provider_has_provenance():
+    rules = load_provider_rule_set()
+
+    assert rules.schema_version == 2
+    assert len(rules.providers) == 18
+    assert rules.sources
+    assert all(rule.source_refs for rule in rules.providers.values())
+    assert all(
+        rule.confidence_calibration.get("behavior") == "legacy-v1-weights"
+        for rule in rules.providers.values()
+    )
+
+
+def test_provider_v2_migration_preserves_legacy_signal_weights():
+    rules = load_provider_rule_set()
+
+    assert rules.providers["fireworks"].headers == {
+        "x-fireworks-request-id": 0.95,
+        "fireworks-request-id": 0.95,
+    }
+    assert rules.providers["fireworks"].patterns == {
+        "fireworks": 0.90,
+        "fw-kimi": 0.80,
+    }
+    assert rules.providers["openai"].headers["x-request-id"] == 0.10
+    assert rules.providers["volcengine"].patterns["ark"] == 0.20
+
+
+def test_provider_v2_migration_preserves_detection_confidence():
+    evidences = [
+        Evidence(
+            id="ev1",
+            probe_id="provider.error.invalid_model",
+            url="https://example.com/v1/chat/completions",
+            response_status=400,
+            response_headers={
+                "apim-request-id": "abc",
+                "x-ms-request-id": "def",
+                "x-fireworks-request-id": "fw-123",
+            },
+            response_body={
+                "error": {
+                    "message": "Fireworks upstream rejected model FW-Kimi-K3"
+                }
+            },
+        )
+    ]
+
+    by_name = {
+        item.provider: item
+        for item in detect_provider_hypotheses(evidences)
+    }
+
+    assert by_name["fireworks"].confidence == 0.841
+    assert by_name["azure_apim"].confidence == 0.533
