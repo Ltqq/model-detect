@@ -14,5 +14,5 @@ features:
   json_schema:
     expected: null
 notes:
-  - This rule is intentionally non-strict: provider behavior can differ from the official endpoint.
-  - Keep model-specific expectations evidence-based and update this file when official behavior changes.
+  - "This rule is intentionally non-strict: provider behavior can differ from the official endpoint."
+  - "Keep model-specific expectations evidence-based and update this file when official behavior changes."
