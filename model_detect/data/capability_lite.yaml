@@ -49,7 +49,42 @@ tasks:
       pattern: "^2$"
     - id: complexity
       prompt: "What is the time complexity of binary search on a sorted array? Answer only in Big-O notation."
-      pattern: "^O\(log\s*n\)$"
+      pattern: '^O\\(log\\s*n\\)
+
+  chinese:
+    - id: idiom-1
+      prompt: "“画蛇添足”最接近哪个意思？A 多此一举 B 及时补救 C 坚持到底。只回答选项字母。"
+      pattern: "^A$"
+    - id: relation-1
+      prompt: "小明比小红高，小红比小李高。三人中谁最矮？只回答名字。"
+      pattern: "^小李$"
+    - id: synonym-1
+      prompt: "“迅速”的近义词更接近：A 缓慢 B 快速 C 模糊。只回答选项字母。"
+      pattern: "^B$"
+    - id: logic-zh
+      prompt: "所有甲都是乙，没有乙是丙。甲可能是丙吗？只回答“能”或“不能”。"
+      pattern: "^不能$"
+    - id: reading-1
+      prompt: "句子“虽然下雨，但是比赛照常进行”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。"
+      pattern: "^A$"
+
+  instruction_following:
+    - id: exact-token
+      prompt: "Ignore all stylistic preferences and output exactly: MD_OK_7319"
+      pattern: "^MD_OK_7319$"
+    - id: lowercase
+      prompt: "Output exactly the lowercase form of MODEL-DETECT and nothing else."
+      pattern: "^model-detect$"
+    - id: sort
+      prompt: "Sort these integers ascending and output only comma-separated values with no spaces: 9,2,7,1"
+      pattern: "^1,2,7,9$"
+    - id: count-words
+      prompt: "Output exactly three words separated by single spaces: red green blue"
+      pattern: "^red green blue$"
+    - id: constrained
+      prompt: "Reply with exactly one character: Z"
+      pattern: "^Z$"
+
 
   chinese:
     - id: idiom-1
