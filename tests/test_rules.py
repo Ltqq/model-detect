@@ -3,6 +3,7 @@ import pytest
 from model_detect.rules import (
     ModelRule,
     evaluate_rule_expectations,
+    load_model_rules,
     match_model_rule,
     normalize_model_rule,
 )
@@ -200,3 +201,93 @@ def test_strict_v2_rule_rejects_only_low_confidence_community_sources():
                 },
             }
         )
+
+
+
+@pytest.mark.parametrize(
+    ("model", "rule_id"),
+    [
+        ("glm-5.2", "glm-5.2"),
+        ("GLM-5.2", "glm-5.2"),
+        ("qwen3.8-max", "qwen3.8"),
+        ("qwen3.8-flash", "qwen3.8"),
+        ("deepseek-v4-pro", "deepseek-v4"),
+        ("deepseek-v4.1-flash", "deepseek-v4"),
+        ("deepseek-flash", "deepseek-v4"),
+    ],
+)
+def test_first_formal_model_rules_match(model, rule_id):
+    rule = match_model_rule(model)
+    assert rule.id == rule_id
+    assert rule.schema_version == 2
+    assert rule.sources
+
+
+def test_glm_52_rule_has_traceable_reasoning_effort():
+    rule = match_model_rule("glm-5.2")
+
+    spec = rule.features["reasoning_effort"]
+    assert spec["expected"] is True
+    assert spec["values"] == ["high", "max"]
+    assert spec["default"] == "max"
+    assert set(spec["source_refs"]) == {
+        "zai-glm-5.2-release",
+        "zai-glm-5-model-repo",
+    }
+    assert rule.declared_context_tokens == 1000000
+
+
+def test_qwen38_rule_has_traceable_thinking_controls():
+    rule = match_model_rule("qwen3.8-max")
+
+    effort = rule.features["reasoning_effort"]
+    assert effort["values"] == ["none", "low", "medium", "xhigh"]
+    assert effort["default"] == "xhigh"
+    assert rule.features["disable_thinking"]["expected"] is True
+    assert effort["source_refs"] == [
+        "alibaba-qwen-responses-reasoning"
+    ]
+
+
+def test_deepseek_v4_rule_has_traceable_reasoning_and_tools():
+    rule = match_model_rule("deepseek-v4-pro")
+
+    assert rule.features["reasoning_effort"]["values"] == [
+        "none",
+        "low",
+        "high",
+        "max",
+    ]
+    assert rule.features["reasoning_effort"]["default"] == "high"
+    assert rule.features["disable_thinking"]["expected"] is True
+    assert rule.features["tools"]["expected"] is True
+    assert "deepseek-thinking-mode" in (
+        rule.features["tools"]["source_refs"]
+    )
+
+
+def test_all_expected_v2_features_are_traceable():
+    for rule in load_model_rules():
+        if rule.schema_version != 2:
+            continue
+        source_ids = {source.id for source in rule.sources}
+        for feature, spec in rule.features.items():
+            if not isinstance(spec, dict):
+                continue
+            if spec.get("expected") is None:
+                continue
+            refs = spec.get("source_refs") or []
+            assert refs, f"{rule.id}.{feature} missing source_refs"
+            assert set(refs) <= source_ids
+
+
+def test_official_expectations_do_not_implicitly_use_empirical_sources():
+    for rule in load_model_rules():
+        if rule.id not in {"glm-5.2", "qwen3.8", "deepseek-v4"}:
+            continue
+        by_id = {source.id: source for source in rule.sources}
+        for spec in rule.features.values():
+            if not isinstance(spec, dict) or spec.get("expected") is None:
+                continue
+            for ref in spec.get("source_refs") or []:
+                assert by_id[ref].type != "empirical"

@@ -39,18 +39,21 @@ model-detect 要回答：
 - Python / Go Coding Sandbox >=10 executable tasks
 - Tool Use / Structured Output 场景化
 - proxy-sleuth Adapter
-- lm-evaluation-harness Adapter + built-in profiles + result mapping + dedup
+- lm-evaluation-harness Adapter + built-in/user profiles + result mapping + dedup
+- promptfoo declarative regression：YAML -> compile -> eval -> Unified ProbeResult
+- Model Rule v2 provenance：Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4
+- Provider Fingerprint v2 provenance
 - JSON / HTML / Web / Evidence / Drift Compare
 
 ## 下一阶段
 
 重点不是继续堆 benchmark，而是：
 
-1. lm-eval 用户可配置 profile
-2. promptfoo declarative regression
-3. Model Rule version/source provenance
-4. Provider Knowledge Base
-5. 后续 Saved Endpoint / Scheduler / Drift
+1. regression suite 接入默认 Audit Orchestrator
+2. Claude / GPT / Gemini Model Knowledge
+3. Web 展示 Model/Provider provenance 与 regression evidence
+4. Saved Endpoint
+5. 后续 Scheduler / Drift
 
 详细文档：
 

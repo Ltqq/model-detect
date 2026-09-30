@@ -1,0 +1,51 @@
+schema_version: 2
+
+id: qwen3.8
+family: qwen
+model_version: "3.8"
+patterns:
+  - "qwen3.8-*"
+aliases: []
+updated_at: "2026-09-30"
+
+sources:
+  - id: alibaba-qwen-responses-reasoning
+    type: official_doc
+    title: "Alibaba Cloud Model Studio - Qwen via OpenAI Responses API"
+    url: "https://help.aliyun.com/en/model-studio/qwen-api-via-openai-responses"
+    collected_at: "2026-09-30"
+    confidence: high
+
+strict: false
+
+features:
+  reasoning_effort:
+    expected: true
+    values: [none, low, medium, xhigh]
+    default: xhigh
+    mappings:
+      minimal: low
+      high: xhigh
+      max: xhigh
+    source_refs:
+      - alibaba-qwen-responses-reasoning
+
+  disable_thinking:
+    expected: true
+    mechanisms:
+      - "reasoning.effort=none"
+      - "enable_thinking=false"
+    source_refs:
+      - alibaba-qwen-responses-reasoning
+
+  tools:
+    expected: null
+
+  json_schema:
+    expected: null
+
+notes:
+  - "The Qwen3.8 family supports configurable reasoning; exact supported effort tiers are model-family specific."
+  - "enable_thinking remains supported on the official platform but reasoning.effort is the preferred direction."
+  - "Empirical gateway observations must be stored separately as empirical sources before changing these official expectations."
+  - "The rule is non-strict because third-party gateways may normalize or map reasoning parameters."
