@@ -58,7 +58,8 @@
 - [总体架构与开源复用方案](docs/02-architecture.md)
 - [开发计划](docs/03-development-plan.md)
 - [V1 Probe 清单](docs/04-probe-catalog.md)
-- [V1 实现说明](docs/05-v1-implementation.md)
+- [当前实现状态与缺口](docs/05-v1-implementation.md)
+- [技术决策与演进原则](docs/06-technical-decisions.md)
 
 ---
 

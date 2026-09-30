@@ -1,527 +1,441 @@
-# 总体架构与开源复用方案
+# 总体技术架构
 
-## 1. 核心原则
+> 本文以当前 `main` 代码为准，不再描述“建议中的架构”。  
+> 当前版本：`0.2.0`。目标是做 LLM API 的黑盒真实性、协议完整性、能力与供应商准入审计；性能压测明确独立。
 
-这个项目不应该自己重新发明所有检测算法。
+## 1. 产品边界
 
-优先组合成熟开源组件，再补我们真正缺的部分：
+model-detect 只负责：
 
-```text
-已有成熟组件
-    ↓
-Adapter / Runner
-    ↓
-统一 Probe Result
-    ↓
-Evidence Engine
-    ↓
-Score / Verdict
-    ↓
-Report
-```
+- 模型身份一致性
+- Provider / Gateway 指纹
+- 协议兼容性
+- 参数完整性
+- Context 完整性
+- Mixed Routing / 路由稳定性
+- Capability Lite
+- Reference 基准
+- Evidence / Score / Report / Drift
+
+明确不负责：
+
+- TTFT / ITL / TPS
+- RPM / TPM
+- 大并发吞吐
+- 429 压力曲线
+- GPU / 显存 / 节点指标
+
+这些继续由独立性能测试工具完成。
 
 ---
 
-## 2. 推荐开源组件
+## 2. 当前技术栈
 
-### 2.1 proxy-sleuth
+### 主语言
 
-项目：
-
-`Babapei/proxy-sleuth`
-
-许可证：
-
-MIT。
-
-它目前已经实现 7 层检测：
-
-- param-integrity
-- context
-- api-features
-- knowledge
-- fingerprint
-- capability
-- routing
-
-这和 model-detect 的目标高度重合。
-
-### 使用策略
-
-**优先研究并复用其 detector 设计、数据和算法，不建议直接把它当完整产品套壳。**
+Python 3.11+
 
 原因：
 
-1. 它目前主要是 CLI；
-2. 我们需要统一任务、Reference、Evidence、报告；
-3. 我们未来会有自己维护的模型规则；
-4. 需要支持更多协议和供应商；
-5. 需要可解释评分和历史记录。
+- LLM eval / benchmark 生态以 Python 为主
+- `proxy-sleuth` 为 Python
+- 便于快速增加 Probe / 数据集 / Adapter
+- 后续接 `lm-evaluation-harness`、代码沙箱等成本最低
 
-最值得直接吸收：
+### CLI
 
-- param integrity
-- context truncation
-- api feature probes
-- knowledge probes
-- mixed routing 设计
-- scoring 思路
+- Typer
+- Rich
 
----
-
-### 2.2 llm-fingerprint-detector
-
-项目：
-
-`ToseaAI/llm-fingerprint-detector`
-
-许可证：
-
-MIT。
-
-核心方法：
-
-**Single-token behavioral fingerprint（单 Token 行为指纹）**
-
-通过约 100–400 次低成本短输出请求，形成输出分布，再使用 Jensen-Shannon Divergence（JS 散度）与可信 Reference 对比。
-
-输出：
-
-- match
-- uncertain
-- mismatch
-- insufficient
-
-还提供：
-
-- split-half self consistency
-- reasoning adapter detection
-- bundled references
-- TypeScript library
-- CLI
-
-### 使用策略
-
-**直接作为 statistical fingerprint engine。**
-
-V1 不自己重写 JSD 和整套采样协议。
-
-我们只需要包一层：
+主要入口：
 
 ```text
-FingerprintRunner
-  -> 调用 library / CLI
-  -> 标准化输出
-  -> 保存 fingerprint artifact
-  -> 与 Reference Registry 关联
+model-detect audit
+model-detect reference ...
+model-detect compare
+model-detect web
+model-detect oss-status
 ```
 
-后续需要扩模型时，主要维护 Reference，而不是改算法。
+### Web / API
+
+- FastAPI
+- Uvicorn
+- Jinja2
+
+当前定位是轻量本地/内网 Web，不做重前端。
+
+### HTTP
+
+- HTTPX AsyncClient
+
+### 配置 / 数据
+
+- Pydantic
+- PyYAML
+
+### 本地持久化
+
+- SQLite：Web Job 历史
+- 文件系统：Reference、Evidence、Report
+
+### 外部开源引擎
+
+- `ToseaAI/llm-fingerprint-detector`
+- `Babapei/proxy-sleuth`
 
 ---
 
-### 2.3 promptfoo
+## 3. 当前逻辑架构
 
-许可证：
-
-MIT。
-
-适合：
-
-- 自定义 HTTP Provider
-- declarative test cases
-- deterministic assertions
-- JSON schema
-- tool-call validation
-- model-graded assertions
-- repeat
-- concurrency
-- 自定义 JS / Python assert
-
-### 使用策略
-
-用于：
-
-**协议 Probe / 能力 Probe 的执行与断言层。**
-
-例如：
-
-```yaml
-name: invalid_reasoning_field
-
-request:
-  reasoning_effor: medium
-
-expect:
-  status: 400
+```text
+                         ┌──────────────────────┐
+                         │      CLI / Web       │
+                         │ Typer / FastAPI      │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   Audit Orchestrator │
+                         │ model_detect/audit.py│
+                         └──────────┬───────────┘
+                                    │
+              ┌─────────────────────┼──────────────────────┐
+              │                     │                      │
+              ▼                     ▼                      ▼
+    ┌─────────────────┐   ┌──────────────────┐   ┌────────────────────┐
+    │ Native Probes   │   │ OSS Adapters     │   │ Reference / Rules  │
+    │ protocol        │   │ fingerprint      │   │ trusted reference  │
+    │ integrity       │   │ proxy-sleuth     │   │ model rules        │
+    │ context         │   └────────┬─────────┘   │ provider rules     │
+    │ routing         │            │             └─────────┬──────────┘
+    │ capability      │            │                       │
+    └────────┬────────┘            │                       │
+             └─────────────────────┴───────────────┬───────┘
+                                                   ▼
+                                      ┌────────────────────────┐
+                                      │ Unified Probe Result   │
+                                      │ + Raw Evidence         │
+                                      └────────────┬───────────┘
+                                                   │
+                                      ┌────────────▼───────────┐
+                                      │ Score / Evidence Fusion│
+                                      │ Hard Cap / Confidence  │
+                                      └────────────┬───────────┘
+                                                   │
+                          ┌────────────────────────┼─────────────────────┐
+                          ▼                        ▼                     ▼
+                 ┌────────────────┐       ┌────────────────┐    ┌────────────────┐
+                 │ JSON / HTML    │       │ Web Job Store  │    │ Drift Compare  │
+                 │ Report         │       │ SQLite         │    │ report vs report│
+                 └────────────────┘       └────────────────┘    └────────────────┘
 ```
 
-但不要让 promptfoo 负责整个产品状态机。
-
 ---
 
-### 2.4 lm-evaluation-harness
+## 4. 模块职责
 
-项目：
+### `audit.py`
 
-`EleutherAI/lm-evaluation-harness`
+唯一主编排入口。
 
-适合：
+职责：
 
-- 标准公开 benchmark
-- API endpoint
-- 自定义 task
-- Reasoning / Knowledge / Math 等基础能力
+1. 解析 Quick / Standard / Deep
+2. 调 Native Probe
+3. 调 Integrity / Context / Routing / Capability Suite
+4. 加载模型规则
+5. 加载 Trusted Reference
+6. 调 Statistical Fingerprint
+7. 调 proxy-sleuth
+8. 聚合 Provider Fingerprint
+9. 统一评分
+10. 生成 AuditReport
 
-### 使用策略
+原则：
 
-作为 **可选的 capability benchmark adapter**。
+> Probe 只负责“观察和判定局部事实”，Audit Orchestrator 负责执行顺序，Score Engine 负责全局结论。
 
-V1 不跑几十个 benchmark，只挑少量具有区分度和可维护性的任务。
+### `probes/protocol.py`
 
-后续如果需要更完整评分，可直接扩 benchmark profile。
+协议能力：
 
----
+- Chat Completions
+- Streaming
+- Responses API feature probe
+- usage / finish_reason
+- invalid model / field / enum
+- reasoning
+- thinking
+- tool calling
+- tool_choice
+- parallel tools
+- JSON mode / JSON schema
 
-## 3. 不建议 V1 引入的东西
+### `probes/integrity.py`
 
-### EvalScope Perf
+参数是否被中转层吞掉、钳制或降级：
 
-性能模块不需要。
+- reasoning level effect
+- max_tokens
+- stop
+- sampling controls
 
-如未来只需要 EvalScope 的能力 benchmark，也应先和 lm-evaluation-harness 比较再决定，不要同时接两套功能高度重叠的框架。
+V1.1 将继续补：
 
-### Garak / 大型安全红队
+- system prompt injection
+- tool definitions preserved
+- JSON Schema preserved
+- temperature / top_p 独立完整性
 
-不是 V1 核心目标。
+### `probes/context.py`
 
-### 自己实现统计指纹算法
+Needle-in-Haystack 形式的上下文完整性测试。
 
-没有必要。
+目前支持：
 
----
+- 8K
+- 16K
+- 32K
 
-## 4. 我们真正需要自研的核心
+根据 profile 与用户声明窗口动态决定测试档位。
 
-开源工具很多，但以下部分必须自己掌控。
+### `probes/routing.py`
 
-### 4.1 Unified Probe Model
+检查：
 
-所有开源组件输出格式不同，需要统一：
+- 相同请求重复采样
+- response model 漂移
+- response schema 漂移
+- response ID prefix 漂移
+- quality inversion
 
-```json
-{
-  "probe_id": "protocol.reasoning.invalid_field",
-  "category": "protocol",
-  "status": "pass",
-  "score": 1.0,
-  "confidence": 0.95,
-  "summary": "unknown reasoning field correctly rejected",
-  "evidence_ids": ["ev_xxx"],
-  "metadata": {}
-}
+V1.1 将增加：
+
+- fingerprint consistency
+- fact inversion
+- cluster / 行为聚类
+
+### `probes/capability.py`
+
+当前 Capability Lite：
+
+- Reasoning
+- Math
+- Coding reasoning
+- Chinese
+- Instruction Following
+- Tool Use
+- Structured Output
+
+V1.1 将把 Coding 从“代码理解题”升级为“小规模代码生成 + 沙箱执行”。
+
+### `adapters/fingerprint.py`
+
+封装 `llm-fingerprint-detector`。
+
+当前：
+
+- collect
+- verify
+- verdict
+- mean JSD
+
+后续：
+
+- per-cell JSD
+- split-half self consistency
+- richer artifact parsing
+
+### `adapters/proxy_sleuth.py`
+
+把 proxy-sleuth 多层结果映射到统一分类：
+
+```text
+param_integrity    -> integrity
+context_truncation -> context
+api_features       -> protocol
+knowledge_probes   -> identity
+statistical        -> identity
+capability         -> capability
+mixed_routing      -> routing
 ```
 
-### 4.2 Raw Evidence
+它是增强层，不是系统唯一真相来源。
+
+### `references.py`
+
+可信 Reference Registry。
 
 保存：
 
-- request metadata
-- request body（API Key 脱敏）
-- status code
-- response headers
-- response body
-- stream chunk sample
+- manifest
+- protocol signature
+- fingerprint artifact
+- baseline report
+
+Reference 是模型真实性检测的核心资产。
+
+### `rules.py`
+
+加载：
+
+- 模型规则
+- 模型特有 feature expectations
+
+规则必须基于可验证官方行为或可信 Reference，禁止拍脑袋写死。
+
+### `probes/provider.py`
+
+通过 YAML Provider Fingerprint DB 做启发式识别。
+
+证据来源：
+
+- headers
 - error body
-- timestamp
-- duration（仅做证据，不做性能评分）
+- response model
+- response id
+- SSE pattern
 
-原始证据必须和评分分离。
+输出是 hypothesis + confidence，不是“确定上游”。
 
-### 4.3 Provider Fingerprint Rules
+### `scoring.py`
 
-维护自己的特征库：
-
-```yaml
-azure_apim:
-  headers:
-    - x-ms-request-id
-    - ocp-apim-subscription-id
-  body_patterns:
-    - ...
-  confidence: ...
-
-fireworks:
-  model_patterns:
-    - FW-*
-  error_patterns:
-    - ...
-```
-
-输出 hypothesis + evidence，不输出绝对断言。
-
-### 4.4 Reference Registry
-
-核心资产。
+维度：
 
 ```text
-ModelReference
-  model_family
-  model_version
-  provider
-  endpoint_type
-  protocol
-  collected_at
-  fingerprint artifact
-  protocol signature
-  feature matrix
-  notes
+Identity               35
+Protocol               20
+Parameter Integrity    15
+Context                10
+Routing                10
+Capability             10
 ```
 
-正式准入尽量和可信 Reference 比。
+Provider Fingerprint 不计分。
 
-### 4.5 Score / Verdict Engine
+Hard Cap：
 
-统一产生：
+- identity mismatch -> 总分 <= 40
+- mixed routing critical fail -> <= 60
+- critical protocol fail -> <= 60
 
-- score
-- confidence
-- hard cap
-- warnings
-- final verdict
+身份信号分：
 
-### 4.6 Report Engine
+- weak
+- medium
+- strong
 
-输出可解释报告。
+没有 strong identity evidence 时，即使其它分数很高，也不能直接给 verified pass。
 
 ---
 
-## 5. 建议技术架构
-
-V1 先不要做微服务。
-
-建议：
+## 5. Evidence 数据流
 
 ```text
-model-detect
-├── API / Web
-├── Job Orchestrator
-├── Probe Engine
-│   ├── native probes
-│   ├── promptfoo adapter
-│   ├── proxy-sleuth adapter
-│   ├── fingerprint adapter
-│   └── lm-eval adapter
-├── Evidence Store
-├── Reference Registry
-├── Score Engine
-└── Report
+HTTP Request
+  ↓
+AuditHttpClient
+  ↓
+敏感头/字段脱敏
+  ↓
+Evidence
+  ├─ request body
+  ├─ response status
+  ├─ response headers
+  ├─ response body / SSE preview
+  ├─ error
+  └─ elapsed_ms（只作证据，不用于性能评分）
+  ↓
+ProbeResult.evidence_ids
+  ↓
+Report 可点击回原始 Evidence
 ```
 
-### 推荐语言
+API Key 禁止进入：
 
-#### 主服务：Python
-
-V1 推荐 Python 而不是 Go。
-
-理由：
-
-- proxy-sleuth 是 Python
-- lm-evaluation-harness 是 Python
-- LLM eval 生态绝大多数 Python
-- 数据处理、统计、模型 benchmark 集成简单
-- 可以直接 import 开源组件，减少 shell 调度
-
-#### Fingerprint：Node sidecar / library
-
-`llm-fingerprint-detector` 是 TypeScript。
-
-V1 两种方案：
-
-A. CLI 调用，最省事；
-B. 单独 Node worker。
-
-先用 A。
-
-### Web
-
-V1 可以：
-
-- FastAPI + 简单前端
-- 或 FastAPI + Next.js
-
-不建议一开始做重前端。
+- SQLite
+- Evidence
+- Report
+- CLI 参数日志
+- 外部 Adapter 命令参数
 
 ---
 
-## 6. 目录建议
+## 6. 当前部署模型
+
+V1 / V1.1 继续保持单机单进程优先：
 
 ```text
-model-detect/
-├── app/
-│   ├── api/
-│   ├── core/
-│   │   ├── models.py
-│   │   ├── scoring.py
-│   │   └── evidence.py
-│   ├── probes/
-│   │   ├── protocol/
-│   │   ├── provider/
-│   │   ├── integrity/
-│   │   ├── context/
-│   │   ├── capability/
-│   │   └── routing/
-│   ├── adapters/
-│   │   ├── proxy_sleuth.py
-│   │   ├── fingerprint.py
-│   │   ├── promptfoo.py
-│   │   └── lm_eval.py
-│   ├── references/
-│   ├── reports/
-│   └── jobs/
-├── configs/
-│   ├── providers/
-│   ├── models/
-│   ├── profiles/
-│   └── scoring/
-├── references/
-├── tests/
-├── docs/
-└── scripts/
+model-detect web
+   │
+FastAPI
+   │
+Background Task
+   ├─ Native Probe
+   ├─ proxy-sleuth process
+   └─ llm-fingerprint process
+   │
+SQLite + Filesystem
 ```
+
+原因：
+
+- 当前主要是内部准入工具
+- 任务量低
+- 不需要提前引入 PostgreSQL / Redis / Worker 运维成本
+
+只有满足以下任一条件才进入分布式生产架构：
+
+- 多人同时使用
+- 同时运行多个 Deep Audit
+- 周期性自动重测规模扩大
+- 需要权限 / 审计 / 团队共享
+- 单机任务丢失不可接受
 
 ---
 
-## 7. 数据模型
+## 7. V2 生产化目标架构
 
-### audit_jobs
-
-```text
-id
-base_url
-claimed_model
-protocol
-profile
-status
-created_at
-finished_at
-summary_json
-```
-
-API Key 不直接写库。
-
-### probe_results
+达到上述条件后升级为：
 
 ```text
-id
-job_id
-probe_id
-category
-status
-score
-confidence
-summary
-metadata_json
+                   ┌──────────────┐
+                   │ Web / API    │
+                   │ FastAPI      │
+                   └──────┬───────┘
+                          │
+                ┌─────────▼─────────┐
+                │ PostgreSQL         │
+                │ Job / Result / ACL │
+                └─────────┬─────────┘
+                          │
+                     Job Queue
+                          │
+                ┌─────────▼─────────┐
+                │ Redis + Worker     │
+                │ Audit Workers      │
+                └──────┬─────┬─────┘
+                       │     │
+              Native Probe  OSS Adapter
+                       │     │
+                       └──┬──┘
+                          ▼
+                 Evidence / Artifact
+                 Local / Object Storage
 ```
 
-### evidence
-
-```text
-id
-job_id
-probe_result_id
-type
-request_json
-response_status
-response_headers_json
-response_body
-created_at
-```
-
-敏感字段脱敏。
-
-### references
-
-```text
-id
-model_family
-model_version
-provider
-protocol
-collected_at
-artifact_type
-artifact_path
-metadata_json
-```
+Worker 技术在真正进入 V2 时再定；优先选择简单、可靠、Python 原生的队列，不为了架构“高级”而提前引入复杂组件。
 
 ---
 
-## 8. 最终执行流程
+## 8. 核心技术原则
 
-```text
-Create Audit
-     ↓
-Endpoint Preflight
-     ↓
-Provider Fingerprint
-     ↓
-Protocol / API Feature
-     ↓
-Parameter Integrity
-     ↓
-Identity Probes
-     ├── knowledge
-     └── statistical fingerprint
-     ↓
-Context Integrity
-     ↓
-Routing Stability
-     ↓
-Capability Lite
-     ↓
-Normalize Evidence
-     ↓
-Score + Hard Caps
-     ↓
-Report
-```
-
----
-
-## 9. 最重要的设计约束
-
-### 不把某一个开源项目当“真理”
-
-例如 statistical fingerprint 本身就可能受：
-
-- serving stack
-- system prompt
-- reasoning mode
-- quantization
-- model update
-
-影响。
-
-所以结果必须是：
-
-```text
-Evidence Fusion
-多证据融合
-```
-
-而不是：
-
-```text
-JSD > 0.35 => 供应商一定造假
-```
-
-### 不做不可解释的 AI Judge 总分
-
-LLM Judge 可以作为能力项辅助评分，但最终报告必须能看到：
-
-- 题目
-- 输出
-- 判定规则
-- Judge 原因
-- 原始证据
-
+1. **Evidence First**：先有证据，再有结论。
+2. **Reference First**：重要模型尽量先建立可信官方 Reference。
+3. **Evidence Fusion**：不依赖单一 Fingerprint。
+4. **Deterministic First**：能规则判定就不用 LLM Judge。
+5. **OSS Reuse**：成熟算法通过 Adapter 复用。
+6. **No Performance Coupling**：性能测试与真实性审计分离。
+7. **Profile Controls Cost**：Quick / Standard / Deep 控制请求量。
+8. **No Premature Distributed Architecture**：先单机可用，再生产化。
