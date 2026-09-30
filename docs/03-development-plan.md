@@ -151,12 +151,12 @@
 
 ## Stage 3 — Provider Fingerprint provenance schema
 
-- [ ] provider schema_version
-- [ ] source registry
-- [ ] source_refs
-- [ ] false_positive_notes
-- [ ] confidence calibration metadata
-- [ ] v1 backward compatibility
+- [x] provider schema_version
+- [x] source registry
+- [x] source_refs
+- [x] false_positive_notes
+- [x] confidence calibration metadata
+- [x] v1 backward compatibility
 
 ## Stage 4 — Provider DB migration
 

@@ -1,5 +1,10 @@
+import pytest
+
 from model_detect.models import Evidence
-from model_detect.probes.provider import detect_provider_hypotheses
+from model_detect.probes.provider import (
+    detect_provider_hypotheses,
+    normalize_provider_rule_set,
+)
 
 
 def test_detect_azure_apim_and_fireworks_from_evidence():
@@ -42,3 +47,113 @@ def test_no_provider_without_signals():
         )
     ]
     assert detect_provider_hypotheses(evidences) == []
+
+
+def test_v1_provider_rule_set_is_backward_compatible():
+    rules = normalize_provider_rule_set(
+        {
+            "version": 1,
+            "providers": {
+                "demo": {
+                    "label": "Demo",
+                    "headers": {"x-demo": 0.8},
+                    "patterns": {"demo": 0.5},
+                }
+            },
+        }
+    )
+
+    assert rules.schema_version == 1
+    assert rules.sources == []
+    assert rules.providers["demo"].headers["x-demo"] == 0.8
+    assert rules.providers["demo"].source_refs == []
+
+
+def test_v2_provider_rule_set_loads_provenance_metadata():
+    rules = normalize_provider_rule_set(
+        {
+            "schema_version": 2,
+            "sources": [
+                {
+                    "id": "demo-doc",
+                    "type": "provider_doc",
+                    "title": "Demo provider documentation",
+                    "url": "https://example.com/docs",
+                    "confidence": "high",
+                }
+            ],
+            "providers": {
+                "demo": {
+                    "label": "Demo",
+                    "headers": {"x-demo-request-id": 0.9},
+                    "patterns": {"demo": 0.5},
+                    "source_refs": ["demo-doc"],
+                    "false_positive_notes": [
+                        "Generic request-id headers are weak signals."
+                    ],
+                    "confidence_calibration": {
+                        "single_header_cap": 0.8,
+                        "notes": "Use multiple signals for high confidence.",
+                    },
+                }
+            },
+        }
+    )
+
+    rule = rules.providers["demo"]
+    assert rules.schema_version == 2
+    assert rule.source_refs == ["demo-doc"]
+    assert rule.false_positive_notes
+    assert rule.confidence_calibration["single_header_cap"] == 0.8
+
+
+def test_v2_provider_rule_rejects_unknown_source_ref():
+    with pytest.raises(ValueError, match="unknown sources"):
+        normalize_provider_rule_set(
+            {
+                "schema_version": 2,
+                "sources": [],
+                "providers": {
+                    "demo": {
+                        "label": "Demo",
+                        "source_refs": ["missing"],
+                    }
+                },
+            }
+        )
+
+
+def test_v2_provider_rule_rejects_duplicate_source_ids():
+    with pytest.raises(ValueError, match="source ids must be unique"):
+        normalize_provider_rule_set(
+            {
+                "schema_version": 2,
+                "sources": [
+                    {
+                        "id": "same",
+                        "type": "provider_doc",
+                    },
+                    {
+                        "id": "same",
+                        "type": "empirical",
+                    },
+                ],
+                "providers": {},
+            }
+        )
+
+
+def test_v2_provider_rule_rejects_invalid_source_enum():
+    with pytest.raises(ValueError):
+        normalize_provider_rule_set(
+            {
+                "schema_version": 2,
+                "sources": [
+                    {
+                        "id": "bad",
+                        "type": "unknown",
+                    }
+                ],
+                "providers": {},
+            }
+        )
