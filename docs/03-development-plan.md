@@ -108,7 +108,16 @@
 - [x] Repeat 基础字段
 - [x] 禁止默认执行任意 JS/Python
 
-## Stage 4 — promptfoo Result Mapping
+## Stage 4 — Regression YAML -> promptfoo Config Compiler
+
+- [x] 每个 regression case 编译为独立 provider/test
+- [x] request 参数合并且禁止覆盖 model/messages/tools
+- [x] JSON / Tool assertions 映射
+- [x] repeat 映射
+- [x] HTTP status expectation 映射
+- [x] case metadata 保留给结果解析
+
+## Stage 5 — promptfoo Result Mapping
 
 - [ ] promptfoo JSON result -> Unified ProbeResult
 - [ ] case id / assertion / reason / output metadata
@@ -116,16 +125,8 @@
 - [ ] pass/warn/fail 映射
 - [ ] Regression 结果默认进入 protocol/integrity，而非 identity strong evidence
 
-## Stage 5 — Model Rule schema version/source
-
-设计：`docs/design/12-model-provider-knowledge.md`
-
-- [ ] model rule `schema_version`
-- [ ] family / aliases / model version
-- [ ] sources[]
-- [ ] updated_at
-- [ ] source confidence/type
-- [ ] 旧 YAML 向后兼容
+> Model Rule schema version/source 顺延到下一批第 1 项，设计仍见
+> `docs/design/12-model-provider-knowledge.md`。
 
 # 5. 后续优先级
 
