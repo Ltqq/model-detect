@@ -187,10 +187,10 @@
 
 ## Stage 2 — Audit Profile 配置 regression suites
 
-- [ ] AuditConfig 定义 regression suites
-- [ ] quick / standard / deep 可分别启用
-- [ ] CLI config 与直接参数支持
-- [ ] 默认无 regression，保持 backward compatibility
+- [x] AuditConfig 定义 regression suites
+- [x] quick / standard / deep 可分别启用
+- [x] CLI config 与直接参数支持
+- [x] 默认无 regression，保持 backward compatibility
 
 ## Stage 3 — Report regression evidence
 

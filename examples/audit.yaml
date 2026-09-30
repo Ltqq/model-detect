@@ -27,4 +27,16 @@ coding_sandbox_enabled: false
 coding_sandbox_auto_pull: true
 proxy_sleuth_enabled: true
 
+# Optional declarative supplier/customer regression suites.
+# Paths are resolved relative to this audit.yaml file.
+regression:
+  enabled: true
+  suites: []
+  profiles:
+    quick: []
+    standard:
+      # - regression-kimi-k3.yaml
+      []
+    deep: []
+
 extra_headers: {}
