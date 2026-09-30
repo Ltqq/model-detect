@@ -247,11 +247,11 @@
 
 ## Stage 5 — Local E2E Acceptance
 
-- [ ] Web 提交 Audit
-- [ ] 任务完成进入 History
-- [ ] HTML / JSON / ZIP 可访问
-- [ ] Filter 可用
-- [ ] Delete 可完整清理
+- [x] Web 提交 Audit
+- [x] 任务完成进入 History
+- [x] HTML / JSON / ZIP 可访问
+- [x] Filter 可用
+- [x] Delete 可完整清理
 
 # 8. 明确不进入当前路线
 
@@ -278,6 +278,7 @@
 - [x] lm-eval 至少一个 benchmark profile 可定义和运行
 - [x] 所有核心 Probe 可回溯 Evidence
 - [x] 不引入性能测试
+- [x] Web → Audit → History → HTML / JSON / ZIP → Filter → Delete 本地 E2E 闭环
 
 仍需：
 
