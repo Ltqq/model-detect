@@ -1,0 +1,57 @@
+schema_version: 2
+id: gemini-3.8-flash
+family: gemini
+model_version: "3.8-flash"
+patterns:
+  - "gemini-3.8-flash"
+  - "gemini-3.8-flash-*"
+aliases: ["Gemini 3.8 Flash"]
+updated_at: "2026-09-30"
+declared_context_tokens: 1000000
+sources:
+  - id: gemini-3.8-thinking
+    type: official_doc
+    title: "Gemini API - Thinking"
+    url: "https://ai.google.dev/gemini-api/docs/thinking"
+    collected_at: "2026-09-30"
+    confidence: high
+  - id: gemini-3-family-guide
+    type: official_doc
+    title: "Gemini API - Gemini 3 developer guide"
+    url: "https://ai.google.dev/gemini-api/docs/gemini-3"
+    collected_at: "2026-09-30"
+    confidence: high
+  - id: gemini-openai-compat
+    type: official_doc
+    title: "Gemini API - OpenAI compatibility"
+    url: "https://ai.google.dev/gemini-api/docs/openai"
+    collected_at: "2026-09-30"
+    confidence: high
+  - id: gemini-structured-output
+    type: official_doc
+    title: "Gemini API - Structured outputs"
+    url: "https://ai.google.dev/gemini-api/docs/generate-content/structured-output"
+    collected_at: "2026-09-30"
+    confidence: high
+strict: false
+features:
+  reasoning_effort:
+    expected: true
+    values: [low, medium, high]
+    default: medium
+    native_parameter: thinking_level
+    source_refs: [gemini-3.8-thinking, gemini-openai-compat]
+  disable_thinking:
+    expected: false
+    source_refs: [gemini-openai-compat]
+  tools:
+    expected: true
+    source_refs: [gemini-3-family-guide]
+  json_schema:
+    expected: true
+    source_refs: [gemini-3-family-guide, gemini-structured-output]
+notes:
+  - "Gemini 3.8 Flash uses low/medium/high thinking levels with medium as the default; minimal is not supported."
+  - "The official OpenAI compatibility layer maps reasoning_effort to Gemini thinking controls; Gemini 3 reasoning cannot be fully disabled."
+  - "Gemini 3 supports standard function calling and structured outputs."
+  - "The rule is non-strict because third-party relays may normalize request fields."

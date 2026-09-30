@@ -1,0 +1,46 @@
+schema_version: 2
+id: claude-5-current
+family: claude
+model_version: "5"
+patterns:
+  - "claude-fable-5-1"
+  - "claude-fable-5-1-*"
+  - "claude-opus-5"
+  - "claude-opus-5-*"
+  - "claude-sonnet-5"
+  - "claude-sonnet-5-*"
+aliases: ["Claude Fable 5.1", "Claude Opus 5", "Claude Sonnet 5"]
+updated_at: "2026-09-30"
+declared_context_tokens: 1000000
+sources:
+  - id: anthropic-current-models
+    type: official_doc
+    title: "Claude Platform - Models overview"
+    url: "https://platform.claude.com/docs/en/models/overview"
+    collected_at: "2026-09-30"
+    confidence: high
+  - id: anthropic-current-prompting
+    type: official_doc
+    title: "Claude Platform - Prompting best practices"
+    url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/prompt-templates-and-variables"
+    collected_at: "2026-09-30"
+    confidence: high
+strict: false
+features:
+  reasoning_effort:
+    expected: null
+    native_parameter: "output_config.effort"
+  disable_thinking:
+    expected: null
+    notes:
+      - "Thinking behavior differs across current Claude 5 variants."
+  tools:
+    expected: true
+    source_refs: [anthropic-current-models, anthropic-current-prompting]
+  json_schema:
+    expected: null
+notes:
+  - "Current Claude Fable 5.1, Opus 5, and Sonnet 5 have a 1M context window and support tool use."
+  - "Anthropic native reasoning uses adaptive thinking plus effort, not the OpenAI reasoning_effort field."
+  - "Gateway translation of native thinking and structured-output parameters is intentionally not assumed."
+  - "The rule is non-strict because third-party relays can normalize request fields."

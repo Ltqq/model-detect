@@ -54,7 +54,7 @@ Evidence / Report / Web
 | lm-eval Result Mapping | ✅ | Unified ProbeResult |
 | promptfoo Regression | ✅ | YAML -> compile -> eval -> ProbeResult |
 | Model Rule provenance | ✅ | schema v2 + sources + source_refs |
-| Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 |
+| Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash |
 | Provider Rule provenance | ✅ | schema v2 + source refs + false-positive notes |
 | Report Drift Compare | ✅ | manual report compare |
 | Regression Audit Orchestration | 🟡 | runner complete; not yet wired into default audit profile |
@@ -97,7 +97,7 @@ Evidence / Report / Web
 - Kimi K3
 - GLM-5.2
 - Qwen3.8
-- DeepSeek V4 / V4.1
+- DeepSeek V4 / V4.1\n- Claude Fable 5.1 / Opus 5 / Sonnet 5\n- GPT-5.6 family\n- Gemini 3.8 Flash
 
 原则：
 
@@ -110,9 +110,9 @@ Evidence / Report / Web
 
 下一步最有价值的是：
 
-1. 把 regression suite 接入默认 Audit Orchestrator，而不是只能独立 runner；
-2. 扩充 Claude / GPT / Gemini 等 Model Knowledge；
-3. Web 完整展示 Model/Provider provenance 与 regression evidence；
-4. 在上述能力稳定后再做 Saved Endpoint / Scheduler / Drift automation。
+1. 为常用渠道补更多真实供应商 regression suites；
+2. 建立 Saved Endpoint，使成熟准入配置可以复用；
+3. 将 Audit 配置和 Reference 绑定到 Endpoint；
+4. 随后进入 Scheduler / Drift automation。
 
 性能测试继续保持独立。
