@@ -50,7 +50,7 @@
 - [x] 内置 smoke / standard / deep profile
 - [x] 结果映射 Unified ProbeResult
 - [x] 默认避免与 Capability Lite 重复执行
-- [ ] 用户可配置 benchmark profile
+- [x] 用户可配置 benchmark profile
 
 ## 2. 明确排除
 
@@ -81,10 +81,10 @@
 
 ## Stage 1 — lm-eval 可配置 benchmark profile
 
-- [ ] 从用户 YAML 读取自定义 profile
-- [ ] 校验 task / limit / overlap policy
-- [ ] 不允许 API Key 写入 profile
-- [ ] 与内置 profile 使用同一执行入口
+- [x] 从用户 YAML 读取自定义 profile
+- [x] 校验 task / limit / overlap policy
+- [x] 不允许 API Key 写入 profile
+- [x] 与内置 profile 使用同一执行入口
 
 验收：用户可新增供应商专属 benchmark profile，不改 Python。
 

@@ -1,0 +1,17 @@
+version: 1
+
+profiles:
+  supplier-standard:
+    tasks:
+      - truthfulqa_gen
+      - gsm8k
+      - ifeval
+    limit: 20
+    include_native_overlap: false
+
+  cross-validation:
+    tasks:
+      - gsm8k
+      - ifeval
+    limit: 10
+    include_native_overlap: true

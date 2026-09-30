@@ -4,6 +4,8 @@ import json
 import os
 import shutil
 import subprocess
+
+import yaml
 from pathlib import Path
 from typing import Any
 
@@ -244,6 +246,138 @@ def run_builtin_profile(
     }
 
 
+
+
+
+_SENSITIVE_PROFILE_KEYS = {
+    "api_key",
+    "apikey",
+    "authorization",
+    "token",
+    "secret",
+    "password",
+}
+
+
+def _reject_profile_secrets(value: Any, *, path: str = "profile") -> None:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            normalized = str(key).strip().lower().replace("-", "_")
+            if normalized in _SENSITIVE_PROFILE_KEYS:
+                raise ValueError(
+                    f"lm-eval profile must not contain secrets: {path}.{key}"
+                )
+            _reject_profile_secrets(nested, path=f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            _reject_profile_secrets(nested, path=f"{path}[{index}]")
+
+
+def load_profile_file(
+    path: str | Path,
+    profile_name: str,
+) -> dict[str, Any]:
+    config_path = Path(path)
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError("lm-eval profile YAML root must be an object")
+    _reject_profile_secrets(raw)
+
+    profiles = raw.get("profiles")
+    if not isinstance(profiles, dict):
+        raise ValueError("lm-eval profile YAML must contain a profiles object")
+    profile = profiles.get(profile_name)
+    if not isinstance(profile, dict):
+        raise KeyError(f"unknown lm-eval profile: {profile_name}")
+
+    tasks = profile.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        raise ValueError(f"lm-eval profile {profile_name!r} has no tasks")
+
+    clean_tasks: list[str] = []
+    for task in tasks:
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError(
+                f"lm-eval profile {profile_name!r} contains an invalid task"
+            )
+        task_name = task.strip()
+        if task_name not in clean_tasks:
+            clean_tasks.append(task_name)
+
+    limit = profile.get("limit")
+    if limit is not None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError("lm-eval profile limit must be a positive integer")
+
+    include_overlap = profile.get("include_native_overlap", False)
+    if not isinstance(include_overlap, bool):
+        raise ValueError("include_native_overlap must be boolean")
+
+    builtin_tasks = load_builtin_profiles()["tasks"]
+    selected_tasks = list(clean_tasks)
+    skipped_tasks: list[str] = []
+    if not include_overlap:
+        selected_tasks = [
+            task
+            for task in clean_tasks
+            if not bool((builtin_tasks.get(task) or {}).get("native_overlap"))
+        ]
+        skipped_tasks = [
+            task for task in clean_tasks if task not in selected_tasks
+        ]
+
+    if not selected_tasks:
+        raise ValueError(
+            f"lm-eval profile {profile_name!r} has no tasks after overlap filtering"
+        )
+
+    return {
+        "name": profile_name,
+        "source": str(config_path),
+        "tasks": selected_tasks,
+        "candidate_tasks": clean_tasks,
+        "skipped_tasks": skipped_tasks,
+        "limit": limit,
+        "include_native_overlap": include_overlap,
+    }
+
+
+def run_profile_file(
+    *,
+    profile_file: str | Path,
+    profile_name: str,
+    base_url: str,
+    model: str,
+    api_key: str,
+    output_path: str | Path,
+    num_concurrent: int = 1,
+    max_retries: int = 3,
+    timeout_seconds: float = 1800,
+    binary: str | None = None,
+) -> dict[str, Any]:
+    profile = load_profile_file(profile_file, profile_name)
+    result = run_endpoint(
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        tasks=profile["tasks"],
+        output_path=output_path,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        limit=profile["limit"],
+        timeout_seconds=timeout_seconds,
+        binary=binary,
+    )
+    return {
+        **result,
+        "profile": profile["name"],
+        "profile_source": profile["source"],
+        "tasks": profile["tasks"],
+        "skipped_tasks": profile["skipped_tasks"],
+        "deduplicated_against_capability_lite": (
+            not profile["include_native_overlap"]
+        ),
+    }
 
 _PRIMARY_METRICS: dict[str, list[str]] = {
     "gsm8k": [
