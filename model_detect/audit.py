@@ -86,6 +86,7 @@ def _rule_results(model: str, results: list[ProbeResult]) -> list[ProbeResult]:
                     "rule_id": item["rule_id"],
                     "strict": item["strict"],
                     "feature": item["feature"],
+                    "identity_strength": "weak",
                 },
             )
         )
