@@ -1,149 +1,150 @@
-# V1 实现说明
+# 当前实现状态与缺口
 
-## 状态
+> 本文用于回答“现在到底做到哪里”。  
+> 架构见 `02-architecture.md`，后续计划见 `03-development-plan.md`。
 
-V1 已实现并进入可运行阶段。
+## 1. 当前发布状态
 
-目标：
+版本：`0.2.0`
 
-> 面向 AI 中转站 / LLM Provider 准入，用一套可解释的黑盒审计流程，在客户之前发现模型替换、协议差异、Provider 指纹、参数降级、上下文截断和混合路由。
+当前 V1 已经能完成一条完整的供应商准入审计：
 
-## 已完成阶段
+```text
+Endpoint
+  ↓
+Protocol
+  ↓
+Provider Fingerprint
+  ↓
+Parameter Integrity
+  ↓
+Context
+  ↓
+Routing
+  ↓
+Capability Lite
+  ↓
+Reference / Fingerprint / proxy-sleuth
+  ↓
+Score / Verdict
+  ↓
+Evidence / Report / Web
+```
 
-### Phase 1 — Audit Core
+## 2. 已完成
 
-- CLI
-- Config
-- Unified Probe Result
-- Evidence
-- Secret Redaction
-- JSON / HTML Report
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| Audit Core | ✅ | CLI / Web 都可运行 |
+| Unified Probe | ✅ | 统一 status/score/confidence/evidence |
+| Evidence | ✅ | Request / Response / Header / Error |
+| Secret Redaction | ✅ | API Key 不进入报告 |
+| Provider Fingerprint | ✅ | YAML 可维护 |
+| OpenAI Chat | ✅ | native |
+| Streaming | ✅ | SSE |
+| Responses API | ✅ | feature probe |
+| Reasoning | ✅ | valid / invalid / low-medium-high |
+| Thinking | ✅ | 当前先记录行为 |
+| Tool Calling | ✅ | basic / choice / schema / parallel |
+| JSON | ✅ | JSON mode / schema / invalid schema |
+| Integrity | 🟡 | 基础版完成 |
+| Context | ✅ | 8K / 16K / 32K |
+| Routing | 🟡 | 基础版完成 |
+| Capability Lite | ✅ | 当前 25 题 |
+| Coding Execution | ❌ | 当前只有代码理解题 |
+| Reference Registry | ✅ | collect/list/show/verify/import |
+| Statistical Fingerprint | 🟡 | collect/verify/mean JSD 已有 |
+| proxy-sleuth | ✅ | 分层映射 |
+| Scoring | ✅ | weights + hard cap |
+| Identity Strength | ✅ | weak/medium/strong |
+| HTML / JSON Report | ✅ | Evidence 链接 |
+| Drift Compare | ✅ | 手动 report compare |
+| Web | ✅ | Audit / history / reference |
+| Scheduler | ❌ | 未做 |
+| Trend | ❌ | 未做 |
+| Anthropic Native | ❌ | 未做 |
+| Gemini Native | ❌ | 未做 |
+| promptfoo Adapter | ❌ | 未做 |
+| lm-eval Adapter | ❌ | 未做 |
+| PostgreSQL / Queue | ❌ | V2 再做 |
+| Multi-user / RBAC | ❌ | V2 再做 |
+| Performance Test | 🚫 | 明确不集成 |
 
-### Phase 2 — Protocol / Provider
+## 3. 当前“真实性”能力边界
 
-- Chat Completions
-- SSE
-- Responses API feature detection
-- usage / finish_reason
-- invalid model / field / enum
-- reasoning
-- thinking
-- tools / tool_choice / parallel tools
-- JSON mode / JSON Schema
-- Provider Fingerprint YAML DB
+已有强项：
 
-### Phase 3 — Identity
+- Trusted Reference
+- Statistical Fingerprint
+- Protocol Signature
+- Model Rule
+- Provider Fingerprint
+- Knowledge / Statistical OSS Layer
+- Routing 重复采样
 
-- llm-fingerprint-detector adapter
-- proxy-sleuth layered adapter
-- Reference Registry
-- protocol signature reference
-- fingerprint collect / import / verify
-- model rules
-- weak / medium / strong evidence semantics
+仍需要补强：
 
-### Phase 4 — Integrity / Routing
+- per-cell fingerprint
+- split-half self consistency
+- fingerprint routing consistency
+- fact inversion
+- routing cluster
 
-- max_tokens
-- stop
-- sampling controls
-- reasoning effect
-- Context Needle
-- repeated routing signature
-- model-field drift
-- response-schema drift
-- id-prefix drift
-- quality inversion
+所以当前报告可以作为供应商准入依据之一，但不应该表达成：
 
-### Phase 5 — Capability Lite
+> 100% 证明某模型是真的。
 
-25 个确定性、低成本任务：
+正确表达：
 
-- Reasoning
-- Math
-- Coding reasoning
-- Chinese
-- Instruction Following
+- match
+- review
+- mismatch
+- insufficient
 
-另外 Tool Use / Structured Output 直接复用协议 Probe，不重复消耗请求。
+并展示证据。
 
-### Phase 6 — Score
+## 4. 当前“能力评分”边界
 
-- Category weights
-- Hard Cap
-- Identity mismatch cap
-- Mixed routing cap
-- Critical protocol cap
-- strong identity evidence requirement
+当前 Capability Lite 适合：
 
-### Phase 7 — Web
+- 供应商准入
+- 明显能力降级检测
+- 横向粗粒度能力画像
 
-- Audit form
-- background job
-- SQLite history
-- progress
-- report
-- evidence
-- report ZIP
-- Reference list / collect / delete
+不适合：
 
-## Quick / Standard / Deep
+- 权威模型排行榜
+- 大模型综合 benchmark 排名
 
-### Quick
+后续通过：
 
-用于初筛。
+- 扩题
+- Coding sandbox
+- lm-eval
 
-### Standard
+提高能力评分可信度。
 
-默认供应商准入档。
+## 5. 当前“Provider Fingerprint”边界
 
-包含 8K Context 与轻量 Capability。
+用于判断：
 
-### Deep
+> 这个 API 暴露出了哪些 Provider / Gateway 特征。
 
-用于重要上游和正式准入。
+不是：
 
-包含更高 Routing 样本、8K/16K/32K Context 和完整 Capability Lite。
+> 精确证明整条供应链。
 
-## 开源复用
+例如 Azure APIM + Fireworks 同时出现时，应解释为：
 
-### ToseaAI/llm-fingerprint-detector
+> 当前证据同时命中 Azure API Management 与 Fireworks 特征，可能存在对应网关/上游链路。
 
-用途：
+而不是直接宣称完整供应链拓扑。
 
-- Trusted fingerprint collection
-- Reference verification
-- JSD statistical identity evidence
+## 6. 下一步
 
-### Babapei/proxy-sleuth
+直接执行 `03-development-plan.md` 的 V1.1 P0：
 
-其层级结果被映射到 model-detect：
-
-- param_integrity -> integrity
-- context_truncation -> context
-- api_features -> protocol
-- knowledge_probes -> identity
-- statistical -> identity
-- capability -> capability
-- mixed_routing -> routing
-
-model-detect 不复制其全部实现，而是保留 Adapter 边界。
-
-## 不做性能测试
-
-V1 不包含：
-
-- TTFT
-- ITL
-- TPS
-- RPM / TPM
-- 并发吞吐
-- 429 压力测试
-
-原因是用户已有独立性能测试脚本，并且性能质量和模型真实性是两个不同产品问题。
-
-## 当前原生协议边界
-
-V1 原生 Probe 以 OpenAI-compatible API 为主。
-
-其它协议可由 proxy-sleuth 提供补充检测；后续只有在实际供应商准入需要时，再增加 Anthropic / Gemini 原生 Probe，不把 V1 做成无边界的大而全兼容层。
+1. Fingerprint 深化
+2. Parameter Integrity 补齐
+3. Mixed Routing 深化
+4. Coding Sandbox

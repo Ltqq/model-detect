@@ -1,463 +1,513 @@
-# 开发计划
+# 开发计划与路线图
 
-## 总原则
+> 本文从 2026-09-30 起作为 model-detect 的主开发计划。  
+> 旧文档中“建议做什么”的内容以本文件状态为准。
 
-先做“能发现真实问题”的内核，再做 UI。
+## 1. 当前状态
 
-不一上来做：
+### V1 主链：已完成
 
-- 登录系统
-- 权限
+- [x] CLI
+- [x] FastAPI Web
+- [x] Unified Probe Result
+- [x] Raw Evidence
+- [x] API Key 脱敏
+- [x] JSON / HTML Report
+- [x] Provider Fingerprint
+- [x] OpenAI-compatible Protocol Probe
+- [x] Reasoning / Thinking
+- [x] Tool Calling
+- [x] JSON Mode / JSON Schema
+- [x] Parameter Integrity 基础版
+- [x] Context Needle
+- [x] Mixed Routing 基础版
+- [x] Capability Lite
+- [x] Score / Hard Cap
+- [x] Trusted Reference Registry
+- [x] llm-fingerprint-detector Adapter
+- [x] proxy-sleuth Adapter
+- [x] SQLite Job History
+- [x] Web Reference 管理
+- [x] Report ZIP
+- [x] Report Drift Compare
+- [x] CI / Wheel Package Check
+
+### 明确排除
+
+- [ ] 性能测试集成 —— **不做**
+
+TTFT / ITL / TPS / RPM / TPM / 吞吐 / 并发 / 429 压测继续由独立工具负责。
+
+---
+
+# 2. 下一阶段：V1.1 完整审计
+
+目标：
+
+> 补齐之前规划但 V1 只做了基础版的真实性、完整性、路由与能力检测，使 Deep Audit 真正适合供应商正式准入。
+
+优先级按 P0 → P1 → P2。
+
+---
+
+## P0-A：Fingerprint 深化
+
+### 目标
+
+让“模型真实性”从当前 verdict + mean JSD，升级为可解释的统计证据。
+
+### 任务
+
+- [ ] 解析 per-cell JSD
+- [ ] split-half JSD
+- [ ] identity.self_consistency
+- [ ] Reference fingerprint metadata/version
+- [ ] 显示 fingerprint cell 明细
+- [ ] 在 HTML/Web 展示 fingerprint evidence
+- [ ] fingerprint consistency 纳入 routing
+- [ ] 支持 bundled reference 导入与来源标识
+
+### 验收
+
+同一个可信 Endpoint 重复采样：
+
+- self-consistency 稳定
+- Reference verify 大体稳定
+
+明显不同模型：
+
+- 能给出可解释 mismatch/uncertain
+- 报告能看到导致差异的 cell
+
+---
+
+## P0-B：Parameter Integrity 补齐
+
+当前已有：
+
+- reasoning effect
+- max_tokens
+- stop
+- sampling controls
+
+继续补：
+
+- [ ] `integrity.system_prompt`
+- [ ] `integrity.tools.preserved`
+- [ ] `integrity.tool_definitions`
+- [ ] `integrity.json_schema.preserved`
+- [ ] `integrity.temperature`
+- [ ] `integrity.top_p`
+
+### 设计原则
+
+不能只判断“HTTP 200”。
+
+例如 Tool Definition Preservation 要比较：
+
+```text
+发送给中转的 schema
+    ↓
+模型实际 tool call 行为
+    ↓
+多组边界输入
+    ↓
+判断是否存在字段丢失/改写
+```
+
+System Prompt Injection 使用可复现 challenge set，不以“模型说自己有 system prompt”作为证据。
+
+---
+
+## P0-C：Mixed Routing 深化
+
+当前已有：
+
+- repeated request
+- model field drift
+- response schema drift
+- ID prefix drift
+- quality inversion
+
+继续补：
+
+- [ ] `routing.fingerprint.consistency`
+- [ ] `routing.fact_inversion`
+- [ ] `routing.cluster`
+- [ ] 多时间窗口采样
+- [ ] 简单题 / 复杂题分层
+- [ ] Reference fingerprint cluster 对比
+
+### 第一版聚类
+
+不要先上重 ML。
+
+先使用可解释 feature：
+
+- response model
+- response id prefix
+- schema signature
+- tool-call style
+- reasoning metadata
+- fingerprint distance
+- deterministic answer consistency
+
+再做简单聚类/分桶。
+
+---
+
+## P0-D：Coding 执行评测
+
+当前 Coding 是代码理解题，不是真正代码生成验证。
+
+目标：
+
+```text
+Prompt
+  ↓
+Model generates code
+  ↓
+Extract code
+  ↓
+Sandbox
+  ↓
+Unit tests
+  ↓
+Capability score
+```
+
+### 技术方案
+
+首选 Docker sandbox：
+
+- 无网络
+- CPU 限制
+- 内存限制
+- 超时
+- 只读基础文件系统
+- 临时工作目录
+- 禁止宿主目录挂载
+
+首批语言：
+
+- Python
+- Go
+
+首批规模：
+
+- Standard：每种 2–3 题
+- Deep：每种 5–10 题
+
+不自己造大型 benchmark，题目优先来自许可证允许的公开 task 或自建小题。
+
+---
+
+# 3. P1：能力评测体系增强
+
+## Capability Dataset
+
+当前 25 题。
+
+目标：
+
+- [ ] Reasoning 20+
+- [ ] Math 20+
+- [ ] Coding execute 10+
+- [ ] Chinese 20+
+- [ ] Instruction Following 20+
+- [ ] Tool Use 场景化
+- [ ] Structured Output 场景化
+
+预计 Deep 总量控制在 80–150 个低成本任务，不做几千题排行榜。
+
+## lm-evaluation-harness Adapter
+
+- [ ] API Endpoint 调通
+- [ ] 选择少量 task
+- [ ] 统一结果格式
+- [ ] 不重复运行 Capability Lite 已覆盖内容
+- [ ] 可配置 benchmark profile
+
+用途：
+
+> 给 Capability 分数提供外部公开 benchmark 参照，而不是替代 model-detect 自有准入 Probe。
+
+## promptfoo Adapter
+
+- [ ] 自定义 HTTP Provider
+- [ ] YAML Test Case
+- [ ] JSON Schema assertions
+- [ ] Tool Call assertions
+- [ ] Repeat assertions
+- [ ] Custom Python/JS assert
+- [ ] 结果映射 Unified Probe Result
+
+用途：
+
+> 把客户临时提出的协议问题快速沉淀成 declarative regression probe。
+
+例如 Kimi K3：
+
+```text
+错误 reasoning 字段
+thinking 限制
+特定 tool schema
+特殊返回字段
+```
+
+不需要每次改 Python 主程序。
+
+---
+
+# 4. P1：模型 / Provider 知识库
+
+## 模型规则库
+
+当前：
+
+- default
+- kimi-k3
+
+继续增加时遵循“有证据才写”：
+
+- [ ] GLM 系列
+- [ ] Qwen 系列
+- [ ] DeepSeek 系列
+- [ ] Claude 系列
+- [ ] GPT 系列
+- [ ] Gemini 系列
+
+每条规则记录：
+
+- 来源
+- 适用版本
+- collected_at
+- 官方 / Reference / empirical
+- expected behavior
+- strict / non-strict
+
+## Provider Fingerprint DB
+
+继续扩：
+
+- header
+- error schema
+- ID format
+- model alias
+- SSE format
+- Gateway 特征
+
+同时增加：
+
+- [ ] rule version
+- [ ] evidence source
+- [ ] false-positive notes
+- [ ] confidence calibration
+
+---
+
+# 5. P1：多协议原生支持
+
+## OpenAI-compatible
+
+继续作为主协议。
+
+## Anthropic Native Adapter
+
+- [ ] `/v1/messages`
+- [ ] stream event
+- [ ] usage
+- [ ] tool_use
+- [ ] thinking
+- [ ] stop_reason
+- [ ] invalid parameter behavior
+- [ ] Evidence normalization
+
+## Gemini Native Adapter
+
+- [ ] generateContent
+- [ ] streamGenerateContent
+- [ ] function calling
+- [ ] structured output
+- [ ] thinking / reasoning fields
+- [ ] invalid parameter behavior
+- [ ] Evidence normalization
+
+## Protocol abstraction
+
+避免在 Probe 内写大量：
+
+```text
+if openai ...
+elif anthropic ...
+elif gemini ...
+```
+
+目标抽象：
+
+```text
+ProtocolClient
+  ├─ OpenAIClient
+  ├─ AnthropicClient
+  └─ GeminiClient
+```
+
+Probe 使用统一 capability interface。
+
+---
+
+# 6. P1：Web 与 Drift
+
+## Web
+
+- [ ] Protocol selector
+- [ ] Probe 明细筛选
+- [ ] Evidence Drawer
+- [ ] Category 图表
+- [ ] Fingerprint 明细
+- [ ] Reference Detail
+- [ ] Compare 两次 Report
+
+## 自动重测
+
+- [ ] Saved Endpoint
+- [ ] Schedule
+- [ ] 周期性 Standard Audit
+- [ ] Reference drift
+- [ ] Provider drift
+- [ ] Probe regression
+- [ ] 通知接口
+
+V1.1 先做本地 scheduler 即可，不上 Redis。
+
+## 历史趋势
+
+趋势数据：
+
+- overall score
+- category scores
+- provider hypothesis
+- fingerprint distance
+- routing verdict
+- selected probes
+
+目标是看变化，不做性能 Dashboard。
+
+---
+
+# 7. P2：生产化 V2
+
+只有多人正式使用后再做。
+
+## 存储
+
+SQLite → PostgreSQL：
+
+- audit_job
+- endpoint
+- reference
+- probe_result
+- evidence metadata
+- drift event
+- schedule
+- user / team
+
+Evidence 大正文不建议全部塞 PG，可放：
+
+- filesystem
+- OSS / S3-compatible object storage
+
+PG 保存索引。
+
+## Queue
+
+达到并发任务需求后：
+
+```text
+FastAPI
+  ↓
+Redis Queue
+  ↓
+Audit Worker
+```
+
+Worker 独立运行 Deep Audit。
+
+## 多用户
+
+- [ ] 登录
+- [ ] Team
+- [ ] RBAC
+- [ ] Endpoint Secret 管理
+- [ ] Audit 操作记录
+- [ ] Reference 权限
+- [ ] Report Share
+
+## Secret
+
+生产环境不允许 API Key 明文长期落库。
+
+候选：
+
+- 环境 Secret
+- Vault/KMS
+- 加密后的 credential store
+
+---
+
+# 8. 开发顺序
+
+从当前 `main` 往后严格按：
+
+```text
+V1.1-1 Fingerprint 深化
+      ↓
+V1.1-2 Integrity 补齐
+      ↓
+V1.1-3 Mixed Routing 深化
+      ↓
+V1.1-4 Coding Sandbox
+      ↓
+V1.1-5 Capability 扩展
+      ↓
+V1.1-6 promptfoo / lm-eval
+      ↓
+V1.1-7 Model / Provider DB
+      ↓
+V1.2   Anthropic / Gemini
+      ↓
+V1.2   Web Compare / Schedule / Trend
+      ↓
+V2     PostgreSQL / Queue / Multi-user
+```
+
+不建议先做：
+
 - 大屏
 - 排行榜
-- 多租户
-- 性能压测
-
----
-
-# Phase 0：开源项目验证
-
-目标：
-
-确认哪些能力可以直接拿来用。
-
-## 任务
-
-### 0.1 proxy-sleuth
-
-验证：
-
-- param-integrity
-- api-features
-- context
-- knowledge
-- routing
-
-要求：
-
-- 用一个官方 Endpoint
-- 用一个中转 Endpoint
-- 对比输出
-- 看是否能作为 Python library 调用
-- 找出哪些 detector 可直接 import，哪些要重新封装
-
-产出：
-
-`docs/research/proxy-sleuth.md`
-
-### 0.2 llm-fingerprint-detector
-
-验证：
-
-- fingerprint 官方 endpoint
-- fingerprint 中转 endpoint
-- verify
-- bundled references
-- split-half JSD
-- reasoning adapter
-
-产出：
-
-`docs/research/llm-fingerprint-detector.md`
-
-### 0.3 promptfoo
-
-验证：
-
-- 自定义 HTTP endpoint
-- status assertion
-- JSON schema
-- tool call
-- repeat
-- custom assertion
-
-产出：
-
-`docs/research/promptfoo.md`
-
-### 0.4 lm-evaluation-harness
-
-只验证 API 模型调用和少量 task。
-
-不做大规模 benchmark。
-
----
-
-# Phase 1：Audit Core MVP
-
-目标：
-
-不做 Web，也能通过 CLI 跑完整一次审计。
-
-## 功能
-
-### Endpoint Config
-
-```yaml
-base_url:
-api_key_env:
-model:
-protocol:
-profile:
-```
-
-### Job Runner
-
-```bash
-model-detect audit config.yaml
-```
-
-### Unified Probe Result
-
-建立统一结果模型。
-
-### Evidence
-
-所有请求响应脱敏后可落盘。
-
-### Report JSON
-
-先输出：
-
-```text
-report.json
-evidence/
-raw/
-```
-
-## 验收
-
-能对两个 endpoint 跑一次完整 Quick Audit。
-
----
-
-# Phase 2：协议和上游指纹
-
-目标：
-
-先把最贴近当前业务的问题解决。
-
-## Provider Fingerprint
-
-支持第一批：
-
-- Azure APIM
-- Fireworks
-- OpenRouter
-- Together
-- DeepInfra
-- Anthropic
-- OpenAI
-- Google / Vertex
-- AWS Bedrock
-- vLLM
-- SGLang
-
-注意：
-
-每条规则必须：
-
-- 有 evidence
-- 有 confidence
-- 可配置
-
-## Protocol Probe
-
-第一批：
-
-- chat completion
-- stream
-- usage
-- model field
-- finish reason
-- invalid model
-- invalid param
-- unknown param
-- tools
-- tool_choice
-- json mode
-- json schema
-- reasoning_effort
-- thinking
-- temperature
-- top_p
-- max_tokens
-
-## 验收
-
-可以复现类似：
-
-```text
-FW-Kimi-K3 + Azure APIM
-```
-
-这种结果的证据链。
-
----
-
-# Phase 3：真实性检测
-
-## 3.1 Statistical Fingerprint
-
-接入 `llm-fingerprint-detector`。
-
-功能：
-
-- collect reference
-- verify
-- import bundled reference
-- 保存 artifact
-- 查看 per-cell JSD
-- 查看 split-half JSD
-
-## 3.2 Knowledge / Behavior Probe
-
-优先复用 proxy-sleuth。
-
-## 3.3 Reference Registry
-
-CLI：
-
-```bash
-model-detect reference collect ...
-model-detect reference list
-model-detect reference verify ...
-```
-
-## 验收
-
-同模型同 Endpoint 多次：
-
-大体稳定。
-
-不同模型：
-
-能明显产生差异。
-
-不要求“100% 判真”。
-
----
-
-# Phase 4：完整性 / 混合路由
-
-## Parameter Integrity
-
-检测：
-
-- reasoning downgrade
-- max token clamp
-- system prompt injection
-- tool removal
-- sampling param ignore
-
-## Context
-
-复用 proxy-sleuth Needle-in-Haystack 思路。
-
-V1 不追求测试最大极限 context。
-
-主要判断：
-
-> 是否明显早于声明窗口被截断。
-
-## Routing
-
-重复采样：
-
-- 相同 Probe 重复
-- 简单题 / 复杂题
-- 行为簇差异
-- fingerprint self consistency
-
-输出：
-
-```text
-stable
-suspicious
-mixed-routing-likely
-insufficient
-```
-
----
-
-# Phase 5：Capability Lite
-
-目标：
-
-有一个可解释能力画像，但不变成 benchmark 大平台。
-
-## 能力项
-
-建议：
-
-### Reasoning
-
-10–30 道高区分度题。
-
-### Math
-
-10–30 道自动判分题。
-
-### Coding
-
-执行验证，小规模。
-
-### Chinese
-
-中文指令、表达、知识。
-
-### Instruction Following
-
-约束遵循。
-
-### Tool Use
-
-通过 protocol probe 共用。
-
-### Structured Output
-
-通过 protocol probe 共用。
-
-## 复用
-
-优先：
-
-- lm-evaluation-harness task
-- proxy-sleuth capability
-- promptfoo assertion
-
-避免自己维护大数据集。
-
----
-
-# Phase 6：Score Engine
-
-## 分数
-
-建议：
-
-```text
-Identity               35
-Protocol               20
-Parameter Integrity    15
-Context                10
-Routing                10
-Capability             10
-```
-
-这只是初始权重，最终要用真实案例校准。
-
-## Hard Cap
-
-必须实现。
-
-示例：
-
-```text
-identity=mismatch         total <= 40
-mixed-routing-likely      total <= 60
-protocol critical fail    total <= 60
-insufficient evidence     no high-confidence score
-```
-
-Provider Fingerprint 不参与总分。
-
----
-
-# Phase 7：Web MVP
-
-只有 Audit Core 稳定后再做。
-
-## 页面
-
-### New Audit
-
-输入：
-
-- Base URL
-- API Key
-- Model
-- Protocol
-- Profile
-
-### Audit Progress
-
-显示 Probe 执行状态。
-
-### Report
-
-显示：
-
-- 总结
-- 身份
-- 协议
-- 完整性
-- 能力
-- Provider fingerprint
-- Raw Evidence
-
-### Reference
-
-管理可信 Reference。
-
----
-
-# Phase 8：生产化
-
-后面再考虑：
-
+- 登录权限
 - PostgreSQL
-- Redis queue
-- 历史趋势
-- 周期性重测
-- Provider baseline drift
-- CI / API
-- 多用户
-- 权限
-- 报告导出
+- Redis
+- 漂亮重前端
+
+直到真实性和准入检测的准确性稳定。
 
 ---
 
-# 第一版开发顺序
+# 9. V1.1 Definition of Done
 
-建议严格按这个顺序：
+V1.1 完成必须满足：
 
-```text
-1. OSS research
-2. Unified models
-3. Evidence
-4. Native HTTP probes
-5. Provider fingerprint
-6. proxy-sleuth adapter
-7. statistical fingerprint adapter
-8. Reference Registry
-9. routing/context
-10. capability lite
-11. score engine
-12. web
-```
-
-不要反过来先写 Web。
-
----
-
-# MVP Definition of Done
-
-第一版必须达到：
-
-- [ ] OpenAI-compatible endpoint 可以直接测
-- [ ] API Key 不进入日志
-- [ ] 能抓完整 response headers / error body
-- [ ] Provider fingerprint 至少覆盖 5 个常见上游
-- [ ] 15+ protocol probes
-- [ ] 接入 proxy-sleuth 至少 3 层
-- [ ] 接入 llm-fingerprint-detector
-- [ ] 支持 trusted reference
-- [ ] context truncation
-- [ ] mixed routing 基础判断
-- [ ] capability lite
-- [ ] JSON report
-- [ ] HTML report
-- [ ] 每个结论都可点回 evidence
-- [ ] 不包含性能压测
-
+- [ ] strong identity 可以展示完整统计证据
+- [ ] self-consistency 可检查
+- [ ] system/tool/schema preservation 有 Probe
+- [ ] fingerprint routing consistency
+- [ ] routing cluster 基础版
+- [ ] code generation sandbox execution
+- [ ] Capability Deep >= 80 个有效 task 或等效外部 benchmark
+- [ ] promptfoo 可作为 declarative regression adapter
+- [ ] lm-eval 至少一个 benchmark profile 可运行
+- [ ] Model Rule 有版本和来源
+- [ ] Web 可查看更完整 identity/routing evidence
+- [ ] 所有新增结论可回溯 Evidence
+- [ ] 不引入性能测试
