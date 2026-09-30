@@ -13,7 +13,7 @@ from .probes.context import run_context_suite
 from .probes.integrity import run_integrity_suite
 from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
 from .probes.provider import detect_provider_hypotheses
-from .probes.routing import run_routing_suite
+from .probes.routing import finalize_routing_analysis, run_routing_suite
 from .references import ReferenceRegistry, compare_protocol_signature
 from .rules import evaluate_rule_expectations, match_model_rule
 from .scoring import build_summary
@@ -292,6 +292,9 @@ async def run_audit(
             **proxy_sleuth.availability(),
             "status": "disabled",
         }
+
+    # Final routing verdict is computed after fingerprint/proxy-sleuth signals exist.
+    report.results.append(finalize_routing_analysis(report.results))
 
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()
