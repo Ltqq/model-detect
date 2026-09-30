@@ -54,10 +54,9 @@ def detect_provider_hypotheses(
         confidence = min(0.99, 1 - (0.5 ** max(raw_score, 0.01)))
         if confidence < 0.2:
             continue
-        label = str((rules.get(provider) or {}).get("label") or provider)
         out.append(
             ProviderHypothesis(
-                provider=label,
+                provider=provider,
                 confidence=round(confidence, 3),
                 evidence=list(dict.fromkeys(reasons[provider])),
             )
