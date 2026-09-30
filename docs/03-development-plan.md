@@ -1,8 +1,8 @@
 # 开发计划与路线图
 
 > 本文件从 2026-09-30 起作为 model-detect 主开发计划。  
-> 目标始终是：**AI 中转站 / 上游供应商准入与持续审计**。  
-> 性能测试永久独立，不进入本项目。
+> 当前产品目标：**单机自用的 AI 中转站 / 上游供应商准入检测工具**。  
+> 只需要 Web 检测、报告与本地历史记录。性能测试和平台化能力永久独立。
 
 ## 1. 已完成主链
 
@@ -214,65 +214,55 @@
 - [x] 只写官方可验证能力
 - [x] expected feature 必须可追溯
 
-# 7. 后续优先级
+# 7. Lightweight Closure 最后一批 5 个小阶段
 
-完成以上 5 项后：
+这一批完成后停止功能扩张。
 
-## promptfoo 完整化
+## Stage 1 — 产品范围收口
 
-- Custom Python/JS assertion：显式 opt-in 后再支持
-- Repeat assertions
-- 客户 case -> regression library
-- regression suite -> audit orchestration
+- [x] 单机单用户
+- [x] Web + Report + SQLite History 为最终产品形态
+- [x] Saved Endpoint / Scheduler / Notification / RBAC 移出路线
+- [x] 性能测试继续独立
 
-## Model / Provider Knowledge Base
+## Stage 2 — History Result UX
 
-- GLM
-- Qwen
-- DeepSeek
-- Claude
-- GPT
-- Gemini
+- [ ] 历史列表直接显示 Verdict / Score
+- [ ] HTML / JSON / ZIP 都有直接入口
+- [ ] 失败任务仍显示错误原因
 
-Provider DB 增加：
+## Stage 3 — History Filters
 
-- rule version
-- evidence source
-- false-positive notes
-- confidence calibration
+- [ ] 模型筛选
+- [ ] 状态筛选
+- [ ] Audit / Reference 类型筛选
+- [ ] 保持 SQLite 简单查询，不引入搜索服务
 
-## Web / Continuous Audit
+## Stage 4 — History Delete
 
-随后再做：
+- [ ] 删除 SQLite 记录
+- [ ] 同步删除对应报告目录
+- [ ] 清理对应临时 ZIP
+- [ ] 禁止删除运行中任务
+
+## Stage 5 — Local E2E Acceptance
+
+- [ ] Web 提交 Audit
+- [ ] 任务完成进入 History
+- [ ] HTML / JSON / ZIP 可访问
+- [ ] Filter 可用
+- [ ] Delete 可完整清理
+
+# 8. 明确不进入当前路线
 
 - Saved Endpoint
-- Web Report Compare
-- Local Scheduler
-- Provider Drift
-- Reference Drift
-- Probe Regression
-- Notification Hook
-- Trend
-
-# 8. 为什么现在不先做 Scheduler / Native Anthropic / Gemini
-
-当前主要业务输入仍是 OpenAI-compatible 中转 Endpoint。
-
-如果模型规则、回归测试和证据知识库还没有成熟，先做 Scheduler 只是在“自动重复跑不够好的检测”。
-
-所以顺序必须是：
-
-```text
-Regression + Knowledge
-        ↓
-更可靠的准入检测
-        ↓
-Saved Endpoint
-        ↓
-Scheduler / Drift
-```
-
-Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol Abstraction 设计后开发。
+- Scheduler / 定时巡检
+- 自动 Drift / 告警
+- Notification / Webhook
+- PostgreSQL / Redis / Worker
+- Login / RBAC / Team
+- 多租户 SaaS
+- Anthropic / Gemini Native Protocol（除非以后真有直接测 Native API 的需求）
 
 # 9. V1.1 Definition of Done
 

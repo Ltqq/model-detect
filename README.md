@@ -45,15 +45,23 @@ model-detect 要回答：
 - Provider Fingerprint v2 provenance
 - JSON / HTML / Web / Evidence / Drift Compare
 
-## 下一阶段
+## 当前产品形态
 
-重点不是继续堆 benchmark，而是：
+model-detect 现在定位为**单机、自用、轻量**工具：
 
-1. 扩充真实供应商 regression suites
-2. Saved Endpoint
-3. Audit 配置复用
-4. Scheduler / Drift
-5. 通知与趋势
+```text
+Web 发起检测
+  ↓
+生成 HTML / JSON / ZIP 报告
+  ↓
+SQLite 保存历史
+  ↓
+回看 / 筛选 / 下载 / 删除
+```
+
+不会继续建设 Saved Endpoint、Scheduler、通知、RBAC、PostgreSQL、Redis 等平台能力。
+
+最后只剩历史记录 UX 与本地 E2E 验收；之后主要维护 Model Rule、Provider Rule 和真实 Regression Case。
 
 详细文档：
 

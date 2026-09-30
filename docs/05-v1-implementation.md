@@ -57,10 +57,11 @@ Evidence / Report / Web
 | Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash |
 | Provider Rule provenance | ✅ | schema v2 + source refs + false-positive notes |
 | Report Drift Compare | ✅ | manual report compare |
-| Regression Audit Orchestration | 🟡 | runner complete; not yet wired into default audit profile |
-| Scheduler / Trend | ❌ | later |
-| Anthropic/Gemini Native | ❌ | later |
-| PostgreSQL / Redis / RBAC | ❌ | V2 |
+| Regression Audit Orchestration | ✅ | Audit/Profile/CLI/Web/Report 已接通 |
+| SQLite History | ✅ | 本地任务历史已保存，最后补 UX 收尾 |
+| Scheduler / Trend | 🚫 | 当前产品不需要 |
+| Anthropic/Gemini Native | 🚫 | 当前主要测 OpenAI-compatible relay |
+| PostgreSQL / Redis / RBAC | 🚫 | 单机自用不需要 |
 | Performance Test | 🚫 | explicitly out of scope |
 
 ## 3. 当前模型真实性边界
@@ -97,7 +98,10 @@ Evidence / Report / Web
 - Kimi K3
 - GLM-5.2
 - Qwen3.8
-- DeepSeek V4 / V4.1\n- Claude Fable 5.1 / Opus 5 / Sonnet 5\n- GPT-5.6 family\n- Gemini 3.8 Flash
+- DeepSeek V4 / V4.1
+- Claude Fable 5.1 / Opus 5 / Sonnet 5
+- GPT-5.6 family
+- Gemini 3.8 Flash
 
 原则：
 
@@ -108,11 +112,14 @@ Evidence / Report / Web
 
 ## 5. 当前真正缺口
 
-下一步最有价值的是：
+检测核心已经完成，剩余只做本地 Web 使用体验：
 
-1. 为常用渠道补更多真实供应商 regression suites；
-2. 建立 Saved Endpoint，使成熟准入配置可以复用；
-3. 将 Audit 配置和 Reference 绑定到 Endpoint；
-4. 随后进入 Scheduler / Drift automation。
+1. 历史列表展示 Verdict / Score；
+2. HTML / JSON / ZIP 直接访问；
+3. 简单模型 / 状态 / 类型筛选；
+4. 删除历史记录并同步清理报告文件；
+5. 一次本地 Web E2E 验收。
+
+完成后停止扩功能，日常只维护 Model Rule / Provider Rule / Regression Case。
 
 性能测试继续保持独立。
