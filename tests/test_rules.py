@@ -1,15 +1,24 @@
-from model_detect.rules import evaluate_rule_expectations, match_model_rule
+import pytest
+
+from model_detect.rules import (
+    ModelRule,
+    evaluate_rule_expectations,
+    match_model_rule,
+    normalize_model_rule,
+)
 
 
 def test_kimi_rule_matches():
     rule = match_model_rule("kimi-k3")
     assert rule.id == "kimi-k3"
+    assert rule.schema_version == 1
     assert "reasoning_effort" in rule.features
 
 
 def test_default_rule_matches_unknown_model():
     rule = match_model_rule("totally-unknown-model")
     assert rule.id == "default"
+    assert rule.schema_version == 1
 
 
 def test_non_strict_mismatch_is_warning():
@@ -23,3 +32,152 @@ def test_non_strict_mismatch_is_warning():
     statuses = {x["feature"]: x["status"] for x in rows}
     assert statuses["reasoning_effort"] == "warn"
     assert statuses["disable_thinking"] == "warn"
+    assert all(row["rule_schema_version"] == 1 for row in rows)
+
+
+def test_v1_rule_without_schema_version_is_backward_compatible():
+    rule = normalize_model_rule(
+        {
+            "id": "legacy",
+            "patterns": ["legacy-*"],
+            "features": {
+                "reasoning": {
+                    "expected": True,
+                }
+            },
+        }
+    )
+
+    assert rule.schema_version == 1
+    assert rule.family is None
+    assert rule.sources == []
+
+
+def test_v2_rule_loads_version_aliases_and_sources():
+    rule = normalize_model_rule(
+        {
+            "schema_version": 2,
+            "id": "kimi-k3",
+            "family": "kimi",
+            "model_version": "k3",
+            "patterns": ["kimi-k3"],
+            "aliases": ["moonshot-kimi-k3"],
+            "updated_at": "2026-09-30",
+            "sources": [
+                {
+                    "id": "official-reasoning",
+                    "type": "official_doc",
+                    "title": "Reasoning parameters",
+                    "url": "https://example.com/docs",
+                    "collected_at": "2026-09-30",
+                    "confidence": "high",
+                }
+            ],
+            "features": {
+                "reasoning_effort": {
+                    "expected": True,
+                    "values": ["low", "medium", "high"],
+                    "source_refs": ["official-reasoning"],
+                }
+            },
+        }
+    )
+
+    assert rule.schema_version == 2
+    assert rule.family == "kimi"
+    assert rule.model_version == "k3"
+    assert rule.aliases == ["moonshot-kimi-k3"]
+    assert rule.sources[0].type == "official_doc"
+    assert rule.sources[0].confidence == "high"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("type", "random_source"),
+        ("confidence", "certain"),
+    ],
+)
+def test_v2_rule_rejects_unknown_source_enum(field, value):
+    source = {
+        "id": "s1",
+        "type": "official_doc",
+        "confidence": "high",
+    }
+    source[field] = value
+
+    with pytest.raises(ValueError):
+        normalize_model_rule(
+            {
+                "schema_version": 2,
+                "id": "bad",
+                "patterns": ["bad"],
+                "sources": [source],
+                "features": {},
+            }
+        )
+
+
+def test_v2_rule_rejects_unknown_feature_source_ref():
+    with pytest.raises(ValueError, match="unknown sources"):
+        normalize_model_rule(
+            {
+                "schema_version": 2,
+                "id": "bad",
+                "patterns": ["bad"],
+                "sources": [],
+                "features": {
+                    "reasoning": {
+                        "expected": True,
+                        "source_refs": ["missing"],
+                    }
+                },
+            }
+        )
+
+
+def test_v2_rule_rejects_duplicate_source_ids():
+    with pytest.raises(ValueError, match="source ids must be unique"):
+        normalize_model_rule(
+            {
+                "schema_version": 2,
+                "id": "bad",
+                "patterns": ["bad"],
+                "sources": [
+                    {
+                        "id": "same",
+                        "type": "official_doc",
+                    },
+                    {
+                        "id": "same",
+                        "type": "empirical",
+                    },
+                ],
+                "features": {},
+            }
+        )
+
+
+def test_strict_v2_rule_rejects_only_low_confidence_community_sources():
+    with pytest.raises(ValueError, match="strict v2"):
+        ModelRule.model_validate(
+            {
+                "schema_version": 2,
+                "id": "bad-strict",
+                "patterns": ["bad"],
+                "strict": True,
+                "sources": [
+                    {
+                        "id": "community-only",
+                        "type": "community",
+                        "confidence": "low",
+                    }
+                ],
+                "features": {
+                    "reasoning": {
+                        "expected": True,
+                        "source_refs": ["community-only"],
+                    }
+                },
+            }
+        )
