@@ -100,13 +100,13 @@
 
 ## Stage 3 — promptfoo Regression YAML Loader
 
-- [ ] model-detect regression schema
-- [ ] YAML load / validation
-- [ ] deterministic assertions
-- [ ] JSON Schema assertion
-- [ ] Tool Call assertion
-- [ ] Repeat 基础字段
-- [ ] 禁止默认执行任意 JS/Python
+- [x] model-detect regression schema
+- [x] YAML load / validation
+- [x] deterministic assertions
+- [x] JSON Schema assertion
+- [x] Tool Call assertion
+- [x] Repeat 基础字段
+- [x] 禁止默认执行任意 JS/Python
 
 ## Stage 4 — promptfoo Result Mapping
 
