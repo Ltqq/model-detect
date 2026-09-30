@@ -8,7 +8,7 @@ from .adapters import fingerprint, proxy_sleuth
 from .config import AuditConfig, get_api_key
 from .http_client import AuditHttpClient
 from .models import AuditReport, Evidence, ProbeResult
-from .probes.protocol import QUICK_PROBES
+from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
 from .probes.provider import detect_provider_hypotheses
 from .scoring import build_summary
 
@@ -43,7 +43,15 @@ async def run_audit(
         },
     )
 
-    probes = list(QUICK_PROBES)
+    profile = (config.profile or "quick").lower()
+    if profile == "quick":
+        probes = list(QUICK_PROBES)
+    elif profile == "standard":
+        probes = list(STANDARD_PROBES)
+    elif profile == "deep":
+        probes = list(DEEP_PROBES)
+    else:
+        raise ValueError(f"unsupported profile: {config.profile!r}; use quick, standard or deep")
     total = len(probes)
     for index, probe in enumerate(probes, 1):
         if progress:
