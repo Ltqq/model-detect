@@ -214,12 +214,12 @@ Capability score
 
 ## Capability Dataset
 
-当前 40 题（Reasoning 20，其它 4 个维度各 5）。
+当前 55 题（Reasoning 20、Math 20，其它 3 个维度各 5）。
 
 目标：
 
 - [x] Reasoning 20+
-- [ ] Math 20+
+- [x] Math 20+
 - [ ] Coding execute 10+
 - [ ] Chinese 20+
 - [ ] Instruction Following 20+
