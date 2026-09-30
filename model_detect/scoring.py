@@ -30,6 +30,10 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for category, values in by_category.items()
         if values
     }
+    coverage = {
+        category: bool(by_category.get(category))
+        for category in DEFAULT_CATEGORY_WEIGHTS
+    }
 
     weighted = 0.0
     weight_total = 0.0
@@ -70,11 +74,25 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     if overall is not None and hard_cap is not None:
         overall = min(overall, hard_cap)
 
+    covered_count = sum(coverage.values())
+    if coverage["identity"] and covered_count >= 4:
+        confidence = "high"
+    elif coverage["identity"] or covered_count >= 3:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    if not coverage["identity"]:
+        warnings.append(
+            "identity evidence is insufficient; configure a trusted reference "
+            "or install/enable an identity detector before treating the endpoint as verified"
+        )
+
     if overall is None:
         verdict = "insufficient"
     elif identity_mismatch:
         verdict = "mismatch"
-    elif overall >= 85:
+    elif overall >= 85 and coverage["identity"]:
         verdict = "pass"
     elif overall >= 70:
         verdict = "review"
@@ -84,7 +102,9 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     return AuditSummary(
         overall_score=overall,
         category_scores=category_scores,
+        coverage=coverage,
         hard_cap=hard_cap,
         final_verdict=verdict,
-        warnings=warnings,
+        confidence=confidence,
+        warnings=list(dict.fromkeys(warnings)),
     )
