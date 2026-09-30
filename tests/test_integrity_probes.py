@@ -145,10 +145,8 @@ def test_temperature_observable_diversity_passes():
         response(text_body(value), ev_id=f"ev_{i}")
         for i, value in enumerate(low + high)
     ]
-    results, _ = await probe_temperature(
-        FakeClient(calls),
-        "m",
-        samples=4,
+    results, _ = asyncio.run(
+        probe_temperature(FakeClient(calls), "m", samples=4)
     )
     assert results[0].status == ProbeStatus.PASS
     assert results[0].observed["wide_unique"] == 4
