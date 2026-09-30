@@ -1079,4 +1079,5 @@ STANDARD_PROBES = QUICK_PROBES + [
 
 DEEP_PROBES = STANDARD_PROBES + [
     probe_tools_parallel,
+    probe_routing_model_consistency,
 ]
