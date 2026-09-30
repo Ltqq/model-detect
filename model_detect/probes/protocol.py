@@ -1053,6 +1053,49 @@ async def probe_json_invalid_schema(
         )
     ], [ev]
 
+
+async def probe_responses_basic(
+    client: AuditHttpClient, model: str
+) -> tuple[list[ProbeResult], list[Evidence]]:
+    """Optional OpenAI Responses API feature probe. Unsupported is not penalized."""
+    probe_id = "protocol.responses.basic"
+    call = await client.post_json(
+        probe_id=probe_id,
+        path="/responses",
+        payload={
+            "model": model,
+            "input": "Reply exactly RESPONSES_OK.",
+            "max_output_tokens": 32,
+        },
+    )
+    ev = call.evidence
+    supported = ev.response_status == 200 and isinstance(call.json_body, dict)
+    if supported:
+        status = ProbeStatus.PASS
+        summary = "Responses API accepted the request"
+    elif ev.response_status in {400, 404, 405, 422}:
+        status = ProbeStatus.SKIPPED
+        summary = f"Responses API not supported/compatible (HTTP {ev.response_status})"
+    elif ev.error:
+        status = ProbeStatus.ERROR
+        summary = ev.error
+    else:
+        status = ProbeStatus.WARN
+        summary = f"Responses API returned unexpected HTTP {ev.response_status}"
+    return [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=status,
+            score=None,
+            confidence=0.8,
+            summary=summary,
+            observed={"http_status": ev.response_status, "body": ev.response_body},
+            evidence_ids=[ev.id],
+            metadata={"responses_api_supported": supported},
+        )
+    ], [ev]
+
 QUICK_PROBES = [
     probe_basic,
     probe_response_metadata,
@@ -1067,6 +1110,7 @@ QUICK_PROBES = [
 ]
 
 STANDARD_PROBES = QUICK_PROBES + [
+    probe_responses_basic,
     probe_bad_enum,
     probe_reasoning_valid,
     probe_reasoning_invalid_value,
