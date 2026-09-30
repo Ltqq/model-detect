@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field
 
 from .adapters import fingerprint
 from .audit import run_audit
-from .config import AuditConfig
+from .config import AuditConfig, RegressionAuditConfig
 from .models import AuditTarget
 from .references import ReferenceRegistry
+from .probes.provider import load_provider_rule_set
+from .rules import match_model_rule
 from .reporting import write_report
 from .storage import JobStore
 
@@ -31,6 +33,7 @@ class WebAuditRequest(BaseModel):
     declared_context_tokens: int | None = None
     proxy_sleuth: bool = True
     coding_sandbox: bool = False
+    regression_suites: list[str] = Field(default_factory=list)
 
 
 class WebReferenceRequest(BaseModel):
@@ -43,23 +46,80 @@ class WebReferenceRequest(BaseModel):
     overwrite: bool = False
 
 
+
+def _list_regression_suites(root: Path) -> list[str]:
+    if not root.exists():
+        return []
+    out: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+            continue
+        out.append(path.relative_to(root).as_posix())
+    return out
+
+
+def _resolve_regression_suites(
+    root: Path,
+    selected: list[str],
+) -> list[str]:
+    catalog = set(_list_regression_suites(root))
+    unknown = sorted(set(selected) - catalog)
+    if unknown:
+        raise ValueError(f"unknown regression suites: {unknown}")
+    return [
+        str((root / name).resolve())
+        for name in dict.fromkeys(selected)
+    ]
+
+
+def _provider_provenance(
+    provider_ids: list[str],
+) -> list[dict[str, Any]]:
+    ruleset = load_provider_rule_set()
+    sources = {source.id: source for source in ruleset.sources}
+    out: list[dict[str, Any]] = []
+    for provider_id in provider_ids:
+        rule = ruleset.providers.get(provider_id)
+        if rule is None:
+            continue
+        out.append(
+            {
+                "provider": provider_id,
+                "label": rule.label,
+                "source_refs": list(rule.source_refs),
+                "sources": [
+                    sources[ref].model_dump(mode="json")
+                    for ref in rule.source_refs
+                    if ref in sources
+                ],
+                "false_positive_notes": list(rule.false_positive_notes),
+                "confidence_calibration": dict(rule.confidence_calibration),
+            }
+        )
+    return out
+
+
 def create_app(
     *,
     state_dir: str | Path = ".model-detect",
     reference_dir: str | Path = "references",
     output_dir: str | Path = "model-detect-output",
+    regression_dir: str | Path = "regressions",
 ) -> FastAPI:
     app = FastAPI(title="model-detect", version="0.2.0")
     state_root = Path(state_dir)
     state_root.mkdir(parents=True, exist_ok=True)
     store = JobStore(state_root / "jobs.sqlite3")
     registry = ReferenceRegistry(reference_dir)
+    regression_root = Path(regression_dir)
+    regression_root.mkdir(parents=True, exist_ok=True)
     templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
     app.state.store = store
     app.state.registry = registry
     app.state.output_dir = Path(output_dir)
     app.state.state_dir = state_root
+    app.state.regression_dir = regression_root
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request):
@@ -69,6 +129,7 @@ def create_app(
             context={
                 "jobs": store.list(50),
                 "references": registry.list(),
+                "regression_suites": _list_regression_suites(regression_root),
             },
         )
 
@@ -82,6 +143,22 @@ def create_app(
                 "jobs": [x for x in store.list(100) if x["kind"] == "reference"],
             },
         )
+
+    @app.get("/api/knowledge/model")
+    async def model_knowledge(model: str):
+        rule = match_model_rule(model)
+        return {"rule": rule.model_dump(mode="json")}
+
+    @app.get("/api/knowledge/providers")
+    async def provider_knowledge():
+        ruleset = load_provider_rule_set()
+        return ruleset.model_dump(mode="json")
+
+    @app.get("/api/regression-suites")
+    async def regression_suites():
+        return {
+            "suites": _list_regression_suites(app.state.regression_dir)
+        }
 
     @app.get("/api/jobs")
     async def jobs():
@@ -98,6 +175,13 @@ def create_app(
     async def create_audit_job(payload: WebAuditRequest):
         if payload.profile not in {"quick", "standard", "deep"}:
             raise HTTPException(400, "profile must be quick, standard or deep")
+        try:
+            regression_paths = _resolve_regression_suites(
+                app.state.regression_dir,
+                payload.regression_suites,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
         job_id = "audit_" + uuid.uuid4().hex[:12]
         store.create(
             job_id=job_id,
@@ -108,6 +192,10 @@ def create_app(
             meta={
                 "reference_id": payload.reference_id,
                 "coding_sandbox": payload.coding_sandbox,
+                "regression_suites": list(payload.regression_suites),
+                "regression_status": (
+                    "queued" if payload.regression_suites else "not_configured"
+                ),
             },
         )
         asyncio.create_task(
@@ -115,6 +203,7 @@ def create_app(
                 app,
                 job_id,
                 payload,
+                regression_paths,
             )
         )
         return store.get(job_id)
@@ -164,6 +253,13 @@ def create_app(
             lambda m: f'href="/api/audits/{job_id}/evidence/{m.group(1)}"',
             content,
         )
+        content = re.sub(
+            r'href="regression/([^"]+)"',
+            lambda m: (
+                f'href="/api/audits/{job_id}/regression/{m.group(1)}"'
+            ),
+            content,
+        )
         return HTMLResponse(content)
 
     @app.get("/api/audits/{job_id}/report")
@@ -193,6 +289,25 @@ def create_app(
         if not path.exists():
             raise HTTPException(404, "evidence not found")
         return JSONResponse(json.loads(path.read_text(encoding="utf-8")))
+
+    @app.get("/api/audits/{job_id}/regression/{artifact_path:path}")
+    async def regression_artifact(job_id: str, artifact_path: str):
+        try:
+            item = store.get(job_id)
+        except KeyError:
+            raise HTTPException(404, "job not found")
+        if not item.get("report_path"):
+            raise HTTPException(404, "report not ready")
+
+        root = (
+            Path(item["report_path"]).parent / "regression"
+        ).resolve()
+        candidate = (root / artifact_path).resolve()
+        if not candidate.is_relative_to(root):
+            raise HTTPException(400, "invalid regression artifact path")
+        if not candidate.exists() or not candidate.is_file():
+            raise HTTPException(404, "regression artifact not found")
+        return FileResponse(candidate)
 
     @app.get("/api/audits/{job_id}/download")
     async def download_report(job_id: str):
@@ -229,6 +344,7 @@ def _progress_value(name: str, current: int, total: int) -> float:
         "coding-sandbox": 0.84,
         "fingerprint-reference": 0.89,
         "proxy-sleuth": 0.94,
+        "regression-suite": 0.97,
     }
     return phase.get(name, 0.5)
 
@@ -237,6 +353,7 @@ async def _run_audit_job(
     app: FastAPI,
     job_id: str,
     payload: WebAuditRequest,
+    regression_paths: list[str] | None = None,
 ) -> None:
     store: JobStore = app.state.store
     registry: ReferenceRegistry = app.state.registry
@@ -256,6 +373,9 @@ async def _run_audit_job(
             declared_context_tokens=payload.declared_context_tokens,
             proxy_sleuth_enabled=payload.proxy_sleuth,
             coding_sandbox_enabled=payload.coding_sandbox,
+            regression=RegressionAuditConfig(
+                suites=list(regression_paths or []),
+            ),
         )
 
         def progress(name: str, current: int, total: int) -> None:
@@ -266,13 +386,31 @@ async def _run_audit_job(
                 detail=name,
             )
 
+        regression_work_dir = (
+            app.state.state_dir / "regression-runs" / job_id
+        )
         report = await run_audit(
             cfg,
             progress=progress,
             api_key_override=payload.api_key,
+            regression_output_dir=regression_work_dir,
         )
         root = app.state.output_dir / job_id
         write_report(report, root)
+        if regression_work_dir.exists():
+            shutil.rmtree(regression_work_dir, ignore_errors=True)
+
+        regression_adapter = report.adapters.get("promptfoo_regression")
+        regression_status = (
+            regression_adapter.get("status")
+            if isinstance(regression_adapter, dict)
+            else "not_configured"
+        )
+        model_rule = report.adapters.get("model_rule")
+        provider_provenance = _provider_provenance(
+            [item.provider for item in report.provider_hypotheses[:5]]
+        )
+
         store.finish(
             job_id,
             report_path=str(root / "report.html"),
@@ -283,6 +421,10 @@ async def _run_audit_job(
                 "provider_hypotheses": [
                     x.model_dump(mode="json") for x in report.provider_hypotheses
                 ],
+                "model_rule": model_rule,
+                "provider_provenance": provider_provenance,
+                "regression_suites": list(payload.regression_suites),
+                "regression_status": regression_status,
             },
         )
     except Exception as exc:

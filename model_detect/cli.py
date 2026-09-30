@@ -139,6 +139,11 @@ def web(
     state_dir: Path = typer.Option(Path(".model-detect"), "--state-dir"),
     reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
     output_dir: Path = typer.Option(Path("model-detect-output"), "--output-dir"),
+    regression_dir: Path = typer.Option(
+        Path("regressions"),
+        "--regression-dir",
+        help="Directory of Web-selectable regression YAML suites.",
+    ),
 ) -> None:
     """Start the local Web UI."""
     import uvicorn
@@ -146,13 +151,15 @@ def web(
 
     console.print(
         f"[bold]model-detect web[/bold] http://{host}:{port} "
-        f"(state={state_dir}, references={reference_dir})"
+        f"(state={state_dir}, references={reference_dir}, "
+        f"regressions={regression_dir})"
     )
     uvicorn.run(
         create_app(
             state_dir=state_dir,
             reference_dir=reference_dir,
             output_dir=output_dir,
+            regression_dir=regression_dir,
         ),
         host=host,
         port=port,
