@@ -144,10 +144,10 @@
 
 ## Stage 2 — Kimi-K3 v2 Rule migration
 
-- [ ] 迁移 kimi-k3.yaml
-- [ ] 官方文档 / empirical source
-- [ ] feature source_refs
-- [ ] 不改变现有 non-strict 判定语义
+- [x] 迁移 kimi-k3.yaml
+- [x] 官方文档 / empirical source
+- [x] feature source_refs
+- [x] 不改变现有 non-strict 判定语义
 
 ## Stage 3 — Provider Fingerprint provenance schema
 
