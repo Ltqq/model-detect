@@ -160,18 +160,66 @@ def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]
             )
         )
 
-    structured = by_id.get("protocol.json_schema") or by_id.get("protocol.json_mode")
-    if structured:
+    structured_probe_ids = [
+        "protocol.json_mode",
+        "protocol.json_schema",
+    ]
+    structured_scenarios = [
+        by_id[probe_id]
+        for probe_id in structured_probe_ids
+        if probe_id in by_id and by_id[probe_id].score is not None
+    ]
+    if structured_scenarios:
+        structured_score = (
+            sum(float(item.score) for item in structured_scenarios)
+            / len(structured_scenarios)
+        )
+        if structured_score >= 0.8:
+            structured_status = ProbeStatus.PASS
+        elif structured_score >= 0.5:
+            structured_status = ProbeStatus.WARN
+        else:
+            structured_status = ProbeStatus.FAIL
+        structured_evidence = list(
+            dict.fromkeys(
+                evidence_id
+                for item in structured_scenarios
+                for evidence_id in item.evidence_ids
+            )
+        )
         out.append(
             ProbeResult(
                 probe_id="capability.structured_output",
                 category="capability",
-                status=structured.status,
-                score=structured.score,
-                confidence=structured.confidence,
-                summary="derived from structured-output protocol probe: " + structured.summary,
-                evidence_ids=structured.evidence_ids,
-                metadata={"derived_from": structured.probe_id},
+                status=structured_status,
+                score=round(structured_score, 4),
+                confidence=min(
+                    0.9,
+                    sum(item.confidence for item in structured_scenarios)
+                    / len(structured_scenarios),
+                ),
+                summary=(
+                    f"structured output: {len(structured_scenarios)} "
+                    "scenario probes aggregated"
+                ),
+                observed={
+                    "scenarios": [
+                        {
+                            "probe_id": item.probe_id,
+                            "status": item.status.value,
+                            "score": item.score,
+                            "summary": item.summary,
+                        }
+                        for item in structured_scenarios
+                    ]
+                },
+                evidence_ids=structured_evidence,
+                metadata={
+                    "derived_from": [
+                        item.probe_id for item in structured_scenarios
+                    ],
+                    "scenario_count": len(structured_scenarios),
+                },
             )
         )
     return out

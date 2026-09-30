@@ -50,3 +50,42 @@ def test_tool_use_ignores_non_capability_validation_probe():
     assert tool.score == 1.0
     assert tool.status == ProbeStatus.PASS
     assert tool.metadata["scenario_count"] == 1
+
+
+def test_structured_output_aggregates_json_mode_and_schema():
+    existing = [
+        _result("protocol.json_mode", 1.0, ProbeStatus.PASS, "ev_json"),
+        _result("protocol.json_schema", 0.5, ProbeStatus.WARN, "ev_schema"),
+    ]
+
+    results = derived_capability_results(existing)
+    structured = next(
+        item for item in results
+        if item.probe_id == "capability.structured_output"
+    )
+
+    assert structured.score == 0.75
+    assert structured.status == ProbeStatus.WARN
+    assert structured.metadata["scenario_count"] == 2
+    assert structured.metadata["derived_from"] == [
+        "protocol.json_mode",
+        "protocol.json_schema",
+    ]
+    assert structured.evidence_ids == ["ev_json", "ev_schema"]
+
+
+def test_structured_output_ignores_invalid_schema_validation_probe():
+    existing = [
+        _result("protocol.json_schema", 1.0, ProbeStatus.PASS, "ev_schema"),
+        _result("protocol.json.invalid_schema", 0.0, ProbeStatus.FAIL, "ev_invalid"),
+    ]
+
+    results = derived_capability_results(existing)
+    structured = next(
+        item for item in results
+        if item.probe_id == "capability.structured_output"
+    )
+
+    assert structured.score == 1.0
+    assert structured.status == ProbeStatus.PASS
+    assert structured.metadata["scenario_count"] == 1
