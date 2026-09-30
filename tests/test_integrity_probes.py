@@ -1,6 +1,5 @@
+import asyncio
 import json
-
-import pytest
 
 from model_detect.http_client import CallResult
 from model_detect.models import Evidence, ProbeStatus
@@ -73,32 +72,29 @@ def tool_body(name, args):
     }
 
 
-@pytest.mark.asyncio
-async def test_system_prompt_probe_passes_three_canaries():
+def test_system_prompt_probe_passes_three_canaries():
     calls = [
         response(text_body(f"MD_SYSTEM_{i}_7A3"), ev_id=f"ev_{i}")
         for i in range(3)
     ]
-    results, evidence = await probe_system_prompt(FakeClient(calls), "m")
+    results, evidence = asyncio.run(probe_system_prompt(FakeClient(calls), "m"))
     assert results[0].status == ProbeStatus.PASS
     assert results[0].score == 1.0
     assert len(evidence) == 3
     assert results[0].metadata["server_prompt_injection_proof"] is False
 
 
-@pytest.mark.asyncio
-async def test_system_prompt_failure_is_warning_not_proof():
+def test_system_prompt_failure_is_warning_not_proof():
     calls = [
         response(text_body("wrong"), ev_id=f"ev_{i}")
         for i in range(3)
     ]
-    results, _ = await probe_system_prompt(FakeClient(calls), "m")
+    results, _ = asyncio.run(probe_system_prompt(FakeClient(calls), "m"))
     assert results[0].status == ProbeStatus.WARN
     assert results[0].metadata["server_prompt_injection_proof"] is False
 
 
-@pytest.mark.asyncio
-async def test_nested_tool_definition_is_checked():
+def test_nested_tool_definition_is_checked():
     body = tool_body(
         "record_route",
         {
@@ -106,51 +102,43 @@ async def test_nested_tool_definition_is_checked():
             "ticket": "MD-TICKET-71",
         },
     )
-    results, _ = await probe_tool_definitions(
-        FakeClient([response(body)]),
-        "m",
+    results, _ = asyncio.run(
+        probe_tool_definitions(FakeClient([response(body)]), "m")
     )
     assert results[0].status == ProbeStatus.PASS
 
 
-@pytest.mark.asyncio
-async def test_dynamic_tool_schema_changes_are_preserved():
+def test_dynamic_tool_schema_changes_are_preserved():
     calls = [
         response(tool_body("select_mode", {"mode": "ALPHA_ONLY"}), ev_id="ev_a"),
         response(tool_body("select_mode", {"mode": "BETA_ONLY"}), ev_id="ev_b"),
     ]
-    results, _ = await probe_tools_preserved(FakeClient(calls), "m")
+    results, _ = asyncio.run(probe_tools_preserved(FakeClient(calls), "m"))
     assert results[0].status == ProbeStatus.PASS
     assert results[0].observed["cases"][1]["observed"] == "BETA_ONLY"
 
 
-@pytest.mark.asyncio
-async def test_json_schema_preservation_overrides_conflicting_prompt():
+def test_json_schema_preservation_overrides_conflicting_prompt():
     body = text_body('{"token":"SCHEMA_OK_73","count":7}')
-    results, _ = await probe_json_schema_preserved(
-        FakeClient([response(body)]),
-        "m",
+    results, _ = asyncio.run(
+        probe_json_schema_preserved(FakeClient([response(body)]), "m")
     )
     assert results[0].status == ProbeStatus.PASS
 
 
-@pytest.mark.asyncio
-async def test_temperature_no_observable_effect_is_insufficient():
+def test_temperature_no_observable_effect_is_insufficient():
     calls = [
         response(text_body("apple"), ev_id=f"ev_{i}")
         for i in range(8)
     ]
-    results, _ = await probe_temperature(
-        FakeClient(calls),
-        "m",
-        samples=4,
+    results, _ = asyncio.run(
+        probe_temperature(FakeClient(calls), "m", samples=4)
     )
     assert results[0].status == ProbeStatus.INSUFFICIENT
     assert results[0].score is None
 
 
-@pytest.mark.asyncio
-async def test_temperature_observable_diversity_passes():
+def test_temperature_observable_diversity_passes():
     low = ["apple"] * 4
     high = ["apple", "banana", "cherry", "date"]
     calls = [
