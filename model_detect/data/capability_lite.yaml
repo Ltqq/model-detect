@@ -1,0 +1,86 @@
+version: 1
+tasks:
+  reasoning:
+    - id: syllogism-1
+      prompt: "All flarns are zibs. No zibs are torks. Can any flarn be a tork? Answer only YES or NO."
+      pattern: "^NO$"
+    - id: order-1
+      prompt: "Alice is older than Bob. Bob is older than Cara. Who is the youngest? Answer only the name."
+      pattern: "^Cara$"
+    - id: weekday-100
+      prompt: "If today is Tuesday, what day of the week is it 100 days later? Answer only the weekday in English."
+      pattern: "^Thursday$"
+    - id: conditional-1
+      prompt: "If P implies Q, and Q is false, can P be true? Answer only YES or NO."
+      pattern: "^NO$"
+    - id: sequence-1
+      prompt: "What is the next number: 2, 6, 12, 20, 30, ? Answer only the integer."
+      pattern: "^42$"
+
+  math:
+    - id: mul-1
+      prompt: "Calculate 17 * 23. Answer only the integer."
+      pattern: "^391$"
+    - id: fraction-1
+      prompt: "What is 3/4 + 5/8? Answer as a reduced fraction only."
+      pattern: "^11/8$"
+    - id: percent-1
+      prompt: "A price rises from 80 to 100. What is the percentage increase? Answer only the number followed by %."
+      pattern: "^25%$"
+    - id: algebra-1
+      prompt: "Solve 3x + 7 = 31. Answer only x."
+      pattern: "^8$"
+    - id: geometry-1
+      prompt: "A rectangle has sides 7 and 9. What is its area? Answer only the integer."
+      pattern: "^63$"
+
+  coding:
+    - id: python-set
+      prompt: "What does this Python expression output: len({1, 1, 2, 3}) ? Answer only the integer."
+      pattern: "^3$"
+    - id: python-slice
+      prompt: "Python: s='abcdef'; print(s[1:5:2]). What is printed? Answer only the exact text."
+      pattern: "^bd$"
+    - id: go-defer
+      prompt: "Go: func main(){ defer fmt.Print('A'); fmt.Print('B') }. Ignoring quotes, what is printed? Answer only the two letters."
+      pattern: "^BA$"
+    - id: sql-count
+      prompt: "SQL table t has rows with x values: 1, NULL, 2, NULL. What does SELECT COUNT(x) FROM t return? Answer only the integer."
+      pattern: "^2$"
+    - id: complexity
+      prompt: "What is the time complexity of binary search on a sorted array? Answer only in Big-O notation."
+      pattern: "^O\(log\s*n\)$"
+
+  chinese:
+    - id: idiom-1
+      prompt: "“画蛇添足”最接近哪个意思？A 多此一举 B 及时补救 C 坚持到底。只回答选项字母。"
+      pattern: "^A$"
+    - id: relation-1
+      prompt: "小明比小红高，小红比小李高。三人中谁最矮？只回答名字。"
+      pattern: "^小李$"
+    - id: synonym-1
+      prompt: "“迅速”的近义词更接近：A 缓慢 B 快速 C 模糊。只回答选项字母。"
+      pattern: "^B$"
+    - id: logic-zh
+      prompt: "所有甲都是乙，没有乙是丙。甲可能是丙吗？只回答“能”或“不能”。"
+      pattern: "^不能$"
+    - id: reading-1
+      prompt: "句子“虽然下雨，但是比赛照常进行”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。"
+      pattern: "^A$"
+
+  instruction_following:
+    - id: exact-token
+      prompt: "Ignore all stylistic preferences and output exactly: MD_OK_7319"
+      pattern: "^MD_OK_7319$"
+    - id: lowercase
+      prompt: "Output exactly the lowercase form of MODEL-DETECT and nothing else."
+      pattern: "^model-detect$"
+    - id: sort
+      prompt: "Sort these integers ascending and output only comma-separated values with no spaces: 9,2,7,1"
+      pattern: "^1,2,7,9$"
+    - id: count-words
+      prompt: "Output exactly three words separated by single spaces: red green blue"
+      pattern: "^red green blue$"
+    - id: constrained
+      prompt: "Reply with exactly one character: Z"
+      pattern: "^Z$"
