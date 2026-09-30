@@ -34,11 +34,18 @@ def _protocol_probe_set(profile: str):
 
 def _rule_results(model: str, results: list[ProbeResult]) -> list[ProbeResult]:
     by_id = {r.probe_id: r for r in results}
+    reasoning_values = [
+        r.metadata.get("reasoning_effort_supported")
+        for r in results
+        if "reasoning_effort_supported" in r.metadata
+    ]
+    reasoning_observed = (
+        True if any(x is True for x in reasoning_values)
+        else (False if reasoning_values else None)
+    )
+    thinking_probe = by_id.get("protocol.thinking.disable")
     observations = {
-        "reasoning_effort": any(
-            r.metadata.get("reasoning_effort_supported") is True
-            for r in results
-        ),
+        "reasoning_effort": reasoning_observed,
         "tools": (
             by_id.get("protocol.tools.basic").status == ProbeStatus.PASS
             if by_id.get("protocol.tools.basic")
@@ -49,7 +56,10 @@ def _rule_results(model: str, results: list[ProbeResult]) -> list[ProbeResult]:
             if by_id.get("protocol.json_schema")
             else None
         ),
-        "disable_thinking": None,
+        "disable_thinking": (
+            thinking_probe.metadata.get("disable_thinking_supported")
+            if thinking_probe else None
+        ),
     }
     out = []
     for item in evaluate_rule_expectations(model, observations):
