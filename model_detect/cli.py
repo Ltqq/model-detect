@@ -11,7 +11,7 @@ from rich.table import Table
 from . import __version__
 from .adapters import fingerprint, proxy_sleuth
 from .audit import run_audit
-from .config import AuditConfig, load_config
+from .config import AuditConfig, RegressionAuditConfig, load_config
 from .models import AuditTarget
 from .reference_cli import reference_app
 from .reporting import safe_name, write_report
@@ -48,6 +48,13 @@ def audit(
         "--coding-sandbox/--no-coding-sandbox",
         help="Explicitly enable/disable Docker-isolated executable coding evaluation.",
     ),
+    regression_suite: list[Path] = typer.Option(
+        [],
+        "--regression-suite",
+        help=(
+            "Regression YAML suite to run; repeat this option to add multiple suites."
+        ),
+    ),
 ) -> None:
     """Run a model audit and write report.json, report.html and raw evidence."""
     if config:
@@ -64,6 +71,14 @@ def audit(
             cfg.declared_context_tokens = declared_context_tokens
         if coding_sandbox is not None:
             cfg.coding_sandbox_enabled = coding_sandbox
+        if regression_suite:
+            cfg.regression.suites.extend(
+                str(path.expanduser().resolve())
+                for path in regression_suite
+            )
+            cfg.regression.suites = list(
+                dict.fromkeys(cfg.regression.suites)
+            )
     else:
         if not base_url or not model:
             raise typer.BadParameter("--base-url and --model are required when --config is not used")
@@ -81,6 +96,12 @@ def audit(
             reference_dir=str(reference_dir),
             declared_context_tokens=declared_context_tokens,
             coding_sandbox_enabled=bool(coding_sandbox),
+            regression=RegressionAuditConfig(
+                suites=[
+                    str(path.expanduser().resolve())
+                    for path in regression_suite
+                ]
+            ),
         )
 
     def progress(name: str, current: int, total: int) -> None:

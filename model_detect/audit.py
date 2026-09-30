@@ -407,11 +407,16 @@ async def run_audit(
 
     # 8. Declarative regression suites. These are supporting protocol/integrity
     # checks only; mapped results explicitly carry identity_strength=none.
+    effective_regression_files = (
+        list(regression_files)
+        if regression_files is not None
+        else config.regression.suites_for(profile)
+    )
     await _run_regression_suites(
         report,
         config,
         api_key,
-        list(regression_files or []),
+        effective_regression_files,
         output_dir=regression_output_dir,
         progress=progress,
     )
