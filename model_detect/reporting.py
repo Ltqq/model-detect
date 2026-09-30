@@ -44,6 +44,81 @@ def _status_class(value: str) -> str:
     }.get(value, "")
 
 
+
+def _fingerprint_section(report: AuditReport) -> str:
+    primary = next(
+        (
+            r for r in report.results
+            if r.probe_id == "identity.fingerprint.reference_compare"
+        ),
+        None,
+    )
+    if primary is None or not isinstance(primary.observed, dict):
+        return ""
+
+    observed = primary.observed
+    cells = observed.get("cells") if isinstance(observed.get("cells"), list) else []
+    cell_rows = []
+    for cell in cells:
+        if not isinstance(cell, dict):
+            continue
+        cell_rows.append(
+            "<tr>"
+            f"<td><code>{html.escape(str(cell.get('cellId') or cell.get('cell_id') or ''))}</code></td>"
+            f"<td>{html.escape(str(cell.get('jsd', '')))}</td>"
+            f"<td>{html.escape(str(cell.get('validA', '')))}</td>"
+            f"<td>{html.escape(str(cell.get('validB', '')))}</td>"
+            "</tr>"
+        )
+
+    target_meta = observed.get("target_fingerprint") if isinstance(observed.get("target_fingerprint"), dict) else {}
+    ref_meta = observed.get("reference_fingerprint") if isinstance(observed.get("reference_fingerprint"), dict) else {}
+    adapter = observed.get("target_adapter")
+    split_half = observed.get("target_split_half_jsd")
+    warnings = observed.get("warnings") if isinstance(observed.get("warnings"), list) else []
+    warning_html = "".join(f"<li>{html.escape(str(x))}</li>" for x in warnings) or "<li>None</li>"
+
+    reference_info = report.adapters.get("reference")
+    reference_source = ""
+    if isinstance(reference_info, dict):
+        source = reference_info.get("fingerprint_source")
+        ref_value = reference_info.get("fingerprint_reference")
+        if source or ref_value:
+            reference_source = (
+                f"<p><b>Reference source:</b> {html.escape(str(source or 'unknown'))}"
+                + (f" · {html.escape(str(ref_value))}" if ref_value else "")
+                + "</p>"
+            )
+
+    table = ""
+    if cell_rows:
+        table = (
+            "<h3>Per-cell JSD</h3>"
+            "<table><thead><tr><th>Cell</th><th>JSD</th><th>Target valid</th><th>Reference valid</th></tr></thead>"
+            f"<tbody>{''.join(cell_rows)}</tbody></table>"
+        )
+
+    return f"""
+<div class="card">
+<h2>Statistical Fingerprint</h2>
+<p><b>Verdict:</b> {html.escape(str(observed.get('verdict', '')))}
+ · <b>Mean JSD:</b> {html.escape(str(observed.get('mean_jsd', 'N/A')))}
+ · <b>Comparable cells:</b> {html.escape(str(observed.get('comparable_cell_count', 'N/A')))}</p>
+<p><b>Split-half JSD:</b> {html.escape(str(split_half if split_half is not None else 'N/A'))}
+ · <b>Reasoning adapter:</b> {html.escape(json.dumps(adapter, ensure_ascii=False, default=str))}</p>
+{reference_source}
+<p><b>Target:</b> {html.escape(str(target_meta.get('model', '')))}
+ · protocol {html.escape(str(target_meta.get('protocol', '')))}
+ · collected {html.escape(str(target_meta.get('collected_at', '')))}
+ · cells {html.escape(str(target_meta.get('cell_count', '')))}</p>
+<p><b>Reference:</b> {html.escape(str(ref_meta.get('model', '')))}
+ · protocol {html.escape(str(ref_meta.get('protocol', '')))}
+ · collected {html.escape(str(ref_meta.get('collected_at', '')))}
+ · cells {html.escape(str(ref_meta.get('cell_count', '')))}</p>
+<h3>Warnings</h3><ul>{warning_html}</ul>
+{table}
+</div>"""
+
 def _render_html(report: AuditReport) -> str:
     rows = []
     for result in report.results:
@@ -77,6 +152,8 @@ def _render_html(report: AuditReport) -> str:
     warnings = "".join(
         f"<li>{html.escape(x)}</li>" for x in report.summary.warnings
     ) or "<li>None</li>"
+
+    fingerprint_section = _fingerprint_section(report)
 
     adapter_rows = []
     for name, value in report.adapters.items():
@@ -117,6 +194,7 @@ pre{{white-space:pre-wrap;overflow:auto;background:rgba(127,127,127,.1);padding:
 <div class="card"><h2>Category scores</h2><div class="metrics">{categories}</div></div>
 <div class="card"><h2>Provider hypotheses</h2><ul>{providers}</ul></div>
 <div class="card"><h2>Warnings</h2><ul>{warnings}</ul></div>
+{fingerprint_section}
 <h2>Probe results</h2>
 <table><thead><tr><th>Probe</th><th>Category</th><th>Status</th><th>Score</th><th>Summary</th><th>Evidence</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
 <div class="card"><h2>Adapters / Reference</h2>{''.join(adapter_rows)}</div>
