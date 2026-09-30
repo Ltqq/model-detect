@@ -78,6 +78,51 @@ tasks:
     - id: geometry-1
       prompt: "A rectangle has sides 7 and 9. What is its area? Answer only the integer."
       pattern: "^63$"
+    - id: division-1
+      prompt: "Calculate 144 / 12. Answer only the integer."
+      pattern: "^12$"
+    - id: arithmetic-1
+      prompt: "Calculate (18 - 5) * 3. Answer only the integer."
+      pattern: "^39$"
+    - id: fraction-mul-1
+      prompt: "Calculate 7/9 * 27/14. Answer as a reduced fraction only."
+      pattern: "^3/2$"
+    - id: discount-1
+      prompt: "An item costs 250 and is discounted by 20%. What is the final price? Answer only the integer."
+      pattern: "^200$"
+    - id: algebra-2
+      prompt: "Solve 5x - 9 = 41. Answer only x."
+      pattern: "^10$"
+    - id: square-root-1
+      prompt: "What is the positive square root of 81? Answer only the integer."
+      pattern: "^9$"
+    - id: average-1
+      prompt: "What is the arithmetic mean of 8, 12, 15, and 5? Answer only the number."
+      pattern: "^10$"
+    - id: ratio-1
+      prompt: "A total of 64 is divided in the ratio 3:5. What is the smaller part? Answer only the integer."
+      pattern: "^24$"
+    - id: speed-1
+      prompt: "A car travels 150 km in 2.5 hours at constant speed. What is its speed in km/h? Answer only the integer."
+      pattern: "^60$"
+    - id: gcd-1
+      prompt: "What is the greatest common divisor of 84 and 126? Answer only the integer."
+      pattern: "^42$"
+    - id: lcm-1
+      prompt: "What is the least common multiple of 12 and 18? Answer only the integer."
+      pattern: "^36$"
+    - id: power-1
+      prompt: "Calculate 2^10. Answer only the integer."
+      pattern: "^1024$"
+    - id: square-root-2
+      prompt: "What is the positive square root of 1764? Answer only the integer."
+      pattern: "^42$"
+    - id: triangle-area-1
+      prompt: "A triangle has base 12 and height 9. What is its area? Answer only the integer."
+      pattern: "^54$"
+    - id: sum-1
+      prompt: "What is the sum of the integers from 1 through 10 inclusive? Answer only the integer."
+      pattern: "^55$"
 
   coding:
     - id: python-set
