@@ -24,6 +24,7 @@ def test_coding_task_counts():
     tasks = coding_tasks()
     assert len(tasks["python"]) >= 5
     assert len(tasks["go"]) >= 5
+    assert sum(len(items) for items in tasks.values()) >= 10
     for language, items in tasks.items():
         for item in items:
             assert item["filename"]
