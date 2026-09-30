@@ -92,11 +92,11 @@
 
 设计：`docs/design/11-promptfoo-regression.md`
 
-- [ ] 检测 promptfoo 可用性
-- [ ] OpenAI-compatible HTTP provider config 生成
-- [ ] Base URL / model / API key env 映射
-- [ ] API Key 只通过环境变量传递
-- [ ] subprocess runner
+- [x] 检测 promptfoo 可用性
+- [x] OpenAI-compatible HTTP provider config 生成
+- [x] Base URL / model / API key env 映射
+- [x] API Key 只通过环境变量传递
+- [x] subprocess runner
 
 ## Stage 3 — promptfoo Regression YAML Loader
 
