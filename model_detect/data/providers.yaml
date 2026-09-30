@@ -1,0 +1,125 @@
+version: 1
+providers:
+  azure_apim:
+    label: Azure API Management
+    headers:
+      apim-request-id: 0.75
+      x-ms-request-id: 0.35
+      ocp-apim-subscription-id: 0.90
+      x-azure-ref: 0.30
+    patterns:
+      "azure api management": 0.90
+      "apim": 0.20
+  azure_openai:
+    label: Azure OpenAI
+    headers:
+      x-ratelimit-remaining-requests: 0.15
+      x-ms-region: 0.55
+    patterns:
+      "azure openai": 0.90
+  fireworks:
+    label: Fireworks AI
+    headers:
+      x-fireworks-request-id: 0.95
+      fireworks-request-id: 0.95
+    patterns:
+      "fireworks": 0.90
+      "fw-kimi": 0.80
+  openrouter:
+    label: OpenRouter
+    headers:
+      x-openrouter-version: 0.95
+      x-openrouter: 0.85
+    patterns:
+      "openrouter": 0.95
+  together:
+    label: Together AI
+    headers:
+      x-together-request-id: 0.95
+    patterns:
+      "together.ai": 0.95
+      "together": 0.55
+  deepinfra:
+    label: DeepInfra
+    headers:
+      x-deepinfra-request-id: 0.95
+    patterns:
+      "deepinfra": 0.95
+  openai:
+    label: OpenAI
+    headers:
+      openai-organization: 0.75
+      openai-project: 0.75
+      x-request-id: 0.10
+    patterns:
+      "openai": 0.35
+  anthropic:
+    label: Anthropic
+    headers:
+      anthropic-ratelimit-requests-limit: 0.85
+      anthropic-ratelimit-tokens-limit: 0.85
+      request-id: 0.10
+    patterns:
+      "anthropic": 0.65
+  google_vertex:
+    label: Google Vertex AI
+    headers:
+      x-goog-api-client: 0.65
+      x-goog-request-params: 0.65
+    patterns:
+      "vertex ai": 0.90
+      "googleapis": 0.55
+  aws_bedrock:
+    label: AWS Bedrock
+    headers:
+      x-amzn-requestid: 0.75
+      x-amzn-bedrock-invocation-latency: 0.95
+    patterns:
+      "bedrock": 0.90
+  groq:
+    label: Groq
+    headers:
+      x-groq-region: 0.80
+    patterns:
+      "groq": 0.80
+  cerebras:
+    label: Cerebras
+    headers: {}
+    patterns:
+      "cerebras": 0.90
+  aliyun_dashscope:
+    label: Alibaba DashScope
+    headers:
+      x-request-id: 0.05
+    patterns:
+      "dashscope": 0.95
+      "aliyuncs": 0.65
+  volcengine:
+    label: Volcengine Ark
+    headers:
+      x-tt-logid: 0.75
+    patterns:
+      "volcengine": 0.80
+      "ark": 0.20
+  siliconflow:
+    label: SiliconFlow
+    headers: {}
+    patterns:
+      "siliconflow": 0.95
+  cloudflare:
+    label: Cloudflare
+    headers:
+      cf-ray: 0.65
+      cf-cache-status: 0.45
+    patterns:
+      "cloudflare": 0.60
+  vllm:
+    label: vLLM
+    headers: {}
+    patterns:
+      "vllm": 0.85
+  sglang:
+    label: SGLang
+    headers: {}
+    patterns:
+      "sglang": 0.90

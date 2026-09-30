@@ -1,0 +1,18 @@
+id: kimi-k3
+patterns:
+  - "kimi-k3"
+  - "kimi-k3-*"
+strict: false
+features:
+  reasoning_effort:
+    expected: true
+    values: [low, medium, high]
+  disable_thinking:
+    expected: false
+  tools:
+    expected: null
+  json_schema:
+    expected: null
+notes:
+  - This rule is intentionally non-strict: provider behavior can differ from the official endpoint.
+  - Keep model-specific expectations evidence-based and update this file when official behavior changes.
