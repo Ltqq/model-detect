@@ -64,6 +64,20 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for r in results
     )
 
+    strong_identity = any(
+        r.category == "identity"
+        and r.score is not None
+        and r.metadata.get("identity_strength") == "strong"
+        and r.status in {ProbeStatus.PASS, ProbeStatus.WARN, ProbeStatus.FAIL}
+        for r in results
+    )
+    medium_identity = any(
+        r.category == "identity"
+        and r.score is not None
+        and r.metadata.get("identity_strength") in {"medium", "strong"}
+        for r in results
+    )
+
     if identity_mismatch:
         hard_cap = 40.0
     elif mixed_routing:
@@ -75,24 +89,24 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         overall = min(overall, hard_cap)
 
     covered_count = sum(coverage.values())
-    if coverage["identity"] and covered_count >= 4:
+    if strong_identity and covered_count >= 4:
         confidence = "high"
-    elif coverage["identity"] or covered_count >= 3:
+    elif medium_identity or covered_count >= 3:
         confidence = "medium"
     else:
         confidence = "low"
 
-    if not coverage["identity"]:
+    if not strong_identity:
         warnings.append(
-            "identity evidence is insufficient; configure a trusted reference "
-            "or install/enable an identity detector before treating the endpoint as verified"
+            "strong model-identity evidence is missing; configure a trusted statistical "
+            "fingerprint/reference or enable an equivalent strong identity detector"
         )
 
     if overall is None:
         verdict = "insufficient"
     elif identity_mismatch:
         verdict = "mismatch"
-    elif overall >= 85 and coverage["identity"]:
+    elif overall >= 85 and strong_identity:
         verdict = "pass"
     elif overall >= 70:
         verdict = "review"
