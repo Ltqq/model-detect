@@ -16,6 +16,51 @@ tasks:
     - id: sequence-1
       prompt: "What is the next number: 2, 6, 12, 20, 30, ? Answer only the integer."
       pattern: "^42$"
+    - id: quantifier-1
+      prompt: "Some poets are doctors. All doctors are readers. Can we conclude that some poets are readers? Answer only YES or NO."
+      pattern: "^YES$"
+    - id: converse-1
+      prompt: "If it rains, the road gets wet. The road is wet. Must it have rained? Answer only YES or NO."
+      pattern: "^NO$"
+    - id: xor-1
+      prompt: "Exactly one of P and Q is true. P is false. Is Q true? Answer only YES or NO."
+      pattern: "^YES$"
+    - id: temporal-1
+      prompt: "Event X happens before event Y. Event Z happens after X but before Y. Which event is in the middle? Answer only X, Y, or Z."
+      pattern: "^Z$"
+    - id: family-1
+      prompt: "Mia is Leo's sister. Leo is Noah's father. What is Mia to Noah? Answer only the English kinship word."
+      pattern: "^aunt$"
+    - id: seating-1
+      prompt: "Ava is to the left of Ben. Cara is to the right of Ben. Give the left-to-right order as comma-separated names with no spaces."
+      pattern: "^Ava,Ben,Cara$"
+    - id: contradiction-1
+      prompt: "All drens are ploks. Some drens are not ploks. Can both statements be true at the same time? Answer only YES or NO."
+      pattern: "^NO$"
+    - id: implication-chain-1
+      prompt: "P implies Q. Q implies R. P is true. Must R be true? Answer only YES or NO."
+      pattern: "^YES$"
+    - id: consistency-1
+      prompt: "No red cubes are large. This cube is red and large. Is that description logically consistent? Answer only YES or NO."
+      pattern: "^NO$"
+    - id: subset-existence-1
+      prompt: "Every K is an L. Every L is an M. At least one K exists. Can we conclude that at least one M exists? Answer only YES or NO."
+      pattern: "^YES$"
+    - id: sufficient-condition-1
+      prompt: "Being a square is sufficient for being a rectangle. A shape is a square. Must it be a rectangle? Answer only YES or NO."
+      pattern: "^YES$"
+    - id: letter-sequence-1
+      prompt: "What is the next letter in the sequence A, C, F, J, O, ? Answer only the uppercase letter."
+      pattern: "^U$"
+    - id: direction-1
+      prompt: "You are facing north. You turn right once. Which direction are you facing? Answer only NORTH, SOUTH, EAST, or WEST."
+      pattern: "^EAST$"
+    - id: order-2
+      prompt: "Tom is left of Ana. Ana is left of Luis. Who is rightmost? Answer only the name."
+      pattern: "^Luis$"
+    - id: truth-1
+      prompt: "Exactly one of statements A and B is true. Statement A is true. Is statement B true? Answer only YES or NO."
+      pattern: "^NO$"
 
   math:
     - id: mul-1
