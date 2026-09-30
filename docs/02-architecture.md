@@ -15,7 +15,7 @@ model-detect 负责：
 - Mixed Routing / 路由稳定性
 - Capability 准入
 - Trusted Reference
-- Evidence / Score / Report / Drift
+- Evidence / Score / Report / Local History
 
 明确不负责：
 
@@ -72,7 +72,7 @@ Audit Orchestrator
              ↓
       Score / Hard Cap / Confidence
              ↓
-      JSON / HTML / Web / Drift
+      JSON / HTML / Web / SQLite History
 ```
 
 ## 4. 当前能力状态
@@ -174,39 +174,38 @@ SQLite + Filesystem
 External CLI Adapters
 ```
 
-当前不迁 PostgreSQL / Redis / Worker。
+当前不迁 PostgreSQL / Redis / Worker，也不建设账号、权限、Scheduler 或通知系统。
 
-只有出现多人并发、周期任务规模扩大、权限共享或单机任务可靠性要求时，才进入 V2。
-
-## 7. 下一阶段架构重点
-
-下一阶段不继续堆 benchmark 数量，而是补齐“供应商问题沉淀”和“模型知识库”：
+运行形态固定为：
 
 ```text
-客户/准入问题
-   ↓
-Regression YAML
-   ↓
-promptfoo Adapter
-   ↓
-Unified ProbeResult
-   ↓
-Evidence / Report
-   ↓
-沉淀为 Model Rule / Provider Rule
+单机 FastAPI
++ SQLite 历史
++ 本地报告目录
++ 可选外部 CLI Adapter
 ```
 
-同时把模型规则从简单 feature map 升级为可追溯知识：
+除非以后真实需求改变，否则不扩成平台化架构。
+
+## 7. 当前收尾重点
+
+检测核心、Regression、Knowledge、Report、Web 已经闭环。
+
+现在只做轻量可用性收尾：
 
 ```text
-rule
-├─ schema_version
-├─ model/family/version
-├─ sources[]
-├─ collected_at
-├─ features
-└─ notes
+Web 发起检测
+   ↓
+Report / Evidence
+   ↓
+SQLite History
+   ├─ Verdict / Score
+   ├─ HTML / JSON / ZIP
+   ├─ 简单筛选
+   └─ 删除
 ```
+
+完成后停止扩功能，后续只维护 Model Rule、Provider Rule 和真实 Regression Case。
 
 ## 8. 技术原则
 

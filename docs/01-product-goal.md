@@ -158,39 +158,34 @@ V1 做 **轻量能力验证**，不是追求完整排行榜。
 2. 性能和模型身份是两个问题；
 3. 避免 model-detect 变成大而全平台。
 
-### V1 暂不做
+### 当前产品明确不做
 
 - 图像 / 视频生成模型真实性
 - Embedding / Rerank 深度检测
 - Agent 长周期 benchmark
 - 安全红队
 - 多租户 SaaS
-- 复杂权限系统
+- 登录 / RBAC / Team
+- PostgreSQL / Redis / 分布式 Worker
+- Saved Endpoint 管理平台
+- Scheduler / 定时巡检
+- 自动通知 / Webhook / 告警中心
 - 商业计费
 
-这些都可以后续扩展。
+当前定位是**单机、单用户、自用工具**。这些能力不是“暂时没做”，而是没有真实需求前不进入产品路线，避免项目变重。
 
 ---
 
 ## 4. 用户角色
 
-### 主要用户
+当前主要用户就是工具维护者本人。
 
-平台内部：
+典型使用方式：
 
-- 模型接入工程师
-- 上游渠道负责人
-- 测试 / 准入人员
-- 模型平台研发
-
-### 次要用户
-
-未来可以对外：
-
-- API 中转站
-- 企业模型采购方
-- 模型渠道商
-- 私有模型部署方
+- 新供应商 / 新渠道上线前做一次准入审计；
+- 客户反馈某个模型协议问题时复现并固化 Regression Case；
+- 需要时重新打开历史报告查看 Evidence；
+- 不承担多人协作、权限管理、任务分发。
 
 ---
 
@@ -202,9 +197,21 @@ V1 做 **轻量能力验证**，不是追求完整排行榜。
 Base URL
 API Key
 Claimed Model
-Protocol
+Profile
 Optional Trusted Reference
+Optional Regression Suites
 ```
+
+### 输出与历史
+
+```text
+HTML Report
+JSON Report
+ZIP Artifacts
+SQLite History
+```
+
+历史记录只需要支持：查看、筛选、重新打开报告、下载 JSON/ZIP、删除。
 
 ### 三种检测模式
 
