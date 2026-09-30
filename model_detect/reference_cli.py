@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +13,7 @@ from .adapters import fingerprint
 from .audit import run_audit
 from .config import AuditConfig, get_api_key
 from .models import AuditTarget
-from .references import ReferenceRegistry
+from .references import ReferenceManifest, ReferenceRegistry
 from .reporting import safe_name, write_report
 
 
@@ -102,6 +103,35 @@ def collect_reference(
     write_report(report, report_dir)
     console.print(f"[green]Saved reference {manifest.id}[/green]")
     console.print(f"Manifest: {registry.path_for(reference_id) / 'manifest.json'}")
+
+
+@reference_app.command("import-fingerprint")
+def import_fingerprint(
+    reference_id: str = typer.Option(..., "--id"),
+    model: str = typer.Option(..., "--model", "-m"),
+    fingerprint_file: Path = typer.Option(..., "--file", exists=True, readable=True),
+    provider: str = typer.Option("trusted", "--provider"),
+    reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
+) -> None:
+    """Import an existing llm-fingerprint-detector reference JSON."""
+    registry = ReferenceRegistry(reference_dir)
+    if registry.exists(reference_id):
+        raise typer.BadParameter(f"reference already exists: {reference_id}")
+    root = registry.path_for(reference_id)
+    root.mkdir(parents=True, exist_ok=True)
+    dst = root / "fingerprint.json"
+    shutil.copy2(fingerprint_file, dst)
+    manifest = ReferenceManifest(
+        id=reference_id,
+        model=model,
+        provider=provider,
+        protocol="openai",
+        fingerprint_artifact=dst.name,
+        notes=["Imported fingerprint artifact; no protocol signature was collected."],
+    )
+    registry.save_manifest(manifest)
+    console.print(f"[green]Imported reference {reference_id}[/green]")
+    console.print(f"Manifest: {root / 'manifest.json'}")
 
 
 @reference_app.command("verify")
