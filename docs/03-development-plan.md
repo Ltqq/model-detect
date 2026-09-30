@@ -214,7 +214,7 @@ Capability score
 
 ## Capability Dataset
 
-当前 70 题（Reasoning 20、Math 20、Chinese 20，Coding Reasoning 与 Instruction Following 各 5）。
+当前 85 题（Reasoning 20、Math 20、Chinese 20、Instruction Following 20、Coding Reasoning 5）。
 
 目标：
 
@@ -222,7 +222,7 @@ Capability score
 - [x] Math 20+
 - [x] Coding execute 10+
 - [x] Chinese 20+
-- [ ] Instruction Following 20+
+- [x] Instruction Following 20+
 - [ ] Tool Use 场景化
 - [ ] Structured Output 场景化
 
