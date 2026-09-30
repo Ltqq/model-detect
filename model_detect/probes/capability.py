@@ -102,18 +102,61 @@ def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]
     by_id = {r.probe_id: r for r in existing}
     out: list[ProbeResult] = []
 
-    tool = by_id.get("protocol.tools.basic")
-    if tool:
+    tool_probe_ids = [
+        "protocol.tools.basic",
+        "protocol.tools.arguments_schema",
+        "protocol.tools.tool_choice",
+        "protocol.tools.parallel",
+    ]
+    tool_scenarios = [
+        by_id[probe_id]
+        for probe_id in tool_probe_ids
+        if probe_id in by_id and by_id[probe_id].score is not None
+    ]
+    if tool_scenarios:
+        tool_score = sum(float(item.score) for item in tool_scenarios) / len(tool_scenarios)
+        if tool_score >= 0.8:
+            tool_status = ProbeStatus.PASS
+        elif tool_score >= 0.5:
+            tool_status = ProbeStatus.WARN
+        else:
+            tool_status = ProbeStatus.FAIL
+        evidence_ids = list(
+            dict.fromkeys(
+                evidence_id
+                for item in tool_scenarios
+                for evidence_id in item.evidence_ids
+            )
+        )
         out.append(
             ProbeResult(
                 probe_id="capability.tool_use",
                 category="capability",
-                status=tool.status,
-                score=tool.score,
-                confidence=tool.confidence,
-                summary="derived from protocol.tools.basic: " + tool.summary,
-                evidence_ids=tool.evidence_ids,
-                metadata={"derived_from": tool.probe_id},
+                status=tool_status,
+                score=round(tool_score, 4),
+                confidence=min(
+                    0.9,
+                    sum(item.confidence for item in tool_scenarios) / len(tool_scenarios),
+                ),
+                summary=(
+                    f"tool use: {len(tool_scenarios)} scenario probes aggregated"
+                ),
+                observed={
+                    "scenarios": [
+                        {
+                            "probe_id": item.probe_id,
+                            "status": item.status.value,
+                            "score": item.score,
+                            "summary": item.summary,
+                        }
+                        for item in tool_scenarios
+                    ]
+                },
+                evidence_ids=evidence_ids,
+                metadata={
+                    "derived_from": [item.probe_id for item in tool_scenarios],
+                    "scenario_count": len(tool_scenarios),
+                },
             )
         )
 

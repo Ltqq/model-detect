@@ -223,7 +223,7 @@ Capability score
 - [x] Coding execute 10+
 - [x] Chinese 20+
 - [x] Instruction Following 20+
-- [ ] Tool Use 场景化
+- [x] Tool Use 场景化
 - [ ] Structured Output 场景化
 
 预计 Deep 总量控制在 80–150 个低成本任务，不做几千题排行榜。
