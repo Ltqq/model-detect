@@ -187,3 +187,52 @@ def write_compiled_regression_config(
         encoding="utf-8",
     )
     return target
+
+
+
+def run_regression_file(
+    regression_file: str | Path,
+    *,
+    base_url: str,
+    model: str,
+    api_key: str,
+    output_dir: str | Path,
+    allow_custom_assertions: bool = False,
+    timeout_seconds: float = 900,
+    binary: str | None = None,
+):
+    from .promptfoo_results import parse_promptfoo_file
+    from .regression import load_regression_suite
+
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+
+    suite = load_regression_suite(
+        regression_file,
+        allow_custom_assertions=allow_custom_assertions,
+    )
+    config_path = write_compiled_regression_config(
+        root / "promptfooconfig.yaml",
+        suite,
+        base_url=base_url,
+        model=model,
+    )
+    result_path = root / "promptfoo-result.json"
+    run_meta = promptfoo.run_eval(
+        config_path=config_path,
+        output_path=result_path,
+        api_key=api_key,
+        timeout_seconds=timeout_seconds,
+        binary=binary,
+    )
+
+    mapped = []
+    if result_path.exists():
+        mapped = parse_promptfoo_file(result_path)
+
+    return mapped, {
+        **run_meta,
+        "suite": suite.suite,
+        "regression_file": str(regression_file),
+        "mapped_result_count": len(mapped),
+    }

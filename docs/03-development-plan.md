@@ -119,11 +119,11 @@
 
 ## Stage 5 — promptfoo Result Mapping
 
-- [ ] promptfoo JSON result -> Unified ProbeResult
-- [ ] case id / assertion / reason / output metadata
-- [ ] Evidence artifact source
-- [ ] pass/warn/fail 映射
-- [ ] Regression 结果默认进入 protocol/integrity，而非 identity strong evidence
+- [x] promptfoo JSON result -> Unified ProbeResult
+- [x] case id / assertion / reason / output metadata
+- [x] Evidence artifact source
+- [x] pass/warn/fail 映射
+- [x] Regression 结果默认进入 protocol/integrity，而非 identity strong evidence
 
 > Model Rule schema version/source 顺延到下一批第 1 项，设计仍见
 > `docs/design/12-model-provider-knowledge.md`。
@@ -205,6 +205,6 @@ Anthropic/Gemini Native 等出现真实准入需求时，再先完成 Protocol A
 
 仍需：
 
-- [ ] promptfoo 可作为 declarative regression adapter
+- [x] promptfoo 可作为 declarative regression adapter
 - [ ] Model Rule 有版本和来源
 - [ ] Web 更完整展示 identity/routing evidence
