@@ -222,5 +222,8 @@ def compare_protocol_signature(
         confidence=min(0.95, 0.5 + len(common) / 40),
         summary=f"protocol signature matched {matches}/{len(common)} comparable probes",
         observed={"match_ratio": ratio, "details": details},
-        metadata={"verdict": "match" if status == ProbeStatus.PASS else ("mismatch" if status == ProbeStatus.FAIL else "uncertain")},
+        metadata={
+            "verdict": "match" if status == ProbeStatus.PASS else ("mismatch" if status == ProbeStatus.FAIL else "uncertain"),
+            "identity_strength": "medium",
+        },
     )
