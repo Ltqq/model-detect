@@ -95,13 +95,16 @@ async def run_coding_suite(
             sandbox_data = None
             passed = False
             if call.evidence.response_status == 200 and code.strip():
+                sandbox_files = {
+                    task["filename"]: code,
+                    task["test_filename"]: task["test_content"],
+                }
+                if language == "go":
+                    sandbox_files["go.mod"] = "module modeldetectbench\n\ngo 1.24\n"
                 sandbox_result = await asyncio.to_thread(
                     runner.run,
                     language=language,
-                    files={
-                        task["filename"]: code,
-                        task["test_filename"]: task["test_content"],
-                    },
+                    files=sandbox_files,
                     command=list(task["command"]),
                 )
                 sandbox_data = sandbox_result.to_dict()
