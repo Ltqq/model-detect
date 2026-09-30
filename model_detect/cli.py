@@ -15,6 +15,7 @@ from .config import AuditConfig, load_config
 from .models import AuditTarget
 from .reference_cli import reference_app
 from .reporting import safe_name, write_report
+from .drift import compare_reports
 
 
 app = typer.Typer(
@@ -99,6 +100,76 @@ def audit(
             console.print(f"  - {item.provider}: {item.confidence:.0%}")
     console.print(f"JSON: {root / 'report.json'}")
     console.print(f"HTML: {root / 'report.html'}")
+
+
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+    state_dir: Path = typer.Option(Path(".model-detect"), "--state-dir"),
+    reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
+    output_dir: Path = typer.Option(Path("model-detect-output"), "--output-dir"),
+) -> None:
+    """Start the local Web UI."""
+    import uvicorn
+    from .webapp import create_app
+
+    console.print(
+        f"[bold]model-detect web[/bold] http://{host}:{port} "
+        f"(state={state_dir}, references={reference_dir})"
+    )
+    uvicorn.run(
+        create_app(
+            state_dir=state_dir,
+            reference_dir=reference_dir,
+            output_dir=output_dir,
+        ),
+        host=host,
+        port=port,
+    )
+
+
+@app.command("compare")
+def compare_command(
+    old_report: Path = typer.Argument(..., exists=True, readable=True),
+    new_report: Path = typer.Argument(..., exists=True, readable=True),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Compare two report.json files to spot provider/model drift."""
+    data = compare_reports(old_report, new_report)
+    if json_output:
+        console.print_json(data=data)
+        return
+
+    console.print(
+        f"Old: {data['old']['verdict']} / {data['old']['overall_score']}  "
+        f"→ New: {data['new']['verdict']} / {data['new']['overall_score']}"
+    )
+    table = Table("Category", "Old", "New", "Delta")
+    for name, item in data["category_deltas"].items():
+        table.add_row(
+            name,
+            str(item["old"]),
+            str(item["new"]),
+            str(item["delta"]),
+        )
+    console.print(table)
+    if data["provider_changes"]["added"] or data["provider_changes"]["removed"]:
+        console.print(
+            "Provider changes: "
+            f"+{data['provider_changes']['added']} "
+            f"-{data['provider_changes']['removed']}"
+        )
+    if data["probe_changes"]:
+        ptable = Table("Probe", "Old", "New")
+        for item in data["probe_changes"][:50]:
+            ptable.add_row(
+                item["probe_id"],
+                str(item["old_status"]),
+                str(item["new_status"]),
+            )
+        console.print(ptable)
 
 
 @app.command("oss-status")
