@@ -160,10 +160,10 @@
 
 ## Stage 4 — Provider DB migration
 
-- [ ] 现有 providers.yaml 迁移到新版格式
-- [ ] 保留原有 header/pattern 权重
-- [ ] 每个 provider 有 provenance
-- [ ] detection behavior regression test
+- [x] 现有 providers.yaml 迁移到新版格式
+- [x] 保留原有 header/pattern 权重
+- [x] 每个 provider 有 provenance
+- [x] detection behavior regression test
 
 ## Stage 5 — First formal model knowledge rules
 

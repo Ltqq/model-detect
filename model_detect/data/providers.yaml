@@ -1,4 +1,24 @@
-version: 1
+schema_version: 2
+
+sources:
+  - id: provider-fingerprint-v1-baseline
+    type: empirical
+    title: "Legacy provider fingerprint heuristics migrated from schema v1"
+    collected_at: "2026-09-30"
+    confidence: medium
+
+  - id: blackbox-response-header-signals
+    type: empirical
+    title: "Observed provider-specific response header signals"
+    collected_at: "2026-09-30"
+    confidence: medium
+
+  - id: blackbox-response-body-patterns
+    type: empirical
+    title: "Observed provider/gateway brand strings in response bodies"
+    collected_at: "2026-09-30"
+    confidence: low
+
 providers:
   azure_apim:
     label: Azure API Management
@@ -10,6 +30,17 @@ providers:
     patterns:
       "azure api management": 0.90
       "apim": 0.20
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Azure-flavored headers can be preserved or injected by an intermediary."
+      - "Body brand strings are supporting evidence only."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   azure_openai:
     label: Azure OpenAI
     headers:
@@ -17,6 +48,17 @@ providers:
       x-ms-region: 0.55
     patterns:
       "azure openai": 0.90
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Rate-limit headers can be normalized by gateways."
+      - "Provider names in response text can be spoofed."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   fireworks:
     label: Fireworks AI
     headers:
@@ -25,6 +67,17 @@ providers:
     patterns:
       "fireworks": 0.90
       "fw-kimi": 0.80
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "High-specificity headers remain hypotheses because gateways may forward them."
+      - "Body model aliases are not identity proof by themselves."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   openrouter:
     label: OpenRouter
     headers:
@@ -32,6 +85,16 @@ providers:
       x-openrouter: 0.85
     patterns:
       "openrouter": 0.95
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Forwarded OpenRouter headers can survive another gateway hop."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   together:
     label: Together AI
     headers:
@@ -39,12 +102,32 @@ providers:
     patterns:
       "together.ai": 0.95
       "together": 0.55
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "The generic word 'together' is a weak body-only signal."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   deepinfra:
     label: DeepInfra
     headers:
       x-deepinfra-request-id: 0.95
     patterns:
       "deepinfra": 0.95
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Forwarded request-id headers can identify an upstream hop rather than the direct gateway."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   openai:
     label: OpenAI
     headers:
@@ -53,6 +136,17 @@ providers:
       x-request-id: 0.10
     patterns:
       "openai": 0.35
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "x-request-id is intentionally very weak because it is generic."
+      - "OpenAI-compatible gateways may mention OpenAI without being OpenAI."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   anthropic:
     label: Anthropic
     headers:
@@ -61,6 +155,17 @@ providers:
       request-id: 0.10
     patterns:
       "anthropic": 0.65
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "request-id is generic and intentionally low weight."
+      - "Anthropic-compatible proxies may preserve upstream headers."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   google_vertex:
     label: Google Vertex AI
     headers:
@@ -69,6 +174,16 @@ providers:
     patterns:
       "vertex ai": 0.90
       "googleapis": 0.55
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Google API headers can also appear in non-Vertex Google services."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   aws_bedrock:
     label: AWS Bedrock
     headers:
@@ -76,17 +191,46 @@ providers:
       x-amzn-bedrock-invocation-latency: 0.95
     patterns:
       "bedrock": 0.90
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "x-amzn-requestid alone can identify AWS infrastructure rather than Bedrock."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   groq:
     label: Groq
     headers:
       x-groq-region: 0.80
     patterns:
       "groq": 0.80
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Gateway forwarding can preserve the upstream Groq region header."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   cerebras:
     label: Cerebras
     headers: {}
     patterns:
       "cerebras": 0.90
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "This rule currently relies on a spoofable body string and needs stronger signals."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   aliyun_dashscope:
     label: Alibaba DashScope
     headers:
@@ -94,6 +238,16 @@ providers:
     patterns:
       "dashscope": 0.95
       "aliyuncs": 0.65
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "x-request-id is generic and carries almost no provider-specific weight."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   volcengine:
     label: Volcengine Ark
     headers:
@@ -101,11 +255,30 @@ providers:
     patterns:
       "volcengine": 0.80
       "ark": 0.20
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "The word 'ark' is intentionally weak because it is highly ambiguous."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   siliconflow:
     label: SiliconFlow
     headers: {}
     patterns:
       "siliconflow": 0.95
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "This rule currently relies on a body string and needs independent header evidence."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   cloudflare:
     label: Cloudflare
     headers:
@@ -113,13 +286,40 @@ providers:
       cf-cache-status: 0.45
     patterns:
       "cloudflare": 0.60
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "Cloudflare can be only the edge/CDN layer, not the model provider."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   vllm:
     label: vLLM
     headers: {}
     patterns:
       "vllm": 0.85
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "A vLLM string indicates serving stack evidence, not the commercial upstream identity."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
+
   sglang:
     label: SGLang
     headers: {}
     patterns:
       "sglang": 0.90
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "An SGLang string indicates serving stack evidence, not the commercial upstream identity."
+    confidence_calibration:
+      migrated_from_schema: 1
+      behavior: legacy-v1-weights
