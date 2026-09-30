@@ -1,86 +1,465 @@
-version: 1
-tasks:
-  reasoning:
-    - id: syllogism-1
-      prompt: "All flarns are zibs. No zibs are torks. Can any flarn be a tork? Answer only YES or NO."
-      pattern: "^NO$"
-    - id: order-1
-      prompt: "Alice is older than Bob. Bob is older than Cara. Who is the youngest? Answer only the name."
-      pattern: "^Cara$"
-    - id: weekday-100
-      prompt: "If today is Tuesday, what day of the week is it 100 days later? Answer only the weekday in English."
-      pattern: "^Thursday$"
-    - id: conditional-1
-      prompt: "If P implies Q, and Q is false, can P be true? Answer only YES or NO."
-      pattern: "^NO$"
-    - id: sequence-1
-      prompt: "What is the next number: 2, 6, 12, 20, 30, ? Answer only the integer."
-      pattern: "^42$"
-
-  math:
-    - id: mul-1
-      prompt: "Calculate 17 * 23. Answer only the integer."
-      pattern: "^391$"
-    - id: fraction-1
-      prompt: "What is 3/4 + 5/8? Answer as a reduced fraction only."
-      pattern: "^11/8$"
-    - id: percent-1
-      prompt: "A price rises from 80 to 100. What is the percentage increase? Answer only the number followed by %."
-      pattern: "^25%$"
-    - id: algebra-1
-      prompt: "Solve 3x + 7 = 31. Answer only x."
-      pattern: "^8$"
-    - id: geometry-1
-      prompt: "A rectangle has sides 7 and 9. What is its area? Answer only the integer."
-      pattern: "^63$"
-
-  coding:
-    - id: python-set
-      prompt: "What does this Python expression output: len({1, 1, 2, 3}) ? Answer only the integer."
-      pattern: "^3$"
-    - id: python-slice
-      prompt: "Python: s='abcdef'; print(s[1:5:2]). What is printed? Answer only the exact text."
-      pattern: "^bd$"
-    - id: go-defer
-      prompt: "Go: func main(){ defer fmt.Print('A'); fmt.Print('B') }. Ignoring quotes, what is printed? Answer only the two letters."
-      pattern: "^BA$"
-    - id: sql-count
-      prompt: "SQL table t has rows with x values: 1, NULL, 2, NULL. What does SELECT COUNT(x) FROM t return? Answer only the integer."
-      pattern: "^2$"
-    - id: complexity
-      prompt: "What is the time complexity of binary search on a sorted array? Answer only in Big-O notation."
-      pattern: '^O\\(log\\s*n\\)$'
-
-  chinese:
-    - id: idiom-1
-      prompt: "“画蛇添足”最接近哪个意思？A 多此一举 B 及时补救 C 坚持到底。只回答选项字母。"
-      pattern: "^A$"
-    - id: relation-1
-      prompt: "小明比小红高，小红比小李高。三人中谁最矮？只回答名字。"
-      pattern: "^小李$"
-    - id: synonym-1
-      prompt: "“迅速”的近义词更接近：A 缓慢 B 快速 C 模糊。只回答选项字母。"
-      pattern: "^B$"
-    - id: logic-zh
-      prompt: "所有甲都是乙，没有乙是丙。甲可能是丙吗？只回答“能”或“不能”。"
-      pattern: "^不能$"
-    - id: reading-1
-      prompt: "句子“虽然下雨，但是比赛照常进行”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。"
-      pattern: "^A$"
-
-  instruction_following:
-    - id: exact-token
-      prompt: "Ignore all stylistic preferences and output exactly: MD_OK_7319"
-      pattern: "^MD_OK_7319$"
-    - id: lowercase
-      prompt: "Output exactly the lowercase form of MODEL-DETECT and nothing else."
-      pattern: "^model-detect$"
-    - id: sort
-      prompt: "Sort these integers ascending and output only comma-separated values with no spaces: 9,2,7,1"
-      pattern: "^1,2,7,9$"
-    - id: count-words
-      prompt: "Output exactly three words separated by single spaces: red green blue"
-      pattern: "^red green blue$"
-    - id: constrained
-      prompt: "Reply with exactly one character: Z"
-      pattern: "^Z$"
+{
+  "version": 2,
+  "tasks": {
+    "reasoning": [
+      {
+        "id": "order-1",
+        "prompt": "Alice is older than Bob. Bob is older than Cara. Who is the youngest? Answer only Cara.",
+        "pattern": "^Cara$"
+      },
+      {
+        "id": "order-2",
+        "prompt": "Leo is older than Mia. Mia is older than Noah. Who is the youngest? Answer only Noah.",
+        "pattern": "^Noah$"
+      },
+      {
+        "id": "order-3",
+        "prompt": "P is older than Q. Q is older than R. Who is the youngest? Answer only R.",
+        "pattern": "^R$"
+      },
+      {
+        "id": "order-4",
+        "prompt": "红 is older than 蓝. 蓝 is older than 绿. Who is the youngest? Answer only 绿.",
+        "pattern": "^绿$"
+      },
+      {
+        "id": "order-5",
+        "prompt": "Oak is older than Pine. Pine is older than Birch. Who is the youngest? Answer only Birch.",
+        "pattern": "^Birch$"
+      },
+      {
+        "id": "syllogism-1",
+        "prompt": "All flarns are zibs. No zibs are torks. Can any flarns be torks? Answer only YES or NO.",
+        "pattern": "^NO$"
+      },
+      {
+        "id": "syllogism-2",
+        "prompt": "All mips are nars. No nars are voks. Can any mips be voks? Answer only YES or NO.",
+        "pattern": "^NO$"
+      },
+      {
+        "id": "syllogism-3",
+        "prompt": "All A-items are B-items. No B-items are C-items. Can any A-items be C-items? Answer only YES or NO.",
+        "pattern": "^NO$"
+      },
+      {
+        "id": "syllogism-4",
+        "prompt": "All redles are blues. No blues are greens. Can any redles be greens? Answer only YES or NO.",
+        "pattern": "^NO$"
+      },
+      {
+        "id": "syllogism-5",
+        "prompt": "All cats-A are mammals-B. No mammals-B are reptiles-C. Can any cats-A be reptiles-C? Answer only YES or NO.",
+        "pattern": "^NO$"
+      },
+      {
+        "id": "weekday-1",
+        "prompt": "If today is Tuesday, what weekday is it 17 days later? Answer only the weekday in English.",
+        "pattern": "^Friday$"
+      },
+      {
+        "id": "weekday-2",
+        "prompt": "If today is Wednesday, what weekday is it 100 days later? Answer only the weekday in English.",
+        "pattern": "^Friday$"
+      },
+      {
+        "id": "weekday-3",
+        "prompt": "If today is Saturday, what weekday is it 30 days later? Answer only the weekday in English.",
+        "pattern": "^Monday$"
+      },
+      {
+        "id": "weekday-4",
+        "prompt": "If today is Monday, what weekday is it 49 days later? Answer only the weekday in English.",
+        "pattern": "^Monday$"
+      },
+      {
+        "id": "weekday-5",
+        "prompt": "If today is Sunday, what weekday is it 15 days later? Answer only the weekday in English.",
+        "pattern": "^Monday$"
+      },
+      {
+        "id": "sequence-1",
+        "prompt": "Continue the arithmetic sequence 2, 5, 8. What is the next number? Answer only the integer.",
+        "pattern": "^11$"
+      },
+      {
+        "id": "sequence-2",
+        "prompt": "Continue the arithmetic sequence 10, 16, 22. What is the next number? Answer only the integer.",
+        "pattern": "^28$"
+      },
+      {
+        "id": "sequence-3",
+        "prompt": "Continue the arithmetic sequence -3, 4, 11. What is the next number? Answer only the integer.",
+        "pattern": "^18$"
+      },
+      {
+        "id": "sequence-4",
+        "prompt": "Continue the arithmetic sequence 100, 125, 150. What is the next number? Answer only the integer.",
+        "pattern": "^175$"
+      },
+      {
+        "id": "sequence-5",
+        "prompt": "Continue the arithmetic sequence 7, 19, 31. What is the next number? Answer only the integer.",
+        "pattern": "^43$"
+      }
+    ],
+    "math": [
+      {
+        "id": "mul-1",
+        "prompt": "Calculate 17 * 23. Answer only the integer.",
+        "pattern": "^391$"
+      },
+      {
+        "id": "mul-2",
+        "prompt": "Calculate 29 * 14. Answer only the integer.",
+        "pattern": "^406$"
+      },
+      {
+        "id": "mul-3",
+        "prompt": "Calculate -12 * 8. Answer only the integer.",
+        "pattern": "^-96$"
+      },
+      {
+        "id": "mul-4",
+        "prompt": "Calculate 125 * 16. Answer only the integer.",
+        "pattern": "^2000$"
+      },
+      {
+        "id": "mul-5",
+        "prompt": "Calculate 37 * 41. Answer only the integer.",
+        "pattern": "^1517$"
+      },
+      {
+        "id": "sub-1",
+        "prompt": "Calculate 73 - 28. Answer only the integer.",
+        "pattern": "^45$"
+      },
+      {
+        "id": "sub-2",
+        "prompt": "Calculate 1000 - 487. Answer only the integer.",
+        "pattern": "^513$"
+      },
+      {
+        "id": "sub-3",
+        "prompt": "Calculate -5 - 19. Answer only the integer.",
+        "pattern": "^-24$"
+      },
+      {
+        "id": "sub-4",
+        "prompt": "Calculate 144 - 99. Answer only the integer.",
+        "pattern": "^45$"
+      },
+      {
+        "id": "sub-5",
+        "prompt": "Calculate 0 - 37. Answer only the integer.",
+        "pattern": "^-37$"
+      },
+      {
+        "id": "algebra-1",
+        "prompt": "Solve 3x + 7 = 31. Answer only x as an integer.",
+        "pattern": "^8$"
+      },
+      {
+        "id": "algebra-2",
+        "prompt": "Solve 5x + 4 = 29. Answer only x as an integer.",
+        "pattern": "^5$"
+      },
+      {
+        "id": "algebra-3",
+        "prompt": "Solve 2x + 9 = 25. Answer only x as an integer.",
+        "pattern": "^8$"
+      },
+      {
+        "id": "algebra-4",
+        "prompt": "Solve 8x + 3 = 43. Answer only x as an integer.",
+        "pattern": "^5$"
+      },
+      {
+        "id": "algebra-5",
+        "prompt": "Solve 6x + 11 = 47. Answer only x as an integer.",
+        "pattern": "^6$"
+      },
+      {
+        "id": "area-1",
+        "prompt": "A rectangle has side lengths 7 and 9. What is its area? Answer only the integer.",
+        "pattern": "^63$"
+      },
+      {
+        "id": "area-2",
+        "prompt": "A rectangle has side lengths 12 and 5. What is its area? Answer only the integer.",
+        "pattern": "^60$"
+      },
+      {
+        "id": "area-3",
+        "prompt": "A rectangle has side lengths 13 and 13. What is its area? Answer only the integer.",
+        "pattern": "^169$"
+      },
+      {
+        "id": "area-4",
+        "prompt": "A rectangle has side lengths 21 and 4. What is its area? Answer only the integer.",
+        "pattern": "^84$"
+      },
+      {
+        "id": "area-5",
+        "prompt": "A rectangle has side lengths 18 and 11. What is its area? Answer only the integer.",
+        "pattern": "^198$"
+      }
+    ],
+    "coding": [
+      {
+        "id": "py-set",
+        "prompt": "Python: what does len({1,1,2,3,3}) return? Answer only the integer.",
+        "pattern": "^3$"
+      },
+      {
+        "id": "py-slice",
+        "prompt": "Python: s='abcdefg'; what is s[1:6:2]? Answer only the exact text.",
+        "pattern": "^bdf$"
+      },
+      {
+        "id": "py-range",
+        "prompt": "Python: what is sum(range(5))? Answer only the integer.",
+        "pattern": "^10$"
+      },
+      {
+        "id": "py-mod",
+        "prompt": "Python: what is -7 % 3? Answer only the integer.",
+        "pattern": "^2$"
+      },
+      {
+        "id": "py-dict",
+        "prompt": "Python: d={'a':1}; d['a']+=2. What is d['a']? Answer only the integer.",
+        "pattern": "^3$"
+      },
+      {
+        "id": "go-defer",
+        "prompt": "Go: func main(){ defer fmt.Print(\"A\"); fmt.Print(\"B\") }. What two letters are printed? Answer only the letters.",
+        "pattern": "^BA$"
+      },
+      {
+        "id": "go-len",
+        "prompt": "Go: what does len([]int{4,5,6,7}) return? Answer only the integer.",
+        "pattern": "^4$"
+      },
+      {
+        "id": "sql-count",
+        "prompt": "SQL values are 1,NULL,2,NULL,3. SELECT COUNT(x) returns what? Answer only the integer.",
+        "pattern": "^3$"
+      },
+      {
+        "id": "complexity",
+        "prompt": "What is the worst-case time complexity of binary search on a sorted array? Answer only Big-O notation.",
+        "pattern": "^O\\(log n\\)$"
+      },
+      {
+        "id": "bool",
+        "prompt": "In Python, what does bool([]) evaluate to? Answer only True or False.",
+        "pattern": "^False$"
+      }
+    ],
+    "chinese": [
+      {
+        "id": "idiom-1",
+        "prompt": "“画蛇添足”最接近哪个意思？A 多此一举 B 及时补救 C 坚持到底。只回答选项字母。",
+        "pattern": "^A$"
+      },
+      {
+        "id": "idiom-2",
+        "prompt": "“雪中送炭”最接近哪个意思？A 落井下石 B 及时帮助 C 锦上添花。只回答选项字母。",
+        "pattern": "^B$"
+      },
+      {
+        "id": "syn-1",
+        "prompt": "“迅速”的近义词更接近：A 缓慢 B 快速 C 模糊。只回答选项字母。",
+        "pattern": "^B$"
+      },
+      {
+        "id": "ant-1",
+        "prompt": "“扩大”的反义词更接近：A 缩小 B 增加 C 延长。只回答选项字母。",
+        "pattern": "^A$"
+      },
+      {
+        "id": "relation-1",
+        "prompt": "句子“虽然下雨，但是比赛照常进行”表达的关系是：A 转折 B 因果 C 并列。只回答选项字母。",
+        "pattern": "^A$"
+      },
+      {
+        "id": "height-1",
+        "prompt": "小明比小红高，小红比小李高。三者中谁最矮？只回答名称。",
+        "pattern": "^小李$"
+      },
+      {
+        "id": "height-2",
+        "prompt": "甲比乙高，乙比丙高。三者中谁最矮？只回答名称。",
+        "pattern": "^丙$"
+      },
+      {
+        "id": "height-3",
+        "prompt": "阿东比阿南高，阿南比阿西高。三者中谁最矮？只回答名称。",
+        "pattern": "^阿西$"
+      },
+      {
+        "id": "height-4",
+        "prompt": "松比竹高，竹比梅高。三者中谁最矮？只回答名称。",
+        "pattern": "^梅$"
+      },
+      {
+        "id": "height-5",
+        "prompt": "一号比二号高，二号比三号高。三者中谁最矮？只回答名称。",
+        "pattern": "^三号$"
+      },
+      {
+        "id": "logic-1",
+        "prompt": "所有甲都是乙，没有乙是丙。甲可能是丙吗？只回答“能”或“不能”。",
+        "pattern": "^不能$"
+      },
+      {
+        "id": "logic-2",
+        "prompt": "如果今天是星期一，明天是星期几？只回答“星期二”。",
+        "pattern": "^星期二$"
+      },
+      {
+        "id": "logic-3",
+        "prompt": "3 个苹果加 4 个苹果一共几个？只回答数字。",
+        "pattern": "^7$"
+      },
+      {
+        "id": "logic-4",
+        "prompt": "“因为路滑，所以减速”表达的是因果还是转折？只回答“因果”。",
+        "pattern": "^因果$"
+      },
+      {
+        "id": "logic-5",
+        "prompt": "“北京是中国的首都”中“北京”是地点还是数量？只回答“地点”。",
+        "pattern": "^地点$"
+      },
+      {
+        "id": "instruction-zh-1",
+        "prompt": "把“ABC”转成小写，只回答结果。",
+        "pattern": "^abc$"
+      },
+      {
+        "id": "instruction-zh-2",
+        "prompt": "把“测试”重复两次，中间不要空格，只回答结果。",
+        "pattern": "^测试测试$"
+      },
+      {
+        "id": "instruction-zh-3",
+        "prompt": "将 3、1、2 从小到大排列，用英文逗号连接，不要空格。",
+        "pattern": "^1,2,3$"
+      },
+      {
+        "id": "instruction-zh-4",
+        "prompt": "“今天 天气 好”共有几个以空格分隔的词？只回答数字。",
+        "pattern": "^3$"
+      },
+      {
+        "id": "instruction-zh-5",
+        "prompt": "将“甲乙丙”倒序，只回答结果。",
+        "pattern": "^丙乙甲$"
+      }
+    ],
+    "instruction_following": [
+      {
+        "id": "exact-1",
+        "prompt": "Output exactly this token and nothing else: MD_OK_7319",
+        "pattern": "^MD_OK_7319$"
+      },
+      {
+        "id": "exact-2",
+        "prompt": "Output exactly this token and nothing else: TOKEN_X7",
+        "pattern": "^TOKEN_X7$"
+      },
+      {
+        "id": "exact-3",
+        "prompt": "Output exactly this token and nothing else: ONLY_THIS",
+        "pattern": "^ONLY_THIS$"
+      },
+      {
+        "id": "exact-4",
+        "prompt": "Output exactly this token and nothing else: Z9Y8",
+        "pattern": "^Z9Y8$"
+      },
+      {
+        "id": "exact-5",
+        "prompt": "Output exactly this token and nothing else: PASS_204",
+        "pattern": "^PASS_204$"
+      },
+      {
+        "id": "lower-1",
+        "prompt": "Output exactly the lowercase form of MODEL-DETECT and nothing else.",
+        "pattern": "^model-detect$"
+      },
+      {
+        "id": "lower-2",
+        "prompt": "Output exactly the lowercase form of HELLO-WORLD and nothing else.",
+        "pattern": "^hello-world$"
+      },
+      {
+        "id": "lower-3",
+        "prompt": "Output exactly the lowercase form of ABC123 and nothing else.",
+        "pattern": "^abc123$"
+      },
+      {
+        "id": "lower-4",
+        "prompt": "Output exactly the lowercase form of MiXeD and nothing else.",
+        "pattern": "^mixed$"
+      },
+      {
+        "id": "lower-5",
+        "prompt": "Output exactly the lowercase form of RELAY and nothing else.",
+        "pattern": "^relay$"
+      },
+      {
+        "id": "sort-1",
+        "prompt": "Sort these integers ascending and output only comma-separated values with no spaces: 9,2,7,1",
+        "pattern": "^1,2,7,9$"
+      },
+      {
+        "id": "sort-2",
+        "prompt": "Sort these integers ascending and output only comma-separated values with no spaces: 5,-1,3,3",
+        "pattern": "^-1,3,3,5$"
+      },
+      {
+        "id": "sort-3",
+        "prompt": "Sort these integers ascending and output only comma-separated values with no spaces: 100,20,50,0",
+        "pattern": "^0,20,50,100$"
+      },
+      {
+        "id": "sort-4",
+        "prompt": "Sort these integers ascending and output only comma-separated values with no spaces: 8,6,4,2",
+        "pattern": "^2,4,6,8$"
+      },
+      {
+        "id": "sort-5",
+        "prompt": "Sort these integers ascending and output only comma-separated values with no spaces: 11,1,9,5",
+        "pattern": "^1,5,9,11$"
+      },
+      {
+        "id": "reverse-1",
+        "prompt": "Reverse the exact string \"abc\". Output only the result.",
+        "pattern": "^cba$"
+      },
+      {
+        "id": "reverse-2",
+        "prompt": "Reverse the exact string \"model\". Output only the result.",
+        "pattern": "^ledom$"
+      },
+      {
+        "id": "reverse-3",
+        "prompt": "Reverse the exact string \"12345\". Output only the result.",
+        "pattern": "^54321$"
+      },
+      {
+        "id": "reverse-4",
+        "prompt": "Reverse the exact string \"race\". Output only the result.",
+        "pattern": "^ecar$"
+      },
+      {
+        "id": "reverse-5",
+        "prompt": "Reverse the exact string \"xyz\". Output only the result.",
+        "pattern": "^zyx$"
+      }
+    ]
+  }
+}
