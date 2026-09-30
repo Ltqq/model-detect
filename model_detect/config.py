@@ -19,6 +19,7 @@ class AuditConfig(BaseModel):
     reference_dir: str = "references"
     declared_context_tokens: int | None = None
     capability_enabled: bool = True
+    proxy_sleuth_enabled: bool = True
     extra_headers: dict[str, str] = Field(default_factory=dict)
 
 
