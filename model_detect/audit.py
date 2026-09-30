@@ -220,9 +220,9 @@ async def run_audit(
                 registry.signature(manifest),
             )
         )
-        fp_path = registry.fingerprint_path(manifest)
-        if fp_path:
-            reference_fingerprint = str(fp_path)
+        fp_reference = registry.fingerprint_reference_value(manifest)
+        if fp_reference:
+            reference_fingerprint = fp_reference
     else:
         report.adapters["reference"] = {"status": "not_configured"}
 
@@ -230,14 +230,19 @@ async def run_audit(
         try:
             if progress:
                 progress("fingerprint-reference", 6, len(phase_names))
-            result, meta = await asyncio.to_thread(
+            fingerprint_preset = (
+                "quick" if profile == "quick"
+                else ("standard" if profile == "standard" else "strict")
+            )
+            fingerprint_results, meta = await asyncio.to_thread(
                 fingerprint.verify,
                 base_url=config.target.base_url,
                 model=config.target.model,
                 api_key=api_key,
                 reference=reference_fingerprint,
+                preset=fingerprint_preset,
             )
-            report.results.append(result)
+            report.results.extend(fingerprint_results)
             report.adapters["fingerprint"] = meta
         except Exception as exc:
             report.results.append(
