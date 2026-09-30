@@ -12,9 +12,13 @@ def test_capability_lite_dataset_is_valid():
         "chinese",
         "instruction_following",
     }
-    assert sum(len(v) for v in tasks.values()) >= 25
+    assert sum(len(v) for v in tasks.values()) >= 40
+    assert len(tasks["reasoning"]) >= 20
+    ids = []
     for category, items in tasks.items():
         for item in items:
             assert item["id"]
             assert item["prompt"]
             re.compile(item["pattern"])
+            ids.append((category, item["id"]))
+    assert len(ids) == len(set(ids))
