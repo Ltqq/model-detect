@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -153,7 +154,13 @@ def create_app(
         path = Path(item["report_path"])
         if not path.exists():
             raise HTTPException(404, "report file missing")
-        return HTMLResponse(path.read_text(encoding="utf-8"))
+        content = path.read_text(encoding="utf-8")
+        content = re.sub(
+            r'href="evidence/(ev_[A-Za-z0-9_-]+)\\.json"',
+            lambda m: f'href="/api/audits/{job_id}/evidence/{m.group(1)}"',
+            content,
+        )
+        return HTMLResponse(content)
 
     @app.get("/api/audits/{job_id}/report")
     async def report_json(job_id: str):
