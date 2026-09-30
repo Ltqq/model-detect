@@ -151,6 +151,10 @@ def run(
                     "engine": "proxy-sleuth",
                     "layer": name,
                     "verdict": verdict.lower(),
+                    "identity_strength": (
+                        "strong" if name == "statistical"
+                        else ("medium" if name == "knowledge_probes" else "weak")
+                    ),
                 },
             )
         )
@@ -171,7 +175,7 @@ def run(
                 confidence=0.65,
                 summary=f"proxy-sleuth overall verdict={verdict}",
                 observed=data,
-                metadata={"engine": "proxy-sleuth", "verdict": verdict.lower()},
+                metadata={"engine": "proxy-sleuth", "verdict": verdict.lower(), "identity_strength": "medium"},
             )
         )
 
