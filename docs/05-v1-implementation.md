@@ -58,7 +58,7 @@ Evidence / Report / Web
 | Provider Rule provenance | ✅ | schema v2 + source refs + false-positive notes |
 | Report Drift Compare | ✅ | manual report compare |
 | Regression Audit Orchestration | ✅ | Audit/Profile/CLI/Web/Report 已接通 |
-| SQLite History | ✅ | 本地任务历史已保存，最后补 UX 收尾 |
+| SQLite History | ✅ | Verdict/Score、HTML/JSON/ZIP、筛选、删除均完成 |
 | Scheduler / Trend | 🚫 | 当前产品不需要 |
 | Anthropic/Gemini Native | 🚫 | 当前主要测 OpenAI-compatible relay |
 | PostgreSQL / Redis / RBAC | 🚫 | 单机自用不需要 |
@@ -110,16 +110,18 @@ Evidence / Report / Web
 - Gateway 差异默认不直接升级成模型身份强证据；
 - 不确定的能力保持 `expected: null`。
 
-## 5. 当前真正缺口
+## 5. 当前状态
 
-检测核心已经完成，剩余只做本地 Web 使用体验：
+轻量产品闭环已经完成：
 
-1. 历史列表展示 Verdict / Score；
-2. HTML / JSON / ZIP 直接访问；
-3. 简单模型 / 状态 / 类型筛选；
-4. 删除历史记录并同步清理报告文件；
-5. 一次本地 Web E2E 验收。
+- Web 发起 Audit；
+- SQLite 保存历史；
+- 历史显示 Verdict / Score；
+- HTML / JSON / ZIP 可直接打开或下载；
+- 模型 / 状态 / 类型可筛选；
+- 历史记录可删除并同步清理本地 Audit 文件；
+- Local E2E 覆盖“提交 -> 完成 -> 历史 -> 报告 -> 筛选 -> 删除”。
 
-完成后停止扩功能，日常只维护 Model Rule / Provider Rule / Regression Case。
+当前停止扩功能。后续只在真实使用中维护 Model Rule、Provider Rule、Regression Case，并修复实际发现的问题。
 
 性能测试继续保持独立。
