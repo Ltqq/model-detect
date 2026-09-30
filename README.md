@@ -70,3 +70,116 @@ V1 不集成性能压测：
 ---
 
 Status: Design / MVP planning
+
+
+## 快速开始
+
+### 安装
+
+```bash
+git clone https://github.com/Ltqq/model-detect.git
+cd model-detect
+pip install -e ".[dev]"
+```
+
+### 设置 API Key
+
+PowerShell:
+
+```powershell
+$env:MODEL_DETECT_API_KEY="sk-xxx"
+```
+
+Linux/macOS:
+
+```bash
+export MODEL_DETECT_API_KEY="sk-xxx"
+```
+
+### 使用配置文件
+
+```bash
+model-detect audit -c examples/audit.yaml
+```
+
+### 直接命令行运行
+
+```bash
+model-detect audit \
+  --base-url https://example.com/v1 \
+  --model kimi-k3 \
+  --api-key-env MODEL_DETECT_API_KEY
+```
+
+输出：
+
+```text
+model-detect-output/<model>/
+├── report.json
+├── report.html
+└── evidence/
+    ├── ev_xxx.json
+    └── ...
+```
+
+### 查看开源检测引擎状态
+
+```bash
+model-detect oss-status
+```
+
+### 使用 llm-fingerprint-detector
+
+先通过可信官方 Endpoint 生成 Reference，然后：
+
+```bash
+model-detect audit \
+  --base-url https://reseller.example.com/v1 \
+  --model kimi-k3 \
+  --api-key-env MODEL_DETECT_API_KEY \
+  --fingerprint-reference references/kimi-k3/official.json
+```
+
+API Key 通过环境变量传递给外部指纹引擎，不进入命令行参数。
+
+### 同时运行 proxy-sleuth
+
+如果本机已经安装 `proxy-sleuth`：
+
+```bash
+model-detect audit -c examples/audit.yaml --with-proxy-sleuth
+```
+
+V0.1 中 proxy-sleuth 是可选增强项；未安装时原生 Probe 仍然可以完整运行。
+
+## V0.1 已实现
+
+当前 Core MVP 已包含：
+
+- OpenAI-compatible Chat Completions 基础检查
+- SSE Streaming 检查
+- usage / finish_reason 检查
+- invalid model Error Fingerprint
+- unknown field 行为检查
+- `reasoning_effor` 错字段检查
+- system role 检查
+- multi-turn 检查
+- Tool Calling + arguments JSON 检查
+- JSON Mode 检查
+- Provider / Gateway 响应指纹
+- API Key / 敏感字段脱敏
+- 原始 Evidence 留存
+- JSON + HTML 报告
+- 可解释分类评分 + Hard Cap
+- `llm-fingerprint-detector` adapter
+- `proxy-sleuth` optional adapter
+
+下一阶段会继续补：
+
+- 模型级规则库（例如 Kimi K3 官方行为）
+- JSON Schema / strict structured output
+- context needle
+- mixed routing
+- Reference Registry
+- capability lite
+- Web UI
