@@ -197,6 +197,36 @@ def create_app(
         except KeyError:
             raise HTTPException(404, "job not found")
 
+    @app.delete("/api/jobs/{job_id}")
+    async def delete_job(job_id: str):
+        try:
+            item = store.get(job_id)
+        except KeyError:
+            raise HTTPException(404, "job not found")
+
+        if item["status"] in {"queued", "running"}:
+            raise HTTPException(409, "running job cannot be deleted")
+
+        if item["kind"] == "audit":
+            report_root = (app.state.output_dir / job_id).resolve()
+            output_root = app.state.output_dir.resolve()
+            if report_root.is_relative_to(output_root) and report_root.exists():
+                shutil.rmtree(report_root, ignore_errors=True)
+
+        archive = app.state.state_dir / f"{job_id}-report.zip"
+        if archive.exists():
+            archive.unlink()
+
+        regression_work = (
+            app.state.state_dir / "regression-runs" / job_id
+        )
+        if regression_work.exists():
+            shutil.rmtree(regression_work, ignore_errors=True)
+
+        if not store.delete(job_id):
+            raise HTTPException(404, "job not found")
+        return {"ok": True, "id": job_id}
+
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
         if payload.profile not in {"quick", "standard", "deep"}:

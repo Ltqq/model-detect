@@ -311,3 +311,101 @@ def test_history_filters_apply_to_page_and_api(tmp_path):
     )
     assert api.status_code == 200
     assert [job["id"] for job in api.json()["jobs"]] == ["ref_kimi"]
+
+
+
+def test_delete_history_removes_audit_files_and_database_row(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    report_root = tmp_path / "out" / "audit_delete"
+    report_root.mkdir(parents=True)
+    report_html = report_root / "report.html"
+    report_html.write_text("<h1>report</h1>", encoding="utf-8")
+
+    archive = tmp_path / "state" / "audit_delete-report.zip"
+    archive.write_bytes(b"zip")
+
+    app.state.store.create(
+        job_id="audit_delete",
+        kind="audit",
+        model="m",
+        base_url="https://example.com/v1",
+        profile="quick",
+        meta={},
+    )
+    app.state.store.finish(
+        "audit_delete",
+        report_path=str(report_html),
+        meta={"verdict": "MATCH", "score": 90},
+    )
+
+    client = TestClient(app)
+    response = client.delete("/api/jobs/audit_delete")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert not report_root.exists()
+    assert not archive.exists()
+    assert client.get("/api/jobs/audit_delete").status_code == 404
+
+
+def test_delete_history_rejects_running_job(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    app.state.store.create(
+        job_id="audit_running",
+        kind="audit",
+        model="m",
+        base_url="https://example.com/v1",
+        profile="quick",
+        meta={},
+    )
+    app.state.store.update(
+        "audit_running",
+        status="running",
+        progress=0.5,
+    )
+
+    client = TestClient(app)
+    response = client.delete("/api/jobs/audit_running")
+
+    assert response.status_code == 409
+    assert app.state.store.get("audit_running")["status"] == "running"
+
+
+def test_delete_reference_history_does_not_delete_reference_artifacts(tmp_path):
+    app = create_app(
+        state_dir=tmp_path / "state",
+        reference_dir=tmp_path / "refs",
+        output_dir=tmp_path / "out",
+    )
+    reference_root = tmp_path / "refs" / "trusted-ref"
+    reference_root.mkdir(parents=True)
+    report_html = reference_root / "report.html"
+    report_html.write_text("<h1>reference</h1>", encoding="utf-8")
+
+    app.state.store.create(
+        job_id="ref_history",
+        kind="reference",
+        model="m",
+        base_url="https://official.example/v1",
+        profile="standard",
+        meta={},
+    )
+    app.state.store.finish(
+        "ref_history",
+        report_path=str(report_html),
+        meta={"reference_id": "trusted-ref"},
+    )
+
+    response = TestClient(app).delete("/api/jobs/ref_history")
+
+    assert response.status_code == 200
+    assert reference_root.exists()
+    assert report_html.exists()

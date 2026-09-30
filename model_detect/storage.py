@@ -130,6 +130,12 @@ class JobStore:
             raise KeyError(job_id)
         return self._row(row)
 
+    def delete(self, job_id: str) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+            conn.commit()
+        return cursor.rowcount > 0
+
     def list(
         self,
         limit: int = 100,
