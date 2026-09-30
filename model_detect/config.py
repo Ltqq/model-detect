@@ -20,6 +20,8 @@ class AuditConfig(BaseModel):
     declared_context_tokens: int | None = None
     capability_enabled: bool = True
     proxy_sleuth_enabled: bool = True
+    coding_sandbox_enabled: bool = False
+    coding_sandbox_auto_pull: bool = True
     extra_headers: dict[str, str] = Field(default_factory=dict)
 
 
