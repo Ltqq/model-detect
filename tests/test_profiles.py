@@ -14,4 +14,4 @@ def test_profiles_are_incremental():
     assert standard < deep
     assert "probe_json_schema" in standard
     assert "probe_reasoning_valid" in standard
-    assert "probe_routing_model_consistency" in deep
+    assert "probe_tools_parallel" in deep
