@@ -22,8 +22,8 @@ button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 16
 <button id="collect">开始采集</button> <span id="msg" class="muted"></span>
 </div>
 <div class="card"><h2>现有 References</h2>
-<table><thead><tr><th>ID</th><th>Model</th><th>Provider</th><th>时间</th><th>Fingerprint</th><th></th></tr></thead><tbody>
-{% for r in references %}<tr><td>{{ r.id }}</td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td><td>{{ '✓' if r.fingerprint_artifact else '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td></tr>{% endfor %}
+<table><thead><tr><th>ID</th><th>Model</th><th>Provider</th><th>时间</th><th>Fingerprint</th><th>来源</th><th></th></tr></thead><tbody>
+{% for r in references %}<tr><td>{{ r.id }}</td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td><td>{{ '✓' if (r.fingerprint_artifact or r.fingerprint_reference) else '—' }}</td><td>{{ r.fingerprint_source or '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td></tr>{% endfor %}
 </tbody></table></div>
 <div class="card"><h2>Reference 任务</h2><table><thead><tr><th>ID</th><th>模型</th><th>状态</th><th>详情</th></tr></thead><tbody>
 {% for j in jobs %}<tr><td>{{ j.id }}</td><td>{{ j.model }}</td><td>{{ j.status }}</td><td>{{ j.detail or j.error or '' }}{% if j.report_path %} · <a href="/reports/{{ j.id }}">基准报告</a>{% endif %}</td></tr>{% endfor %}
