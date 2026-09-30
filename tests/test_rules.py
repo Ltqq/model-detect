@@ -291,3 +291,66 @@ def test_official_expectations_do_not_implicitly_use_empirical_sources():
                 continue
             for ref in spec.get("source_refs") or []:
                 assert by_id[ref].type != "empirical"
+
+
+@pytest.mark.parametrize(
+    ("model", "rule_id"),
+    [
+        ("claude-fable-5-1", "claude-5-current"),
+        ("claude-opus-5", "claude-5-current"),
+        ("claude-sonnet-5", "claude-5-current"),
+        ("gpt-5.6", "gpt-5.6"),
+        ("gpt-5.6-sol", "gpt-5.6"),
+        ("gpt-5.6-terra", "gpt-5.6"),
+        ("gpt-5.6-luna", "gpt-5.6"),
+        ("gemini-3.8-flash", "gemini-3.8-flash"),
+    ],
+)
+def test_second_formal_model_rules_match(model, rule_id):
+    rule = match_model_rule(model)
+    assert rule.id == rule_id
+    assert rule.schema_version == 2
+    assert rule.sources
+
+
+def test_claude_5_rule_avoids_gateway_specific_reasoning_assumptions():
+    rule = match_model_rule("claude-opus-5")
+    assert rule.declared_context_tokens == 1000000
+    assert rule.features["tools"]["expected"] is True
+    assert rule.features["reasoning_effort"]["expected"] is None
+    assert rule.features["disable_thinking"]["expected"] is None
+    assert rule.features["json_schema"]["expected"] is None
+
+
+def test_gpt_56_rule_has_traceable_reasoning_and_tools():
+    rule = match_model_rule("gpt-5.6-sol")
+    assert rule.declared_context_tokens == 1050000
+    effort = rule.features["reasoning_effort"]
+    assert effort["values"] == ["none", "low", "medium", "high", "xhigh", "max"]
+    assert effort["source_refs"] == ["openai-gpt-5.6-sol"]
+    assert rule.features["tools"]["expected"] is True
+
+
+def test_gemini_38_rule_has_traceable_openai_compatible_controls():
+    rule = match_model_rule("gemini-3.8-flash")
+    assert rule.declared_context_tokens == 1000000
+    effort = rule.features["reasoning_effort"]
+    assert effort["values"] == ["low", "medium", "high"]
+    assert effort["default"] == "medium"
+    assert rule.features["disable_thinking"]["expected"] is False
+    assert rule.features["tools"]["expected"] is True
+    assert rule.features["json_schema"]["expected"] is True
+
+
+def test_new_vendor_rules_use_only_official_sources_for_assertions():
+    rule_ids = {"claude-5-current", "gpt-5.6", "gemini-3.8-flash"}
+    for rule in load_model_rules():
+        if rule.id not in rule_ids:
+            continue
+        by_id = {source.id: source for source in rule.sources}
+        for spec in rule.features.values():
+            if not isinstance(spec, dict) or spec.get("expected") is None:
+                continue
+            refs = spec.get("source_refs") or []
+            assert refs
+            assert all(by_id[ref].type == "official_doc" for ref in refs)

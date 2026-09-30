@@ -208,11 +208,11 @@
 
 ## Stage 5 — Claude / GPT / Gemini Model Knowledge
 
-- [ ] Claude
-- [ ] GPT
-- [ ] Gemini
-- [ ] 只写官方可验证能力
-- [ ] expected feature 必须可追溯
+- [x] Claude
+- [x] GPT
+- [x] Gemini
+- [x] 只写官方可验证能力
+- [x] expected feature 必须可追溯
 
 # 7. 后续优先级
 
