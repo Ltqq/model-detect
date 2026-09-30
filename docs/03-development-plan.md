@@ -83,7 +83,9 @@ TTFT / ITL / TPS / RPM / TPM / 吞吐 / 并发 / 429 压测继续由独立工具
 
 ---
 
-## P0-B：Parameter Integrity 补齐
+## P0-B：Parameter Integrity 补齐 ✅
+
+完成于 V1.1-2。判定设计见 `docs/design/08-integrity-probes.md`。
 
 当前已有：
 
@@ -94,12 +96,12 @@ TTFT / ITL / TPS / RPM / TPM / 吞吐 / 并发 / 429 压测继续由独立工具
 
 继续补：
 
-- [ ] `integrity.system_prompt`
-- [ ] `integrity.tools.preserved`
-- [ ] `integrity.tool_definitions`
-- [ ] `integrity.json_schema.preserved`
-- [ ] `integrity.temperature`
-- [ ] `integrity.top_p`
+- [x] `integrity.system_prompt`
+- [x] `integrity.tools.preserved`
+- [x] `integrity.tool_definitions`
+- [x] `integrity.json_schema.preserved`
+- [x] `integrity.temperature`
+- [x] `integrity.top_p`
 
 ### 设计原则
 
