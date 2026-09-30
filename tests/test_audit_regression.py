@@ -1,4 +1,4 @@
-import pytest
+import asyncio
 
 from model_detect import audit
 from model_detect.config import AuditConfig
@@ -10,8 +10,7 @@ from model_detect.models import (
 )
 
 
-@pytest.mark.asyncio
-async def test_regression_suites_are_added_to_audit_results(
+def test_regression_suites_are_added_to_audit_results(
     monkeypatch,
     tmp_path,
 ):
@@ -77,12 +76,14 @@ async def test_regression_suites_are_added_to_audit_results(
         }
     )
 
-    await audit._run_regression_suites(
-        report,
-        cfg,
-        "sk-secret",
-        [tmp_path / "regression.yaml"],
-        output_dir=tmp_path / "regression-run",
+    asyncio.run(
+        audit._run_regression_suites(
+            report,
+            cfg,
+            "sk-secret",
+            [tmp_path / "regression.yaml"],
+            output_dir=tmp_path / "regression-run",
+        )
     )
 
     assert len(seen) == 1
@@ -94,8 +95,7 @@ async def test_regression_suites_are_added_to_audit_results(
     ] == 1
 
 
-@pytest.mark.asyncio
-async def test_regression_failure_does_not_abort_audit(
+def test_regression_failure_does_not_abort_audit(
     monkeypatch,
     tmp_path,
 ):
@@ -118,12 +118,14 @@ async def test_regression_failure_does_not_abort_audit(
         }
     )
 
-    await audit._run_regression_suites(
-        report,
-        cfg,
-        "sk-secret",
-        ["missing.yaml"],
-        output_dir=tmp_path / "regression-run",
+    asyncio.run(
+        audit._run_regression_suites(
+            report,
+            cfg,
+            "sk-secret",
+            ["missing.yaml"],
+            output_dir=tmp_path / "regression-run",
+        )
     )
 
     assert report.results[0].status == ProbeStatus.ERROR
@@ -131,8 +133,7 @@ async def test_regression_failure_does_not_abort_audit(
     assert report.adapters["promptfoo_regression"]["status"] == "partial"
 
 
-@pytest.mark.asyncio
-async def test_no_regression_suites_records_not_configured(tmp_path):
+def test_no_regression_suites_records_not_configured(tmp_path):
     cfg = AuditConfig(
         target=AuditTarget(
             base_url="https://relay.example/v1",
@@ -146,12 +147,14 @@ async def test_no_regression_suites_records_not_configured(tmp_path):
         }
     )
 
-    await audit._run_regression_suites(
-        report,
-        cfg,
-        "sk-secret",
-        [],
-        output_dir=tmp_path,
+    asyncio.run(
+        audit._run_regression_suites(
+            report,
+            cfg,
+            "sk-secret",
+            [],
+            output_dir=tmp_path,
+        )
     )
 
     assert report.results == []
