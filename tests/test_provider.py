@@ -3,6 +3,7 @@ import pytest
 from model_detect.models import Evidence
 from model_detect.probes.provider import (
     detect_provider_hypotheses,
+    evaluate_upstream_policy,
     load_provider_rule_set,
     normalize_provider_rule_set,
 )
@@ -245,3 +246,54 @@ def test_detect_new_api_gateway_from_response_headers():
     }
     assert "new_api" in by_name
     assert by_name["new_api"].confidence > 0.8
+
+
+
+def test_upstream_policy_rejects_disallowed_provider_on_strong_signal():
+    evidences = [
+        Evidence(
+            id="ev-fw",
+            probe_id="protocol.chat.basic",
+            url="https://example.com/v1/chat/completions",
+            response_status=200,
+            response_headers={"x-fireworks-request-id": "fw-123"},
+            response_body={"choices": []},
+        )
+    ]
+    hypotheses = detect_provider_hypotheses(evidences)
+
+    result = evaluate_upstream_policy(
+        evidences,
+        hypotheses,
+        disallowed=["fireworks"],
+    )
+
+    assert result.status.value == "fail"
+    assert result.metadata["policy_violation"] is True
+    assert result.observed["detected"][0]["provider"] == "fireworks"
+    assert result.evidence_ids == ["ev-fw"]
+
+
+def test_upstream_policy_does_not_treat_429_as_provider_identity():
+    evidences = [
+        Evidence(
+            id="ev-429",
+            probe_id="protocol.chat.basic",
+            url="https://example.com/v1/chat/completions",
+            response_status=429,
+            response_headers={"content-type": "application/json"},
+            response_body={"error": {"message": "rate limited"}},
+        )
+    ]
+    hypotheses = detect_provider_hypotheses(evidences)
+
+    result = evaluate_upstream_policy(
+        evidences,
+        hypotheses,
+        disallowed=["fireworks"],
+    )
+
+    assert result.status.value == "pass"
+    assert result.metadata["policy_violation"] is False
+    assert result.observed["http_429_count"] == 1
+    assert result.observed["detected"] == []
