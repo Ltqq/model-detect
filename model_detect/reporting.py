@@ -155,6 +155,11 @@ def _fingerprint_section(report: AuditReport) -> str:
     mean_jsd = observed.get("mean_jsd")
     split_half = observed.get("target_split_half_jsd")
     verdict = observed.get("verdict")
+    reference_info = report.adapters.get("reference")
+    reference_info = reference_info if isinstance(reference_info, dict) else {}
+    reference_source = reference_info.get("fingerprint_source") or "未标记"
+    target_meta = observed.get("target_fingerprint") if isinstance(observed.get("target_fingerprint"), dict) else {}
+    reference_meta = observed.get("reference_fingerprint") if isinstance(observed.get("reference_fingerprint"), dict) else {}
     explanation = (
         "JSD 越低，目标接口与可信参考的统计行为越接近。"
         "该结果是黑盒统计证据，不是密码学证明。"
@@ -180,7 +185,9 @@ def _fingerprint_section(report: AuditReport) -> str:
     <div class="metric"><span>Mean JSD</span><b>{html.escape(str(mean_jsd if mean_jsd is not None else 'N/A'))}</b></div>
     <div class="metric"><span>自一致性 JSD</span><b>{html.escape(str(split_half if split_half is not None else 'N/A'))}</b></div>
     <div class="metric"><span>可比较单元</span><b>{html.escape(str(observed.get('comparable_cell_count', 'N/A')))}</b></div>
+    <div class="metric"><span>Reference 来源</span><b>{html.escape(str(reference_source))}</b></div>
   </div>
+  <p class="lead">目标：{html.escape(str(target_meta.get('model') or report.target.get('model','')))} · Reference：{html.escape(str(reference_meta.get('model') or '未标记'))}</p>
   {cell_table}
 </section>
 """
@@ -377,7 +384,8 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
   <div class="hero-grid">
     <div>
       <div class="decision">准入建议<strong>{html.escape(human['decision'])}</strong></div>
-      <p class="headline">{html.escape(human['headline'])}</p>
+      <p class="headline" id="human-headline">{html.escape(human['headline'])}</p>
+      <div style="margin-top:12px"><button onclick="copyConclusion()">复制结论</button></div>
       <div class="notice" style="margin-top:14px">综合分数是审计评分，不是“模型为真”的概率。模型真假优先看“模型身份”与 Trusted Reference / Statistical Fingerprint。</div>
     </div>
     <div class="scorebox">
@@ -448,6 +456,10 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 </section>
 
 <script>
+function copyConclusion(){{
+  const text='准入建议：{html.escape(human["decision"])}\n结论：{html.escape(human["headline"])}\n综合分：{html.escape(score_text)}\n证据可信度：{html.escape(human["confidence_label"])}';
+  navigator.clipboard?.writeText(text).then(()=>alert('结论已复制')).catch(()=>{{}});
+}}
 function filterRows(mode){{
   document.querySelectorAll('#probe-table tbody tr').forEach(row=>{{
     const s=row.dataset.status;
