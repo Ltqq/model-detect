@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 
 id: glm-5.2
 family: glm
@@ -8,7 +8,7 @@ patterns:
   - "glm-5.2-*"
 aliases:
   - "GLM-5.2"
-updated_at: "2026-09-30"
+updated_at: "2026-10-08"
 declared_context_tokens: 1000000
 
 sources:
@@ -16,14 +16,14 @@ sources:
     type: official_doc
     title: "GLM-5.2: Built for Long-Horizon Tasks"
     url: "https://z.ai/blog/glm-5.2"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
 
   - id: zai-glm-5-model-repo
     type: official_doc
     title: "zai-org/GLM-5 model repository"
     url: "https://github.com/zai-org/GLM-5"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
 
 strict: false
@@ -31,8 +31,6 @@ strict: false
 features:
   reasoning_effort:
     expected: true
-    values: [high, max]
-    default: max
     source_refs:
       - zai-glm-5.2-release
       - zai-glm-5-model-repo
@@ -46,8 +44,18 @@ features:
   json_schema:
     expected: null
 
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [high, max]
+      default: max
+      native_parameter: reasoning_effort
+      source_refs:
+        - zai-glm-5-model-repo
+
 notes:
-  - "GLM-5.2 official materials document High/Max effort control with Max as the default."
-  - "This rule does not assert thinking-disable behavior until a first-party API contract is stored as evidence."
-  - "Empirical gateway observations must be added as separate empirical sources; they must not overwrite official expectations implicitly."
+  - "GLM-5.2 official materials document a 1M-token context."
+  - "The official open-weight model accepts high/max reasoning_effort and defaults to max; values other than explicit high fall back to max in the official chat template."
+  - "The official repository publishes separate BF16 and FP8 checkpoints. Black-box API behavior cannot reliably identify which checkpoint a provider serves."
+  - "Thinking-disable behavior is not asserted for third-party OpenAI-compatible gateways until a first-party API contract is attached."
   - "The rule is non-strict because gateway/provider behavior can differ from the first-party endpoint."
