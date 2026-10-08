@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 
 id: deepseek-v4
 family: deepseek
@@ -8,28 +8,35 @@ patterns:
   - "deepseek-v4.1-*"
   - "deepseek-flash"
 aliases: []
-updated_at: "2026-09-30"
+updated_at: "2026-10-08"
 
 sources:
   - id: deepseek-thinking-mode
     type: official_doc
     title: "DeepSeek API - Thinking Mode"
     url: "https://api-docs.deepseek.com/guides/thinking_mode/"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
 
   - id: deepseek-chat-completions
     type: official_doc
     title: "DeepSeek API - Chat Completions"
     url: "https://api-docs.deepseek.com/api/create-chat-completion/"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
+    confidence: high
+
+  - id: deepseek-responses
+    type: official_doc
+    title: "DeepSeek API - Responses"
+    url: "https://api-docs.deepseek.com/api/create-response/"
+    collected_at: "2026-10-08"
     confidence: high
 
   - id: deepseek-v4-changelog
     type: official_doc
     title: "DeepSeek API - V4 change log"
     url: "https://api-docs.deepseek.com/updates/"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
 
 strict: false
@@ -37,26 +44,17 @@ strict: false
 features:
   reasoning_effort:
     expected: true
-    values: [none, low, high, max]
-    default: high
-    mappings:
-      minimal: low
-      medium: high
-      xhigh: high
-      ultra: max
     source_refs:
       - deepseek-thinking-mode
       - deepseek-chat-completions
-      - deepseek-v4-changelog
+      - deepseek-responses
 
   disable_thinking:
     expected: true
-    mechanisms:
-      - "thinking.type=disabled"
-      - "reasoning_effort=none"
     source_refs:
       - deepseek-thinking-mode
       - deepseek-chat-completions
+      - deepseek-responses
 
   tools:
     expected: true
@@ -67,9 +65,50 @@ features:
   json_schema:
     expected: null
 
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [none, low, high, max]
+      default: high
+      native_parameter: reasoning_effort
+      source_refs:
+        - deepseek-chat-completions
+        - deepseek-thinking-mode
+
+    disable_thinking:
+      expected: true
+      mechanisms:
+        - "thinking.type=disabled"
+        - "reasoning_effort=none"
+      source_refs:
+        - deepseek-chat-completions
+        - deepseek-thinking-mode
+
+  responses:
+    reasoning_effort:
+      values: [none, low, high, max]
+      default: high
+      native_parameter: reasoning.effort
+      mappings:
+        minimal: low
+        medium: high
+        xhigh: high
+      source_refs:
+        - deepseek-responses
+        - deepseek-thinking-mode
+
+    disable_thinking:
+      expected: true
+      mechanisms:
+        - "reasoning.effort=none"
+      source_refs:
+        - deepseek-responses
+        - deepseek-thinking-mode
+
 notes:
-  - "DeepSeek V4-family thinking is enabled by default and can be disabled explicitly."
+  - "DeepSeek thinking is enabled by default and defaults to high effort."
+  - "Chat Completions and Responses expose different parameter shapes; they are no longer flattened into one rule."
+  - "In thinking mode, temperature/presence_penalty/frequency_penalty are accepted for compatibility but have no effect; top_p is constrained."
   - "Thinking-mode tool calls require preserving reasoning_content across tool-call turns."
   - "The current rule intentionally does not claim JSON Schema support from JSON-object mode documentation."
-  - "Empirical gateway observations must be stored separately as empirical sources before changing official expectations."
   - "The rule is non-strict because third-party gateways may transform request parameters or response fields."
