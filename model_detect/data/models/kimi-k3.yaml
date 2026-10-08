@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 
 id: kimi-k3
 family: kimi
@@ -8,21 +8,29 @@ patterns:
   - "kimi-k3-*"
 aliases:
   - "Kimi-K3"
-updated_at: "2026-09-30"
+updated_at: "2026-10-08"
+declared_context_tokens: 1048576
 
 sources:
   - id: moonshot-kimi-k3-readme
     type: official_doc
     title: "MoonshotAI Kimi-K3 model usage"
     url: "https://github.com/MoonshotAI/Kimi-K3/blob/main/README.md"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
+    confidence: high
+
+  - id: kimi-api-model-selection
+    type: official_doc
+    title: "Kimi API model selection"
+    url: "https://www.kimi.ai/help/kimi-api/api-model-selection"
+    collected_at: "2026-10-08"
     confidence: high
 
   - id: kimi-api-troubleshooting
     type: official_doc
     title: "Kimi API troubleshooting"
     url: "https://www.kimi.ai/help/kimi-api/api-troubleshooting"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
 
   - id: model-detect-kimi-k3-provider-observations
@@ -43,8 +51,6 @@ request_constraints:
 features:
   reasoning_effort:
     expected: true
-    values: [low, high, max]
-    default: max
     source_refs:
       - moonshot-kimi-k3-readme
       - kimi-api-troubleshooting
@@ -56,13 +62,33 @@ features:
       - kimi-api-troubleshooting
 
   tools:
-    expected: null
+    expected: true
+    source_refs:
+      - moonshot-kimi-k3-readme
+      - kimi-api-troubleshooting
 
   json_schema:
     expected: null
 
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [low, high, max]
+      default: max
+      native_parameter: reasoning_effort
+      source_refs:
+        - moonshot-kimi-k3-readme
+        - kimi-api-troubleshooting
+
+    disable_thinking:
+      expected: false
+      source_refs:
+        - moonshot-kimi-k3-readme
+        - kimi-api-troubleshooting
+
 notes:
   - "Kimi K3 always has thinking enabled; use reasoning_effort instead of disabling thinking."
-  - "Current official reasoning_effort values are low, high, and max; max is the default."
+  - "Kimi K3 official API supports a 1,048,576-token context window."
+  - "The official open-weight Kimi K3 uses native MXFP4 weights with MXFP8 activations trained with quantization-aware training; this is an implementation fact, not a black-box quantization detector."
+  - "Tool calls are documented by the official API and preserved-thinking history must retain reasoning_content and tool_calls."
   - "This rule is intentionally non-strict: provider/gateway behavior can differ from the official endpoint."
-  - "Empirical supplier observations are registered separately and should only become expected features after stored Evidence supports them."

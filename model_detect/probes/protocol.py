@@ -5,7 +5,7 @@ from typing import Any
 
 from ..http_client import AuditHttpClient, CallResult
 from ..models import Evidence, ProbeResult, ProbeStatus
-from ..rules import preferred_feature_value
+from ..rules import apply_feature_probe_request, preferred_feature_value
 
 
 def _message_text(body: Any) -> str:
@@ -425,7 +425,7 @@ async def probe_tool_call(
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
-        payload={
+        payload=apply_feature_probe_request(model, "tools", {
             "model": model,
             "messages": [
                 {
@@ -451,7 +451,7 @@ async def probe_tool_call(
             "tool_choice": "required",
             "temperature": 0,
             "max_tokens": 128,
-        },
+        }),
     )
     ev = call.evidence
     if ev.error:
@@ -909,7 +909,7 @@ async def probe_tool_choice(
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
-        payload={
+        payload=apply_feature_probe_request(model, "tools", {
             "model": model,
             "messages": [{"role": "user", "content": "Check Hangzhou weather using the required tool."}],
             "tools": tools,
@@ -919,7 +919,7 @@ async def probe_tool_choice(
             },
             "temperature": 0,
             "max_tokens": 128,
-        },
+        }),
     )
     ev = call.evidence
     name = None
@@ -975,7 +975,7 @@ async def probe_tools_parallel(
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
-        payload={
+        payload=apply_feature_probe_request(model, "tools", {
             "model": model,
             "messages": [
                 {
@@ -988,7 +988,7 @@ async def probe_tools_parallel(
             "parallel_tool_calls": True,
             "temperature": 0,
             "max_tokens": 192,
-        },
+        }),
     )
     ev = call.evidence
     names = []
@@ -1023,7 +1023,7 @@ async def probe_tools_invalid_schema(
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
-        payload={
+        payload=apply_feature_probe_request(model, "tools", {
             "model": model,
             "messages": [{"role": "user", "content": "Call the tool."}],
             "tools": [
@@ -1041,7 +1041,7 @@ async def probe_tools_invalid_schema(
             ],
             "tool_choice": "required",
             "max_tokens": 64,
-        },
+        }),
     )
     ev = call.evidence
     rejected = ev.response_status is not None and 400 <= ev.response_status < 500

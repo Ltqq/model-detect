@@ -38,6 +38,7 @@ CATEGORY_ZH = {
     "routing": "路由一致性",
     "capability": "能力抽检",
     "provider": "上游 / 网关",
+    "quality": "官方基准差异",
     "target": "目标地址",
     "internal": "检测器内部",
 }
@@ -89,6 +90,7 @@ PROBE_TITLES = {
     "integrity.system_prompt": "System Prompt 保留",
     "integrity.tools_preserved": "工具定义保留",
     "integrity.json_schema_preserved": "JSON Schema 保留",
+    "quality.baseline.summary": "官方 / 可信质量基准综合对比",
 }
 
 
@@ -122,6 +124,23 @@ def probe_title(probe_id: str) -> str:
         return f"模型官方特征：{feature}"
     if probe_id.startswith("capability."):
         return "能力抽检：" + probe_id.split(".", 1)[1]
+    if probe_id.startswith("quality.baseline."):
+        dimension = probe_id.split(".", 2)[2]
+        labels = {
+            "reasoning": "推理能力保持",
+            "math": "数学能力保持",
+            "coding_reasoning": "代码理解能力保持",
+            "chinese": "中文能力保持",
+            "instruction_following": "指令遵循能力保持",
+            "tool_use": "工具调用能力保持",
+            "structured_output": "结构化输出能力保持",
+            "coding_execute_python": "Python 实执行能力保持",
+            "coding_execute_go": "Go 实执行能力保持",
+            "context": "上下文能力保持",
+            "routing": "路由稳定性保持",
+            "summary": "官方 / 可信质量基准综合对比",
+        }
+        return labels.get(dimension, "质量基准：" + dimension)
     if probe_id.startswith("regression."):
         return "回归规则：" + probe_id.split(".", 1)[1]
     return probe_id
@@ -147,6 +166,11 @@ def _result_action(result: ProbeResult) -> str | None:
         return "模型拒绝语义可能正确，但建议使用更标准的 4xx 状态码。"
     if probe_id.startswith("integrity."):
         return "检查中转层是否改写、丢弃或固定了该参数，并与官方模型规则对照。"
+    if probe_id.startswith("quality.baseline."):
+        return (
+            "先使用同一 Suite 复测；若持续低于可信基准范围，再排查模型版本、"
+            "reasoning 配置、量化/蒸馏、网关参数改写或后端路由。"
+        )
     if probe_id.startswith("capability."):
         return "能力抽检异常建议复测，但不要单独用能力题结果判断模型真假。"
     return None
@@ -290,10 +314,114 @@ def _identity_summary(report: AuditReport) -> dict[str, Any]:
     }
 
 
+QUALITY_DIMENSION_ZH = {
+    "reasoning": "推理",
+    "math": "数学",
+    "coding_reasoning": "代码理解",
+    "chinese": "中文",
+    "instruction_following": "指令遵循",
+    "tool_use": "工具调用",
+    "structured_output": "结构化输出",
+    "coding_execute_python": "Python 实执行",
+    "coding_execute_go": "Go 实执行",
+    "context": "上下文",
+    "routing": "路由稳定性",
+}
+
+
+def _quality_summary(report: AuditReport) -> dict[str, Any]:
+    raw = report.adapters.get("official_baseline_comparison")
+    if not isinstance(raw, dict) or raw.get("status") == "not_configured":
+        return {
+            "state": "not_configured",
+            "label": "未配置质量基准",
+            "text": (
+                "当前没有可比较的 Official Baseline。选择包含质量 Baseline 的官方 / "
+                "可信 Reference 后，才能判断当前渠道是否相对基准退化。"
+            ),
+            "dimensions": [],
+            "regression_dimensions": [],
+            "baseline_runs": 0,
+        }
+
+    verdict = str(raw.get("verdict") or "baseline_insufficient")
+    if verdict == "quality_regression":
+        state = "regression"
+        regression_dimensions = list(raw.get("regression_dimensions") or [])
+        names = [
+            QUALITY_DIMENSION_ZH.get(item, item)
+            for item in regression_dimensions
+        ]
+        text = (
+            "相对重复采集的官方 / 可信基准，以下维度低于基准自身正常波动范围："
+            + "、".join(names)
+            + "。这说明存在质量退化证据，但不能单独确定是量化、蒸馏、低 reasoning "
+            "档位还是后端路由造成。"
+        )
+        label = "检测到质量退化"
+    elif verdict == "baseline_match":
+        state = "match"
+        regression_dimensions = []
+        text = (
+            "当前可比较维度仍处于重复采集的官方 / 可信基准范围内，"
+            "本轮没有观察到明显质量退化。"
+        )
+        label = "质量保持正常"
+    else:
+        state = "insufficient"
+        regression_dimensions = list(raw.get("regression_dimensions") or [])
+        warnings = list(raw.get("warnings") or [])
+        text = (
+            "已找到质量基准，但当前证据不足以判断是否超出正常波动。"
+            + ((" " + str(warnings[0])) if warnings else "")
+        )
+        label = "质量基准证据不足"
+
+    dimensions = []
+    raw_dimensions = raw.get("dimensions")
+    if isinstance(raw_dimensions, dict):
+        for dimension, item in raw_dimensions.items():
+            if not isinstance(item, dict):
+                continue
+            retention = item.get("retention_ratio")
+            dimensions.append(
+                {
+                    "id": dimension,
+                    "label": QUALITY_DIMENSION_ZH.get(dimension, dimension),
+                    "baseline_mean": item.get("baseline_mean"),
+                    "baseline_stddev": item.get("baseline_stddev"),
+                    "baseline_runs": item.get("baseline_runs"),
+                    "target_score": item.get("target_score"),
+                    "delta": item.get("delta"),
+                    "retention_ratio": retention,
+                    "lower_bound": item.get("lower_bound"),
+                    "verdict": item.get("verdict"),
+                    "explanation": item.get("explanation"),
+                }
+            )
+
+    meta = raw.get("metadata")
+    meta = meta if isinstance(meta, dict) else {}
+    return {
+        "state": state,
+        "label": label,
+        "text": text,
+        "dimensions": dimensions,
+        "regression_dimensions": regression_dimensions,
+        "baseline_runs": int(meta.get("baseline_runs") or 0),
+        "statistically_evaluable_dimensions": int(
+            raw.get("statistically_evaluable_dimensions") or 0
+        ),
+        "comparable_dimensions": int(raw.get("comparable_dimensions") or 0),
+        "suite_version": raw.get("suite_version"),
+    }
+
+
 def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
     verdict = str(report.summary.final_verdict or "insufficient").casefold()
     provider = _provider_summary(report)
     identity = _identity_summary(report)
+    quality = _quality_summary(report)
 
     invalid_target = verdict == "invalid_target"
     policy_violation = provider["state"] == "violation"
@@ -311,6 +439,13 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         decision = "拒绝准入"
         tone = "bad"
         headline = "不通过：强模型身份信号与可信参考不一致。"
+    elif quality["state"] == "regression":
+        decision = "人工复核"
+        tone = "warn"
+        headline = (
+            "检测到相对官方 / 可信基准的质量退化；建议用相同 Suite 复测后，"
+            "再排查模型版本、推理档位、部署实现或路由差异。"
+        )
     elif verdict in {"pass", "match"}:
         decision = "可通过"
         tone = "good"
@@ -340,7 +475,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
             ProbeStatus.WARN,
             ProbeStatus.INSUFFICIENT,
         }
-        and result.category != "internal"
+        and result.category not in {"internal", "quality"}
     ]
     abnormal.sort(key=_issue_level)
     for result in abnormal[:12]:
@@ -360,6 +495,21 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
                 "evidence_ids": list(result.evidence_ids),
             }
         )
+
+    if quality["state"] == "regression":
+        action = (
+            "使用同一个 Reference、同一个 Standard Suite 再跑一次；若退化持续存在，"
+            "再检查供应商的模型版本、reasoning 档位、量化/蒸馏配置和后端路由。"
+        )
+        if action not in actions:
+            actions.insert(0, action)
+    elif quality["state"] == "insufficient":
+        action = (
+            "质量基准至少重复采集 3 次且必须与当前检测使用相同 Profile / Suite，"
+            "之后才能判断是否超出官方正常波动。"
+        )
+        if action not in actions:
+            actions.insert(0, action)
 
     if identity["state"] == "missing":
         action = "如果核心目标是判断“是不是官方同模型”，请先创建官方 / 可信 Reference，并启用 Statistical Fingerprint 对比。"
@@ -402,6 +552,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "confidence_text": confidence_text,
         "identity": identity,
         "provider": provider,
+        "quality": quality,
         "issues": issues,
         "actions": actions[:8],
         "categories": category_cards,
@@ -410,5 +561,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
             "Provider / Gateway 指纹来自可观测 Header、Body 和行为证据，不是密码学身份证明。",
             "没有 Trusted Reference / Statistical Fingerprint 时，即使协议和能力全部通过，也不能证明模型身份。",
             "HTTP 429 只代表限流现象，不能单独用来识别 Fireworks 或任何其他 Provider。",
+            "质量退化只说明当前黑盒行为低于可信基准范围，不能据此确定 INT4、FP8、AWQ、GPTQ、蒸馏、GPU 型号或具体 Serving Engine。",
+            "厂商官网公布的排行榜成绩只有在 Dataset、Harness、Prompt、参数完全一致时才能直接比较；本工具的 Official Baseline 默认使用自己对官方端点的同套件实测。",
         ],
     }

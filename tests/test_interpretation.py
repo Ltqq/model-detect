@@ -146,3 +146,92 @@ def test_429_is_explained_as_auxiliary_only_when_policy_clear():
 def test_probe_and_status_labels_are_human_readable():
     assert probe_title("routing.cluster") == "路由特征聚类"
     assert status_label(ProbeStatus.INSUFFICIENT) == "证据不足"
+
+
+
+def test_quality_regression_is_explained_without_claiming_quantization():
+    report = AuditReport(
+        target={"base_url": "https://supplier.example/v1", "model": "kimi-k3"},
+        summary=AuditSummary(
+            overall_score=90.0,
+            final_verdict="review",
+            confidence="medium",
+        ),
+        adapters={
+            "official_baseline_comparison": {
+                "suite_version": "official-baseline-v1",
+                "model": "kimi-k3",
+                "profile": "standard",
+                "verdict": "quality_regression",
+                "comparable_dimensions": 2,
+                "statistically_evaluable_dimensions": 2,
+                "regression_dimensions": ["tool_use"],
+                "dimensions": {
+                    "reasoning": {
+                        "baseline_mean": 1.0,
+                        "baseline_stddev": 0.0,
+                        "baseline_runs": 3,
+                        "target_score": 1.0,
+                        "delta": 0.0,
+                        "retention_ratio": 1.0,
+                        "lower_bound": 0.5,
+                        "verdict": "match",
+                        "explanation": "within range",
+                    },
+                    "tool_use": {
+                        "baseline_mean": 1.0,
+                        "baseline_stddev": 0.0,
+                        "baseline_runs": 3,
+                        "target_score": 0.0,
+                        "delta": -1.0,
+                        "retention_ratio": 0.0,
+                        "lower_bound": 0.5,
+                        "verdict": "regression",
+                        "explanation": "below range",
+                    },
+                },
+                "warnings": [],
+                "metadata": {"baseline_runs": 3},
+            }
+        },
+    )
+
+    human = build_report_interpretation(report)
+
+    assert human["decision"] == "人工复核"
+    assert human["quality"]["state"] == "regression"
+    assert human["quality"]["label"] == "检测到质量退化"
+    assert "工具调用" in human["quality"]["text"]
+    assert "量化" in human["quality"]["text"]
+    assert any("不能据此确定" in item for item in human["limitations"])
+
+
+def test_quality_baseline_match_is_kept_separate_from_identity():
+    report = AuditReport(
+        target={"base_url": "https://supplier.example/v1", "model": "kimi-k3"},
+        summary=AuditSummary(
+            overall_score=90.0,
+            final_verdict="review",
+            confidence="medium",
+        ),
+        adapters={
+            "official_baseline_comparison": {
+                "suite_version": "official-baseline-v1",
+                "model": "kimi-k3",
+                "profile": "standard",
+                "verdict": "baseline_match",
+                "comparable_dimensions": 1,
+                "statistically_evaluable_dimensions": 1,
+                "regression_dimensions": [],
+                "dimensions": {},
+                "warnings": [],
+                "metadata": {"baseline_runs": 3},
+            }
+        },
+    )
+
+    human = build_report_interpretation(report)
+
+    assert human["quality"]["state"] == "match"
+    assert human["identity"]["state"] == "missing"
+    assert human["decision"] == "人工复核"

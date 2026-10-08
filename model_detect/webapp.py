@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from .adapters import fingerprint
 from .audit import run_audit
+from .baseline_collection import collect_quality_baseline
 from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig
 from .models import AuditTarget
 from .interpretation import build_report_interpretation
@@ -45,6 +46,8 @@ class WebReferenceRequest(BaseModel):
     model: str
     provider: str = "trusted"
     fingerprint: bool = True
+    quality_baseline: bool = True
+    baseline_runs: int = Field(default=3, ge=1, le=5)
     overwrite: bool = False
 
 
@@ -516,6 +519,10 @@ async def _run_audit_job(
                     "confidence_label": human["confidence_label"],
                     "identity_state": human["identity"]["label"],
                     "provider_state": human["provider"]["label"],
+                    "quality_state": human["quality"]["label"],
+                    "quality_regressions": list(
+                        human["quality"].get("regression_dimensions") or []
+                    ),
                     "issue_count": len(human["issues"]),
                     "http_429_count": human["provider"]["http_429_count"],
                 },
@@ -533,33 +540,81 @@ async def _run_reference_job(
     store: JobStore = app.state.store
     registry: ReferenceRegistry = app.state.registry
     try:
-        store.update(job_id, status="running", progress=0.05, detail="正在采集协议基准")
+        store.update(
+            job_id,
+            status="running",
+            progress=0.05,
+            detail="正在准备可信基准采集",
+        )
         if payload.overwrite and registry.exists(payload.id):
             registry.delete(payload.id)
 
-        cfg = AuditConfig(
-            target=AuditTarget(
-                base_url=payload.base_url,
-                model=payload.model,
-                api_key_env="WEB_API_KEY_NOT_STORED",
-                protocol="openai",
-            ),
-            profile="standard",
-            capability_enabled=False,
-            proxy_sleuth_enabled=False,
+        target = AuditTarget(
+            base_url=payload.base_url,
+            model=payload.model,
+            api_key_env="WEB_API_KEY_NOT_STORED",
+            protocol="openai",
         )
-        report = await run_audit(
-            cfg,
-            use_proxy_sleuth=False,
-            api_key_override=payload.api_key,
+
+        baseline = None
+        if payload.quality_baseline:
+            def baseline_progress(
+                current: int,
+                total: int,
+                phase: str,
+            ) -> None:
+                progress_value = 0.08 + 0.47 * (
+                    (current - (0 if phase == "completed" else 1))
+                    / max(total, 1)
+                )
+                if phase == "completed":
+                    progress_value = 0.08 + 0.47 * (
+                        current / max(total, 1)
+                    )
+                store.update(
+                    job_id,
+                    status="running",
+                    progress=max(0.08, min(0.55, progress_value)),
+                    detail=(
+                        f"官方/可信基准采集 {current}/{total}"
+                        if phase == "running"
+                        else f"基准第 {current}/{total} 次采集完成"
+                    ),
+                )
+
+            reports, baseline = await collect_quality_baseline(
+                target=target,
+                api_key=payload.api_key,
+                runs=payload.baseline_runs,
+                profile="standard",
+                coding_sandbox_enabled=False,
+                progress=baseline_progress,
+            )
+            report = reports[0]
+        else:
+            cfg = AuditConfig(
+                target=target,
+                profile="standard",
+                capability_enabled=False,
+                proxy_sleuth_enabled=False,
+            )
+            report = await run_audit(
+                cfg,
+                use_proxy_sleuth=False,
+                api_key_override=payload.api_key,
+            )
+
+        store.update(
+            job_id,
+            progress=0.58,
+            detail="基础基准已采集，正在处理统计指纹",
         )
-        store.update(job_id, progress=0.55, detail="协议基准已采集，正在处理 Reference")
 
         fp_path = None
         fp_meta = None
         if payload.fingerprint and fingerprint.availability().get("available"):
             fp_path = registry.path_for(payload.id) / "fingerprint.json"
-            store.update(job_id, progress=0.60, detail="正在采集统计指纹")
+            store.update(job_id, progress=0.62, detail="正在采集统计指纹")
             collected = await asyncio.to_thread(
                 fingerprint.collect,
                 base_url=payload.base_url,
@@ -576,6 +631,11 @@ async def _run_reference_job(
                 },
             }
 
+        store.update(
+            job_id,
+            progress=0.90,
+            detail="正在保存可信 Reference 与质量基准",
+        )
         manifest = registry.create_from_report(
             reference_id=payload.id,
             model=payload.model,
@@ -585,14 +645,27 @@ async def _run_reference_job(
             fingerprint_path=fp_path,
             fingerprint_metadata=fp_meta,
             fingerprint_source="collected" if fp_path else None,
+            baseline=baseline,
         )
         report_root = registry.path_for(payload.id) / "baseline-report"
         write_report(report, report_root)
         store.finish(
             job_id,
             report_path=str(report_root / "report.html"),
-            detail=f"reference {manifest.id} saved",
-            meta={"reference_id": manifest.id},
+            detail=(
+                f"Reference {manifest.id} 已保存"
+                + (
+                    f" · 质量基准 {manifest.baseline_runs} 次"
+                    if manifest.baseline_artifact
+                    else ""
+                )
+            ),
+            meta={
+                "reference_id": manifest.id,
+                "baseline_runs": manifest.baseline_runs,
+                "baseline_suite_version": manifest.baseline_suite_version,
+                "fingerprint": bool(manifest.fingerprint_reference),
+            },
         )
     except Exception as exc:
         store.fail(job_id, f"{type(exc).__name__}: {exc}")

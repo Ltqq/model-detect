@@ -7,6 +7,7 @@ import uuid
 from typing import Callable
 
 from .adapters import fingerprint, proxy_sleuth
+from .comparison import compare_report_to_baseline
 from .config import AuditConfig, get_api_key
 from .http_client import AuditHttpClient
 from .models import AuditReport, AuditSummary, ProbeResult, ProbeStatus
@@ -398,6 +399,7 @@ async def run_audit(
 
     # 6. Reference Registry and statistical fingerprint.
     reference_fingerprint = config.fingerprint_reference
+    reference_baseline = None
     if config.reference_id:
         registry = ReferenceRegistry(config.reference_dir)
         manifest = registry.get(config.reference_id)
@@ -411,6 +413,7 @@ async def run_audit(
         fp_reference = registry.fingerprint_reference_value(manifest)
         if fp_reference:
             reference_fingerprint = fp_reference
+        reference_baseline = registry.baseline(manifest)
     else:
         report.adapters["reference"] = {"status": "not_configured"}
 
@@ -499,6 +502,27 @@ async def run_audit(
 
     # Final routing verdict is computed after fingerprint/proxy-sleuth signals exist.
     report.results.append(finalize_routing_analysis(report.results))
+
+    # Quality comparison is intentionally separate from identity scoring. It compares
+    # only the same model-detect suite/profile measured on a trusted endpoint.
+    if reference_baseline is not None:
+        comparison, quality_results = compare_report_to_baseline(
+            report,
+            reference_baseline,
+        )
+        report.results.extend(quality_results)
+        report.adapters["official_baseline_comparison"] = (
+            comparison.model_dump(mode="json")
+        )
+    else:
+        report.adapters["official_baseline_comparison"] = {
+            "status": "not_configured",
+            "reason": (
+                "selected reference has no quality baseline"
+                if config.reference_id
+                else "no trusted reference selected"
+            ),
+        }
 
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()

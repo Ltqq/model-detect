@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .baseline import OfficialBaseline
 from .models import AuditReport, ProbeResult, ProbeStatus
 
 
@@ -32,6 +33,13 @@ class ReferenceManifest(BaseModel):
     fingerprint_reference: str | None = None
     fingerprint_metadata: dict[str, Any] = Field(default_factory=dict)
     protocol_signature: str | None = None
+    baseline_schema_version: int | None = None
+    baseline_suite_version: str | None = None
+    baseline_runs: int = 0
+    baseline_artifact: str | None = None
+    model_rule_id: str | None = None
+    model_rule_updated_at: str | None = None
+    baseline_metadata: dict[str, Any] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -91,6 +99,7 @@ class ReferenceRegistry:
         fingerprint_path: str | Path | None = None,
         fingerprint_metadata: dict[str, Any] | None = None,
         fingerprint_source: str | None = None,
+        baseline: OfficialBaseline | None = None,
         notes: list[str] | None = None,
     ) -> ReferenceManifest:
         root = self.path_for(reference_id)
@@ -111,6 +120,15 @@ class ReferenceRegistry:
                     shutil.copy2(src, dst)
                 fp_name = dst.name
 
+        baseline_name = None
+        if baseline is not None:
+            baseline_path = root / "baseline.json"
+            baseline_path.write_text(
+                baseline.model_dump_json(indent=2),
+                encoding="utf-8",
+            )
+            baseline_name = baseline_path.name
+
         manifest = ReferenceManifest(
             id=reference_id,
             model=model,
@@ -124,6 +142,23 @@ class ReferenceRegistry:
             fingerprint_reference=fp_name,
             fingerprint_metadata=fingerprint_metadata or {},
             protocol_signature=signature_path.name,
+            baseline_schema_version=(
+                baseline.schema_version if baseline is not None else None
+            ),
+            baseline_suite_version=(
+                baseline.suite_version if baseline is not None else None
+            ),
+            baseline_runs=baseline.runs if baseline is not None else 0,
+            baseline_artifact=baseline_name,
+            model_rule_id=(
+                baseline.model_rule_id if baseline is not None else None
+            ),
+            model_rule_updated_at=(
+                baseline.model_rule_updated_at if baseline is not None else None
+            ),
+            baseline_metadata=(
+                dict(baseline.metadata) if baseline is not None else {}
+            ),
             notes=notes or [],
             metadata={
                 "profile": report.profile,
@@ -154,6 +189,20 @@ class ReferenceRegistry:
         if not path.exists():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def baseline_path(self, manifest: ReferenceManifest) -> Path | None:
+        if not manifest.baseline_artifact:
+            return None
+        path = self.path_for(manifest.id) / manifest.baseline_artifact
+        return path if path.exists() else None
+
+    def baseline(self, manifest: ReferenceManifest) -> OfficialBaseline | None:
+        path = self.baseline_path(manifest)
+        if path is None:
+            return None
+        return OfficialBaseline.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
 
 
 def _base_url_hint(base_url: str) -> str | None:

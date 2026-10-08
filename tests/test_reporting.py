@@ -171,3 +171,52 @@ def test_report_persists_and_renders_regression_artifacts(tmp_path):
     assert "expected HTTP 400" in rendered
     assert "received 200 OK" in rendered
     assert 'href="regression/01/promptfoo-result.json"' in rendered
+
+
+
+def test_report_renders_official_quality_baseline_comparison(tmp_path):
+    report = AuditReport(
+        target={"base_url": "https://supplier.example/v1", "model": "kimi-k3"},
+        adapters={
+            "official_baseline_comparison": {
+                "schema_version": 1,
+                "suite_version": "official-baseline-v1",
+                "model": "kimi-k3",
+                "profile": "standard",
+                "verdict": "quality_regression",
+                "comparable_dimensions": 1,
+                "statistically_evaluable_dimensions": 1,
+                "regression_dimensions": ["reasoning"],
+                "dimensions": {
+                    "reasoning": {
+                        "dimension": "reasoning",
+                        "probe_id": "capability.reasoning",
+                        "baseline_mean": 1.0,
+                        "baseline_stddev": 0.0,
+                        "baseline_runs": 3,
+                        "target_score": 0.0,
+                        "delta": -1.0,
+                        "retention_ratio": 0.0,
+                        "natural_tolerance": 0.5,
+                        "lower_bound": 0.5,
+                        "task_granularity": 0.5,
+                        "statistically_evaluable": True,
+                        "verdict": "regression",
+                        "explanation": "below trusted range",
+                    }
+                },
+                "warnings": [],
+                "metadata": {"baseline_runs": 3},
+            }
+        },
+    )
+
+    root = write_report(report, tmp_path / "quality-report")
+    rendered = (root / "report.html").read_text(encoding="utf-8")
+    data = json.loads((root / "report.json").read_text(encoding="utf-8"))
+
+    assert "官方 / 可信基准质量对比" in rendered
+    assert "推理" in rendered
+    assert "明显退化" in rendered
+    assert "具体量化格式" in rendered
+    assert data["human_interpretation"]["quality"]["state"] == "regression"

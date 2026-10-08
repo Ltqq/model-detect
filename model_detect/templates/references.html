@@ -19,7 +19,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   <div class="guide">
     <div><b>Reference 最好来自官方端点</b><p>例如官方 Kimi、GLM、DeepSeek API。不要把待审计供应商自己当作“可信参考”。</p></div>
     <div><b>Statistical Fingerprint 很重要</b><p>统计指纹会比较目标渠道与 Reference 的行为分布，是当前工具里最强的身份类证据之一。</p></div>
-    <div><b>Reference 也要定期更新</b><p>厂商模型、协议或路由发生变化后，旧 Reference 可能失效；建议记录采集时间并按版本更新。</p></div>
+    <div><b>质量基准需要重复采样</b><p>默认连续跑 3 次相同 Standard Suite，记录均值和自然波动；1 次结果只能做差值参考，不能声称“超出正常波动”。</p></div>
   </div>
 </div>
 
@@ -35,6 +35,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   </div>
   <div style="margin:14px 0">
     <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" checked style="width:auto">同时采集 Statistical Fingerprint（推荐，需要 Node/npm）</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" checked style="width:auto">同时采集质量 Baseline（推荐，用完全相同的检测套件做官方 vs 供应商对比）</label>
+    <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">推荐 3 次；3 次及以上才开始估计基准自身波动。</div></div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="overwrite" type="checkbox" style="width:auto">如果同名 Reference 已存在则覆盖</label>
   </div>
   <button id="collect">开始采集</button> <span id="msg" class="muted"></span>
@@ -42,15 +44,17 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 
 <div class="card">
   <h2>现有可信 Reference</h2>
-  <div class="table-wrap"><table><thead><tr><th>ID</th><th>模型</th><th>来源</th><th>采集时间</th><th>统计指纹</th><th>指纹来源</th><th>操作</th></tr></thead><tbody>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>模型</th><th>来源</th><th>采集时间</th><th>统计指纹</th><th>质量 Baseline</th><th>规则版本</th><th>操作</th></tr></thead><tbody>
   {% for r in references %}
   <tr>
     <td><b>{{ r.id }}</b></td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td>
     <td class="{{ 'ok' if (r.fingerprint_artifact or r.fingerprint_reference) else 'warn' }}">{{ '已采集' if (r.fingerprint_artifact or r.fingerprint_reference) else '未采集' }}</td>
-    <td>{{ r.fingerprint_source or '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td>
+    <td class="{{ 'ok' if r.baseline_artifact else 'warn' }}">{{ (r.baseline_runs|string + ' 次 · ' + (r.baseline_suite_version or '')) if r.baseline_artifact else '未采集' }}</td>
+    <td>{{ r.model_rule_id or '—' }}{% if r.model_rule_updated_at %}<div class="muted">{{ r.model_rule_updated_at }}</div>{% endif %}</td>
+    <td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td>
   </tr>
   {% endfor %}
-  {% if not references %}<tr><td colspan="7" class="muted">还没有 Reference。若核心目标是判断模型身份，建议先从官方端点采集一份。</td></tr>{% endif %}
+  {% if not references %}<tr><td colspan="8" class="muted">还没有 Reference。若核心目标是判断模型身份，建议先从官方端点采集一份。</td></tr>{% endif %}
   </tbody></table></div>
 </div>
 
@@ -72,7 +76,10 @@ q('collect').onclick=async()=>{
  const body={
    id:q('rid').value.trim(),provider:q('provider').value.trim()||'trusted',
    base_url:q('url').value.trim(),model:q('model').value.trim(),api_key:q('key').value,
-   fingerprint:q('fp').checked,overwrite:q('overwrite').checked
+   fingerprint:q('fp').checked,
+   quality_baseline:q('quality').checked,
+   baseline_runs:Number(q('baseline_runs').value||3),
+   overwrite:q('overwrite').checked
  };
  if(!body.id||!body.base_url||!body.model||!body.api_key){q('msg').textContent='请把 Reference ID、Base URL、模型和 API Key 填完整';return}
  q('collect').disabled=true;q('msg').textContent='正在创建采集任务…';
