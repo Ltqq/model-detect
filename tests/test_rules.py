@@ -102,7 +102,7 @@ def test_v2_rule_loads_version_aliases_and_sources():
         }
     )
 
-    assert rule.schema_version == 3
+    assert rule.schema_version == 2
     assert rule.family == "kimi"
     assert rule.model_version == "k3"
     assert rule.aliases == ["moonshot-kimi-k3"]
@@ -229,10 +229,7 @@ def test_glm_52_rule_has_traceable_reasoning_effort():
     assert spec["expected"] is True
     assert spec["values"] == ["high", "max"]
     assert spec["default"] == "max"
-    assert set(spec["source_refs"]) == {
-        "zai-glm-5.2-release",
-        "zai-glm-5-model-repo",
-    }
+    assert set(spec["source_refs"]) == {"zai-glm-5-model-repo"}
     assert rule.declared_context_tokens == 1000000
 
 
@@ -244,7 +241,7 @@ def test_qwen38_rule_has_traceable_thinking_controls():
     assert effort["default"] == "xhigh"
     assert rule.features["disable_thinking"]["expected"] is True
     assert effort["source_refs"] == [
-        "alibaba-qwen-responses-reasoning"
+        "alibaba-qwen-chat-reasoning"
     ]
 
 
@@ -328,7 +325,10 @@ def test_gpt_56_rule_has_traceable_reasoning_and_tools():
     assert rule.declared_context_tokens == 1050000
     effort = feature_spec_for("gpt-5.6-sol", "reasoning_effort")
     assert effort["values"] == ["none", "low", "medium", "high", "xhigh", "max"]
-    assert effort["source_refs"] == ["openai-gpt-5.6-sol"]
+    assert effort["source_refs"] == [
+        "openai-gpt-5.6-sol",
+        "openai-reasoning-guide",
+    ]
     assert rule.features["tools"]["expected"] is True
 
 
