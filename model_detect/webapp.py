@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from .adapters import fingerprint
 from .audit import run_audit
-from .config import AuditConfig, RegressionAuditConfig
+from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig
 from .models import AuditTarget
 from .references import ReferenceRegistry
 from .probes.provider import load_provider_rule_set
@@ -34,6 +34,7 @@ class WebAuditRequest(BaseModel):
     proxy_sleuth: bool = True
     coding_sandbox: bool = False
     regression_suites: list[str] = Field(default_factory=list)
+    disallowed_upstreams: list[str] = Field(default_factory=list)
 
 
 class WebReferenceRequest(BaseModel):
@@ -252,6 +253,7 @@ def create_app(
                 "regression_status": (
                     "queued" if payload.regression_suites else "not_configured"
                 ),
+                "disallowed_upstreams": list(payload.disallowed_upstreams),
             },
         )
         asyncio.create_task(
@@ -432,6 +434,9 @@ async def _run_audit_job(
             regression=RegressionAuditConfig(
                 suites=list(regression_paths or []),
             ),
+            upstream_policy=UpstreamPolicyConfig(
+                disallowed=list(payload.disallowed_upstreams),
+            ),
         )
 
         def progress(name: str, current: int, total: int) -> None:
@@ -481,6 +486,7 @@ async def _run_audit_job(
                 "provider_provenance": provider_provenance,
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": regression_status,
+                "upstream_policy": report.adapters.get("upstream_policy"),
             },
         )
     except Exception as exc:
