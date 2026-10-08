@@ -208,9 +208,26 @@ async def probe_invalid_model(
     ev = call.evidence
     if ev.error:
         return [_error_result(probe_id, "provider", call)], [ev]
-    rejected = ev.response_status is not None and ev.response_status >= 400
+    body_text = json.dumps(
+        ev.response_body, ensure_ascii=False, default=str
+    ).casefold()
+    semantic_model_rejection = any(
+        marker in body_text
+        for marker in (
+            "model_not_found",
+            "model not found",
+            "unknown model",
+            "invalid model",
+            "no available channel for model",
+        )
+    )
     standard_status = (
         ev.response_status is not None and 400 <= ev.response_status < 500
+    )
+    rejected = standard_status or (
+        ev.response_status is not None
+        and ev.response_status >= 500
+        and semantic_model_rejection
     )
     return [
         ProbeResult(
@@ -227,7 +244,10 @@ async def probe_invalid_model(
             expected={"behavior": "reject invalid model"},
             observed={"http_status": ev.response_status, "body": ev.response_body},
             evidence_ids=[ev.id],
-            metadata={"invalid_model_rejected": rejected},
+            metadata={
+                "invalid_model_rejected": rejected,
+                "semantic_model_rejection": semantic_model_rejection,
+            },
         ),
         ProbeResult(
             probe_id="provider.error.invalid_model_status",
