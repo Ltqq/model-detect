@@ -261,19 +261,25 @@ def test_deepseek_v4_rule_has_traceable_reasoning_and_tools():
     )
 
 
-def test_all_expected_v2_features_are_traceable():
+def test_all_expected_v2_plus_features_are_traceable():
     for rule in load_model_rules():
-        if rule.schema_version != 2:
+        if rule.schema_version < 2:
             continue
         source_ids = {source.id for source in rule.sources}
-        for feature, spec in rule.features.items():
-            if not isinstance(spec, dict):
-                continue
-            if spec.get("expected") is None:
-                continue
-            refs = spec.get("source_refs") or []
-            assert refs, f"{rule.id}.{feature} missing source_refs"
-            assert set(refs) <= source_ids
+        feature_sets = [("features", rule.features)]
+        feature_sets.extend(
+            (f"protocol_features.{protocol}", specs)
+            for protocol, specs in rule.protocol_features.items()
+        )
+        for namespace, specs in feature_sets:
+            for feature, spec in specs.items():
+                if not isinstance(spec, dict):
+                    continue
+                if spec.get("expected") is None:
+                    continue
+                refs = spec.get("source_refs") or []
+                assert refs, f"{rule.id}.{namespace}.{feature} missing source_refs"
+                assert set(refs) <= source_ids
 
 
 def test_official_expectations_do_not_implicitly_use_empirical_sources():
