@@ -33,6 +33,7 @@ progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
 <div><label>检测档位</label><select id="profile"><option value="quick">Quick</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
 <div><label>Trusted Reference</label><select id="reference_id"><option value="">不使用 Reference</option>{% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}</select></div>
 <div><label>声明 Context Tokens（可空）</label><input id="context_tokens" type="number" placeholder="32768"></div>
+<div class="wide"><label>禁止上游 Provider（逗号分隔，可空）</label><input id="disallowed_upstreams" placeholder="fireworks"><div class="muted">基于可观测 Header / Body / Provider 指纹判定；429 只作为辅助证据，不单独识别供应商。</div></div>
 <div class="wide"><label>Regression Suites（受控规则目录，可多选）</label><select id="regression_suites" multiple size="4">{% for suite in regression_suites %}<option value="{{ suite }}">{{ suite }}</option>{% endfor %}</select><div class="muted">{% if regression_suites %}按 Ctrl/Cmd 多选；只允许 --regression-dir 中的 YAML。{% else %}当前 regression 目录没有 YAML suite。{% endif %}</div></div>
 <div><label>&nbsp;</label><div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>有 proxy-sleuth 时同时运行开源多层检测</span></div></div>
 <div><label>&nbsp;</label><div class="row"><input id="coding_sandbox" type="checkbox" style="width:auto"><span>运行 Docker Coding Sandbox（会执行模型生成代码）</span></div><div class="muted">显式开启；无 Docker 时不会回退宿主执行。</div></div>
@@ -76,7 +77,8 @@ q('run').onclick=async()=>{
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
     proxy_sleuth:q('proxy').checked,
     coding_sandbox:q('coding_sandbox').checked,
-    regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value)
+    regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
+    disallowed_upstreams:q('disallowed_upstreams').value.split(',').map(x=>x.trim()).filter(Boolean)
   };
   if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='Base URL / Key / Model 必填';return}
   q('run').disabled=true;q('msg').textContent='创建任务中...';

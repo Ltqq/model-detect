@@ -74,6 +74,21 @@ def _header_signature(headers: dict[str, str]) -> tuple[str, ...]:
 def _id_prefix(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
+
+    # Many providers emit IDs as "<stable-prefix>-<random-suffix>" or
+    # "<stable-prefix>_<random-suffix>". Do not let the first random hex
+    # letter become part of the prefix (for example chatcmpl-f...).
+    for separator in ("-", "_"):
+        if separator not in value:
+            continue
+        head, tail = value.split(separator, 1)
+        if (
+            head
+            and len(tail) >= 8
+            and re.fullmatch(r"[A-Za-z0-9]+", tail)
+        ):
+            return head + separator
+
     match = re.match(r"^([A-Za-z_-]+)", value)
     return match.group(1) if match else None
 

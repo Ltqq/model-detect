@@ -37,6 +37,22 @@ class RegressionAuditConfig(BaseModel):
         return list(dict.fromkeys(selected))
 
 
+class UpstreamPolicyConfig(BaseModel):
+    disallowed: list[str] = Field(default_factory=list)
+    min_confidence: float = Field(default=0.70, ge=0.0, le=1.0)
+    strong_signal_weight: float = Field(default=0.90, ge=0.0, le=1.0)
+
+    @field_validator("disallowed")
+    @classmethod
+    def normalize_disallowed(cls, value: list[str]) -> list[str]:
+        normalized = [
+            item.strip().casefold()
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+        return list(dict.fromkeys(normalized))
+
+
 class AuditConfig(BaseModel):
     target: AuditTarget
     profile: str = "quick"
@@ -51,6 +67,9 @@ class AuditConfig(BaseModel):
     coding_sandbox_auto_pull: bool = True
     regression: RegressionAuditConfig = Field(
         default_factory=RegressionAuditConfig
+    )
+    upstream_policy: UpstreamPolicyConfig = Field(
+        default_factory=UpstreamPolicyConfig
     )
     extra_headers: dict[str, str] = Field(default_factory=dict)
 

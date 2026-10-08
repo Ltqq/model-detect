@@ -61,6 +61,11 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         and r.status == ProbeStatus.FAIL
         for r in results
     )
+    upstream_policy_violation = any(
+        r.metadata.get("policy_violation") is True
+        and r.status == ProbeStatus.FAIL
+        for r in results
+    )
 
     strong_identity = any(
         r.category == "identity"
@@ -77,6 +82,8 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     )
 
     if identity_mismatch:
+        hard_cap = 40.0
+    elif upstream_policy_violation:
         hard_cap = 40.0
     elif mixed_routing:
         hard_cap = 60.0
@@ -104,6 +111,8 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         verdict = "insufficient"
     elif identity_mismatch:
         verdict = "mismatch"
+    elif upstream_policy_violation:
+        verdict = "fail"
     elif overall >= 85 and strong_identity:
         verdict = "pass"
     elif overall >= 70:

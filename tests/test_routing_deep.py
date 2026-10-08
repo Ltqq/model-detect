@@ -5,6 +5,7 @@ from model_detect.http_client import CallResult
 from model_detect.models import Evidence, ProbeResult, ProbeStatus
 from model_detect.probes.routing import (
     _fact_inversion,
+    _id_prefix,
     cluster_rows,
     finalize_routing_analysis,
 )
@@ -140,3 +141,14 @@ def test_fact_inversion_detects_inconsistent_same_fact():
     assert probe.status == ProbeStatus.WARN
     assert probe.observed["inversion_count"] == 1
     assert len(evidence) == 12
+
+
+
+def test_response_id_prefix_ignores_random_hex_suffix():
+    assert _id_prefix("chatcmpl-9905826d73aa8e2812bc1c23") == "chatcmpl-"
+    assert _id_prefix("chatcmpl-f85520f8fee9a40878ba97a8") == "chatcmpl-"
+    assert _id_prefix("chatcmpl-e48accf174c5360b03361ffe") == "chatcmpl-"
+
+
+def test_tool_id_prefix_uses_stable_separator_prefix():
+    assert _id_prefix("call_01ABCDEF12345678") == "call_"
