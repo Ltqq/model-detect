@@ -7,6 +7,13 @@ import shutil
 from pathlib import Path
 
 from .models import AuditReport
+from .interpretation import (
+    build_report_interpretation,
+    category_label,
+    probe_title,
+    result_explanation,
+    status_label,
+)
 
 
 def safe_name(value: str) -> str:
@@ -87,6 +94,7 @@ def write_report(report: AuditReport, output_dir: str | Path) -> Path:
     evidence_dir.mkdir(exist_ok=True)
 
     data = report.model_dump(mode="json")
+    data["human_interpretation"] = build_report_interpretation(report)
     (root / "report.json").write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -99,14 +107,6 @@ def write_report(report: AuditReport, output_dir: str | Path) -> Path:
     (root / "report.html").write_text(_render_html(report), encoding="utf-8")
     return root
 
-
-from .interpretation import (
-    build_report_interpretation,
-    category_label,
-    probe_title,
-    result_explanation,
-    status_label,
-)
 
 def _status_class(value: str) -> str:
     return {
@@ -227,14 +227,6 @@ def _regression_section(report: AuditReport) -> str:
 
 
 def _render_html(report: AuditReport) -> str:
-    from .interpretation import (
-        build_report_interpretation,
-        category_label,
-        probe_title,
-        result_explanation,
-        status_label,
-    )
-
     human = build_report_interpretation(report)
     tone_class = {
         "good": "hero-good",
