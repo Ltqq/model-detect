@@ -73,9 +73,9 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
       <label>可信 Reference（强烈建议用于“真假模型”判断）</label>
       <select id="reference_id">
         <option value="">不使用 Reference</option>
-        {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}
+        {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}{% if r.fingerprint_artifact or r.fingerprint_reference %} · 指纹✓{% endif %}{% if r.baseline_artifact %} · Baseline {{ r.baseline_runs }}次{% endif %}</option>{% endfor %}
       </select>
-      <div class="field-help">{% if references %}选择官方/可信端点采集的 Reference 后，会运行更强的模型身份对比。{% else %}当前还没有 Reference；如果主要目标是判断模型身份，建议先去 Reference 管理页采集。{% endif %}</div>
+      <div class="field-help">{% if references %}带“指纹✓”的 Reference 可增强模型身份判断；带“Baseline Nx”的 Reference 还能比较能力/质量是否相对可信基准退化。{% else %}当前还没有 Reference；如果主要目标是判断模型身份，建议先去 Reference 管理页采集。{% endif %}</div>
     </div>
     <div>
       <label>声明的上下文长度（可选）</label>
