@@ -5,6 +5,7 @@ from typing import Any
 
 from ..http_client import AuditHttpClient, CallResult
 from ..models import Evidence, ProbeResult, ProbeStatus
+from ..rules import preferred_feature_value
 
 
 def _message_text(body: Any) -> str:
@@ -207,24 +208,43 @@ async def probe_invalid_model(
     ev = call.evidence
     if ev.error:
         return [_error_result(probe_id, "provider", call)], [ev]
-    rejected = ev.response_status is not None and 400 <= ev.response_status < 500
-    status = ProbeStatus.PASS if rejected else ProbeStatus.WARN
+    rejected = ev.response_status is not None and ev.response_status >= 400
+    standard_status = (
+        ev.response_status is not None and 400 <= ev.response_status < 500
+    )
     return [
         ProbeResult(
             probe_id=probe_id,
             category="provider",
-            status=status,
+            status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=None,
             confidence=0.9,
             summary=(
-                f"invalid model rejected with HTTP {ev.response_status}"
+                f"invalid model was explicitly rejected with HTTP {ev.response_status}"
                 if rejected
-                else f"invalid model was not rejected as expected (HTTP {ev.response_status})"
+                else f"invalid model was not rejected (HTTP {ev.response_status})"
             ),
-            expected={"http_status": "4xx"},
+            expected={"behavior": "reject invalid model"},
             observed={"http_status": ev.response_status, "body": ev.response_body},
             evidence_ids=[ev.id],
-        )
+            metadata={"invalid_model_rejected": rejected},
+        ),
+        ProbeResult(
+            probe_id="provider.error.invalid_model_status",
+            category="provider",
+            status=ProbeStatus.PASS if standard_status else ProbeStatus.WARN,
+            score=None,
+            confidence=0.8,
+            summary=(
+                f"invalid-model rejection used client-error HTTP {ev.response_status}"
+                if standard_status
+                else f"invalid model was rejected, but transport status was HTTP {ev.response_status}"
+            ),
+            expected={"preferred_http_status": "4xx"},
+            observed={"http_status": ev.response_status},
+            evidence_ids=[ev.id],
+            metadata={"transport_status_standard": standard_status},
+        ),
     ], [ev]
 
 
@@ -516,6 +536,7 @@ async def probe_bad_enum(
             "temperature": "definitely-not-a-number",
             "max_tokens": 8,
         },
+        constraint_exempt_fields={"temperature"},
     )
     ev = call.evidence
     if ev.error:
@@ -544,13 +565,16 @@ async def probe_reasoning_valid(
     client: AuditHttpClient, model: str
 ) -> tuple[list[ProbeResult], list[Evidence]]:
     probe_id = "protocol.reasoning.valid_field"
+    effort = preferred_feature_value(
+        model, "reasoning_effort", preferred="low"
+    )
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
         payload={
             "model": model,
             "messages": [{"role": "user", "content": "What is 17 * 23? Answer only the integer."}],
-            "reasoning_effort": "low",
+            "reasoning_effort": effort,
             "max_tokens": 64,
         },
     )
