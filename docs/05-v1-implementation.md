@@ -53,9 +53,13 @@ Evidence / Report / Web
 | lm-eval Profiles | ✅ | built-in + user-configurable YAML |
 | lm-eval Result Mapping | ✅ | Unified ProbeResult |
 | promptfoo Regression | ✅ | YAML -> compile -> eval -> ProbeResult |
-| Model Rule provenance | ✅ | schema v2 + sources + source_refs |
-| Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash |
-| Provider Rule provenance | ✅ | schema v2 + source refs + false-positive notes |
+| Model Rule provenance | ✅ | schema v3 + sources + source_refs |
+| Formal Model Rules | ✅ | Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash；协议级语义 |
+| Official Quality Baseline | ✅ | Reference 内保存重复同套件实测 baseline.json |
+| Baseline Collector | ✅ | Standard/Deep 同端点串行重复 1–5 次；默认推荐 3 次 |
+| Quality Comparison | ✅ | mean/stddev/task granularity/retention；低样本保守判定 |
+| Chinese Quality Report | ✅ | 官方/可信基准、当前渠道、保持率、基准下界、退化说明 |
+| Provider Rule provenance | ✅ | schema v3 + source refs + false-positive notes |
 | Report Drift Compare | ✅ | manual report compare |
 | Regression Audit Orchestration | ✅ | Audit/Profile/CLI/Web/Report 已接通 |
 | SQLite History | ✅ | 本地任务历史已保存，最后补 UX 收尾 |
@@ -73,7 +77,7 @@ Evidence / Report / Web
 - Statistical Fingerprint
 - per-cell JSD
 - self consistency
-- Model Rule v2 provenance
+- Model Rule v3 provenance
 - Provider Fingerprint v2 provenance
 - Routing Consistency
 - Declarative Regression
@@ -106,20 +110,22 @@ Evidence / Report / Web
 原则：
 
 - 官方事实与 empirical observation 分开记录；
-- `expected != null` 的 v2 feature 必须有 `source_refs`；
+- `expected != null` 的 v3 feature 必须有 `source_refs`；
 - Gateway 差异默认不直接升级成模型身份强证据；
 - 不确定的能力保持 `expected: null`。
 
 ## 5. 当前真正缺口
 
-检测核心已经完成，剩余只做本地 Web 使用体验：
+核心开发已经完成。现在剩下的是**真实世界校准数据**，不是继续扩产品功能：
 
-1. 历史列表展示 Verdict / Score；
-2. HTML / JSON / ZIP 直接访问；
-3. 简单模型 / 状态 / 类型筛选；
-4. 删除历史记录并同步清理报告文件；
-5. 一次本地 Web E2E 验收。
+1. 使用真实官方 Kimi K3 Endpoint 采集至少 3 次 Standard Quality Baseline + Statistical Fingerprint；
+2. 使用真实官方 GLM-5.2 Endpoint 做同样采集；
+3. 用同一 Reference 对现有供应商渠道复测，观察自然波动与 Quality Regression 阈值是否合理；
+4. 后续按实际业务优先级补 Qwen / DeepSeek / GPT / Claude / Gemini 官方基准；
+5. 定期复审 Model Rule 官方来源，避免厂商 API 演进后规则过期。
 
-完成后停止扩功能，日常只维护 Model Rule / Provider Rule / Regression Case。
+真实官方数据需要对应厂商 API Key。本仓库只提供采集、比较和报告流程，不保存凭据，也不伪造“官方基准结果”。
 
-性能测试继续保持独立。
+更强的公开 Benchmark 可继续通过现有 lm-evaluation-harness Adapter 扩展，但只有当官方端点与供应商端点使用完全相同 Dataset / Harness / Prompt / 参数时才允许直接比较。
+
+性能测试继续永久独立。
