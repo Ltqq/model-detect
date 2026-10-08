@@ -11,7 +11,7 @@ from rich.table import Table
 from . import __version__
 from .adapters import fingerprint, proxy_sleuth
 from .audit import run_audit
-from .config import AuditConfig, RegressionAuditConfig, load_config
+from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig, load_config
 from .models import AuditTarget
 from .reference_cli import reference_app
 from .reporting import safe_name, write_report
@@ -55,6 +55,14 @@ def audit(
             "Regression YAML suite to run; repeat this option to add multiple suites."
         ),
     ),
+    disallow_upstream: list[str] = typer.Option(
+        [],
+        "--disallow-upstream",
+        help=(
+            "Disallowed upstream provider id; repeat for multiple providers "
+            "(for example --disallow-upstream fireworks)."
+        ),
+    ),
 ) -> None:
     """Run a model audit and write report.json, report.html and raw evidence."""
     if config:
@@ -79,6 +87,15 @@ def audit(
             cfg.regression.suites = list(
                 dict.fromkeys(cfg.regression.suites)
             )
+        if disallow_upstream:
+            cfg.upstream_policy = UpstreamPolicyConfig(
+                disallowed=[
+                    *cfg.upstream_policy.disallowed,
+                    *disallow_upstream,
+                ],
+                min_confidence=cfg.upstream_policy.min_confidence,
+                strong_signal_weight=cfg.upstream_policy.strong_signal_weight,
+            )
     else:
         if not base_url or not model:
             raise typer.BadParameter("--base-url and --model are required when --config is not used")
@@ -101,6 +118,9 @@ def audit(
                     str(path.expanduser().resolve())
                     for path in regression_suite
                 ]
+            ),
+            upstream_policy=UpstreamPolicyConfig(
+                disallowed=disallow_upstream,
             ),
         )
 
