@@ -118,3 +118,22 @@ def test_load_config_resolves_regression_paths_relative_to_config(tmp_path):
         str((suites / "common.yaml").resolve()),
         str((suites / "standard.yaml").resolve()),
     ]
+
+
+
+def test_upstream_policy_normalizes_and_deduplicates_provider_ids():
+    cfg = AuditConfig.model_validate(
+        {
+            "target": {
+                "base_url": "https://example.com/v1",
+                "model": "m",
+            },
+            "upstream_policy": {
+                "disallowed": [" Fireworks ", "fireworks", "AZURE_APIM"],
+            },
+        }
+    )
+
+    assert cfg.upstream_policy.disallowed == ["fireworks", "azure_apim"]
+    assert cfg.upstream_policy.min_confidence == 0.70
+    assert cfg.upstream_policy.strong_signal_weight == 0.90
