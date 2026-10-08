@@ -33,6 +33,13 @@ sources:
 
 strict: false
 
+request_constraints:
+  chat_completions:
+    fixed:
+      temperature: 1.0
+    source_refs:
+      - moonshot-kimi-k3-readme
+
 features:
   reasoning_effort:
     expected: true
