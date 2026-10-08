@@ -9,7 +9,7 @@ from typing import Any, Iterable, Literal
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-from ..models import Evidence, ProviderHypothesis
+from ..models import Evidence, ProbeResult, ProbeStatus, ProviderHypothesis
 from ..rules import RuleSource
 
 
@@ -78,6 +78,152 @@ def _body_text(evidence: Evidence) -> str:
     except Exception:
         return str(evidence.response_body).lower()
 
+
+
+def _provider_signal_details(
+    evidence: Evidence,
+    rule: ProviderRule,
+) -> list[dict[str, Any]]:
+    headers = {
+        str(k).lower(): str(v)
+        for k, v in evidence.response_headers.items()
+    }
+    body = _body_text(evidence)
+    signals: list[dict[str, Any]] = []
+    for header, weight in rule.headers.items():
+        if str(header).lower() in headers:
+            signals.append(
+                {
+                    "kind": "header",
+                    "value": str(header),
+                    "weight": float(weight),
+                }
+            )
+    for pattern, weight in rule.patterns.items():
+        if str(pattern).lower() in body:
+            signals.append(
+                {
+                    "kind": "body",
+                    "value": str(pattern),
+                    "weight": float(weight),
+                }
+            )
+    return signals
+
+
+def evaluate_upstream_policy(
+    evidences: Iterable[Evidence],
+    hypotheses: list[ProviderHypothesis],
+    *,
+    disallowed: list[str],
+    min_confidence: float = 0.70,
+    strong_signal_weight: float = 0.90,
+) -> ProbeResult:
+    probe_id = "provider.upstream_policy"
+    disallowed_set = {
+        item.strip().casefold()
+        for item in disallowed
+        if isinstance(item, str) and item.strip()
+    }
+    if not disallowed_set:
+        return ProbeResult(
+            probe_id=probe_id,
+            category="provider",
+            status=ProbeStatus.SKIPPED,
+            score=None,
+            confidence=1.0,
+            summary="no disallowed upstream providers configured",
+            metadata={"policy_violation": False},
+        )
+
+    evidence_list = list(evidences)
+    rules = load_provider_rules()
+    by_provider = {
+        item.provider.casefold(): item
+        for item in hypotheses
+    }
+    detected: list[dict[str, Any]] = []
+    matched_evidence_ids: list[str] = []
+
+    for provider in sorted(disallowed_set):
+        rule = rules.get(provider)
+        hypothesis = by_provider.get(provider)
+        provider_evidence: list[dict[str, Any]] = []
+        max_signal_weight = 0.0
+        if rule is not None:
+            for evidence in evidence_list:
+                signals = _provider_signal_details(evidence, rule)
+                if not signals:
+                    continue
+                max_signal_weight = max(
+                    max_signal_weight,
+                    max(float(item["weight"]) for item in signals),
+                )
+                provider_evidence.append(
+                    {
+                        "evidence_id": evidence.id,
+                        "probe_id": evidence.probe_id,
+                        "signals": signals,
+                    }
+                )
+                matched_evidence_ids.append(evidence.id)
+
+        confidence = hypothesis.confidence if hypothesis else 0.0
+        policy_match = (
+            confidence >= min_confidence
+            or max_signal_weight >= strong_signal_weight
+        )
+        if policy_match:
+            detected.append(
+                {
+                    "provider": provider,
+                    "confidence": confidence,
+                    "max_signal_weight": max_signal_weight,
+                    "evidence": provider_evidence,
+                }
+            )
+
+    rate_limit_ids = [
+        evidence.id
+        for evidence in evidence_list
+        if evidence.response_status == 429
+    ]
+    violation = bool(detected)
+    return ProbeResult(
+        probe_id=probe_id,
+        category="provider",
+        status=ProbeStatus.FAIL if violation else ProbeStatus.PASS,
+        score=0.0 if violation else None,
+        confidence=0.95 if violation else 0.65,
+        summary=(
+            "disallowed upstream provider evidence detected: "
+            + ", ".join(item["provider"] for item in detected)
+            if violation
+            else "no disallowed upstream provider evidence was observed"
+        ),
+        expected={
+            "disallowed": sorted(disallowed_set),
+            "min_confidence": min_confidence,
+            "strong_signal_weight": strong_signal_weight,
+        },
+        observed={
+            "detected": detected,
+            "http_429_count": len(rate_limit_ids),
+            "http_429_evidence_ids": rate_limit_ids,
+            "provider_hypotheses": [
+                item.model_dump(mode="json")
+                for item in hypotheses
+            ],
+        },
+        evidence_ids=list(
+            dict.fromkeys([*matched_evidence_ids, *rate_limit_ids])
+        ),
+        metadata={
+            "policy_violation": violation,
+            "policy_type": "disallowed_upstream",
+            "rate_limit_is_auxiliary_only": True,
+        },
+    )
 
 def detect_provider_hypotheses(
     evidences: Iterable[Evidence],
