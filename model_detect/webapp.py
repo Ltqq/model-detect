@@ -67,7 +67,7 @@ def _resolve_regression_suites(
     catalog = set(_list_regression_suites(root))
     unknown = sorted(set(selected) - catalog)
     if unknown:
-        raise ValueError(f"unknown regression suites: {unknown}")
+        raise ValueError(f"存在未允许的回归规则: {unknown}")
     return [
         str((root / name).resolve())
         for name in dict.fromkeys(selected)
@@ -559,7 +559,7 @@ async def _run_reference_job(
         fp_meta = None
         if payload.fingerprint and fingerprint.availability().get("available"):
             fp_path = registry.path_for(payload.id) / "fingerprint.json"
-            store.update(job_id, progress=0.60, detail="collecting statistical fingerprint")
+            store.update(job_id, progress=0.60, detail="正在采集统计指纹")
             collected = await asyncio.to_thread(
                 fingerprint.collect,
                 base_url=payload.base_url,
