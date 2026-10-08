@@ -7,7 +7,7 @@ from typing import Any
 
 from ..http_client import AuditHttpClient
 from ..models import Evidence, ProbeResult, ProbeStatus
-from ..rules import fixed_request_parameter
+from ..rules import apply_feature_probe_request, fixed_request_parameter
 
 
 def _text(body: Any) -> str:
@@ -358,7 +358,7 @@ async def probe_tool_definitions(
     call = await client.post_json(
         probe_id=probe_id,
         path="/chat/completions",
-        payload={
+        payload=apply_feature_probe_request(model, "tools", {
             "model": model,
             "messages": [
                 {
@@ -376,7 +376,7 @@ async def probe_tool_definitions(
             },
             "temperature": 0,
             "max_tokens": 160,
-        },
+        }),
     )
     calls = _tool_calls(call.json_body)
     name = None
@@ -441,7 +441,7 @@ async def probe_tools_preserved(
         call = await client.post_json(
             probe_id=probe_id,
             path="/chat/completions",
-            payload={
+            payload=apply_feature_probe_request(model, "tools", {
                 "model": model,
                 "messages": [
                     {
@@ -458,7 +458,7 @@ async def probe_tools_preserved(
                 },
                 "temperature": 0,
                 "max_tokens": 96,
-            },
+            }),
         )
         evidences.append(call.evidence)
         calls = _tool_calls(call.json_body)
