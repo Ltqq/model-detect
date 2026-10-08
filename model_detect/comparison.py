@@ -5,7 +5,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .baseline import BASELINE_DIMENSIONS, OfficialBaseline
+from .baseline import (
+    BASELINE_DIMENSIONS,
+    BASELINE_SUITE_VERSION,
+    OfficialBaseline,
+)
 from .models import AuditReport, ProbeResult, ProbeStatus
 
 
@@ -76,6 +80,23 @@ def compare_report_to_baseline(
 ) -> tuple[QualityComparison, list[ProbeResult]]:
     model = str(report.target.get("model") or "")
     warnings: list[str] = []
+
+    if baseline.suite_version != BASELINE_SUITE_VERSION:
+        comparison = QualityComparison(
+            suite_version=baseline.suite_version,
+            model=model,
+            profile=report.profile,
+            verdict="baseline_insufficient",
+            warnings=[
+                (
+                    "baseline suite version mismatch: "
+                    f"reference={baseline.suite_version!r}, "
+                    f"current={BASELINE_SUITE_VERSION!r}; recollect the baseline"
+                )
+            ],
+            metadata={"same_suite_required": True},
+        )
+        return comparison, [_summary_result(comparison)]
 
     if model != baseline.model:
         comparison = QualityComparison(
