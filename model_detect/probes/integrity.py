@@ -7,6 +7,7 @@ from typing import Any
 
 from ..http_client import AuditHttpClient
 from ..models import Evidence, ProbeResult, ProbeStatus
+from ..rules import fixed_request_parameter
 
 
 def _text(body: Any) -> str:
@@ -580,6 +581,27 @@ async def _sampling_parameter_probe(
     fixed: dict[str, float],
     samples: int,
 ) -> tuple[list[ProbeResult], list[Evidence]]:
+    fixed_value = fixed_request_parameter(model, parameter)
+    if fixed_value is not None:
+        return [
+            ProbeResult(
+                probe_id=probe_id,
+                category="integrity",
+                status=ProbeStatus.SKIPPED,
+                score=None,
+                confidence=1.0,
+                summary=(
+                    f"{parameter} variability is not applicable: "
+                    f"model rule declares fixed {parameter}={fixed_value!r}"
+                ),
+                observed={"parameter": parameter, "fixed_value": fixed_value},
+                metadata={
+                    "parameter_fixed_by_model_rule": True,
+                    "fixed_value": fixed_value,
+                },
+            )
+        ], []
+
     prompt = (
         "Choose exactly one lowercase English word from this set and output only that word: "
         "apple banana cherry date elderberry fig grape hazelnut kiwi lemon mango orange peach pear plum."
@@ -601,6 +623,7 @@ async def _sampling_parameter_probe(
                 probe_id=probe_id,
                 path="/chat/completions",
                 payload=payload,
+                constraint_exempt_fields={parameter},
             )
             evidences.append(call.evidence)
             statuses.append(call.evidence.response_status)
