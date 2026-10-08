@@ -1,46 +1,73 @@
-schema_version: 2
+schema_version: 3
 id: claude-5-current
 family: claude
 model_version: "5"
 patterns:
+  - "claude-fable-5"
+  - "claude-fable-5-*"
   - "claude-fable-5-1"
   - "claude-fable-5-1-*"
   - "claude-opus-5"
   - "claude-opus-5-*"
+  - "claude-opus-5-5"
+  - "claude-opus-5-5-*"
   - "claude-sonnet-5"
   - "claude-sonnet-5-*"
-aliases: ["Claude Fable 5.1", "Claude Opus 5", "Claude Sonnet 5"]
-updated_at: "2026-09-30"
+  - "claude-sonnet-5-5"
+  - "claude-sonnet-5-5-*"
+  - "claude-haiku-5-5"
+  - "claude-haiku-5-5-*"
+aliases:
+  - "Claude Fable 5.1"
+  - "Claude Opus 5"
+  - "Claude Opus 5.5"
+  - "Claude Sonnet 5"
+  - "Claude Sonnet 5.5"
+  - "Claude Haiku 5.5"
+updated_at: "2026-10-08"
 declared_context_tokens: 1000000
 sources:
   - id: anthropic-current-models
     type: official_doc
     title: "Claude Platform - Models overview"
     url: "https://platform.claude.com/docs/en/models/overview"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
     confidence: high
-  - id: anthropic-current-prompting
+  - id: anthropic-effort
     type: official_doc
-    title: "Claude Platform - Prompting best practices"
-    url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/prompt-templates-and-variables"
-    collected_at: "2026-09-30"
+    title: "Claude Platform - Effort"
+    url: "https://platform.claude.com/docs/en/build-with-claude/effort"
+    collected_at: "2026-10-08"
+    confidence: high
+  - id: anthropic-tool-use
+    type: official_doc
+    title: "Claude Platform - Tool use"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works"
+    collected_at: "2026-10-08"
     confidence: high
 strict: false
 features:
   reasoning_effort:
     expected: null
     native_parameter: "output_config.effort"
+    source_refs:
+      - anthropic-effort
   disable_thinking:
     expected: null
+    source_refs:
+      - anthropic-current-models
     notes:
-      - "Thinking behavior differs across current Claude 5 variants."
+      - "Thinking behavior and whether disabled is accepted differ across Claude 5 variants."
   tools:
     expected: true
-    source_refs: [anthropic-current-models, anthropic-current-prompting]
+    source_refs:
+      - anthropic-current-models
+      - anthropic-tool-use
   json_schema:
     expected: null
 notes:
-  - "Current Claude Fable 5.1, Opus 5, and Sonnet 5 have a 1M context window and support tool use."
-  - "Anthropic native reasoning uses adaptive thinking plus effort, not the OpenAI reasoning_effort field."
-  - "Gateway translation of native thinking and structured-output parameters is intentionally not assumed."
+  - "Current Claude 5-family models listed by Anthropic have a 1M-token context window and support tool use."
+  - "Fable 5.1 and Opus 5.5 use adaptive thinking that is always on; other Claude 5 variants can differ."
+  - "Default effort differs by model variant, so this family-level rule deliberately does not flatten it into one expected value."
+  - "Anthropic native effort uses output_config.effort; OpenAI-compatible gateway translation is intentionally not assumed."
   - "The rule is non-strict because third-party relays can normalize request fields."
