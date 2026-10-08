@@ -9,7 +9,7 @@ from typing import Callable
 from .adapters import fingerprint, proxy_sleuth
 from .config import AuditConfig, get_api_key
 from .http_client import AuditHttpClient
-from .models import AuditReport, ProbeResult, ProbeStatus
+from .models import AuditReport, AuditSummary, ProbeResult, ProbeStatus
 from .probes.capability import derived_capability_results, run_capability_suite
 from .probes.context import run_context_suite
 from .probes.coding import run_coding_suite
@@ -24,6 +24,29 @@ from .scoring import build_summary
 
 
 ProgressCallback = Callable[[str, int, int], None]
+
+
+def _invalid_target_reason(evidences) -> str | None:
+    for evidence in evidences:
+        if evidence.response_status != 200:
+            continue
+        content_type = str(
+            evidence.response_headers.get("content-type", "")
+        ).lower()
+        body = evidence.response_body
+        body_text = body if isinstance(body, str) else ""
+        looks_html = (
+            "text/html" in content_type
+            or body_text.lstrip().lower().startswith("<!doctype html")
+            or body_text.lstrip().lower().startswith("<html")
+        )
+        if looks_html:
+            return (
+                "target returned HTML instead of a model API response; "
+                "check that Base URL includes the API prefix such as /v1"
+            )
+    return None
+
 
 
 def _protocol_probe_set(profile: str):
@@ -203,6 +226,7 @@ async def run_audit(
         api_key=api_key,
         timeout_seconds=config.target.timeout_seconds,
         extra_headers=config.extra_headers,
+        model=config.target.model,
     )
     report = AuditReport(
         profile=profile,
@@ -247,6 +271,34 @@ async def run_audit(
             evidences = []
         report.results.extend(results)
         report.evidences.extend(evidences)
+
+        if index == 1:
+            invalid_target = _invalid_target_reason(evidences)
+            if invalid_target:
+                report.results.append(
+                    ProbeResult(
+                        probe_id="target.api.preflight",
+                        category="target",
+                        status=ProbeStatus.FAIL,
+                        score=None,
+                        confidence=1.0,
+                        summary=invalid_target,
+                        evidence_ids=[e.id for e in evidences],
+                        metadata={"invalid_target": True},
+                    )
+                )
+                report.adapters["target_validation"] = {
+                    "status": "invalid_target",
+                    "reason": invalid_target,
+                }
+                report.summary = AuditSummary(
+                    overall_score=None,
+                    final_verdict="invalid_target",
+                    confidence="high",
+                    warnings=[invalid_target],
+                )
+                report.finished_at = datetime.now(timezone.utc).isoformat()
+                return report
 
     # 2. Parameter integrity.
     if progress:
