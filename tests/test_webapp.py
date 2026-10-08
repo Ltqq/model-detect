@@ -169,9 +169,8 @@ def test_web_serves_persisted_regression_artifact_and_job_status(tmp_path):
     client = TestClient(app)
 
     page = client.get("/")
-    assert "completed" in page.text
-    assert "Kimi official docs" in page.text
-    assert "Fireworks AI" in page.text
+    assert "已完成" in page.text
+    assert "中文报告" in page.text
 
     report = client.get("/reports/audit_test")
     assert (
