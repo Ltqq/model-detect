@@ -365,6 +365,13 @@ def _render_html(report: AuditReport) -> str:
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
     regression_section = _regression_section(report)
+    copy_text_json = json.dumps(
+        "准入建议：" + str(human["decision"]) + "\n"
+        + "结论：" + str(human["headline"]) + "\n"
+        + "综合分：" + str(score_text) + "\n"
+        + "证据可信度：" + str(human["confidence_label"]),
+        ensure_ascii=False,
+    )
 
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -476,13 +483,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 
 <script>
 function copyConclusion(){{
-  const text={json.dumps(
-      "准入建议：" + str(human["decision"]) + "\n"
-      + "结论：" + str(human["headline"]) + "\n"
-      + "综合分：" + str(score_text) + "\n"
-      + "证据可信度：" + str(human["confidence_label"]),
-      ensure_ascii=False
-  )};
+  const text={copy_text_json};
   navigator.clipboard?.writeText(text).then(()=>alert('结论已复制')).catch(()=>{{}});
 }}
 function filterRows(mode){{
