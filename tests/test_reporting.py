@@ -29,6 +29,9 @@ def test_report_contains_evidence_links(tmp_path):
     html = (root / "report.html").read_text(encoding="utf-8")
     assert 'evidence/ev_test.json' in html
     assert (root / "evidence" / "ev_test.json").exists()
+    data = json.loads((root / "report.json").read_text(encoding="utf-8"))
+    assert "human_interpretation" in data
+    assert data["human_interpretation"]["verdict_label"] == "证据不足"
 
 
 def test_report_renders_fingerprint_cells(tmp_path):
@@ -81,8 +84,8 @@ def test_report_renders_fingerprint_cells(tmp_path):
     )
     root = write_report(report, tmp_path / "fp-report")
     html = (root / "report.html").read_text(encoding="utf-8")
-    assert "Statistical Fingerprint" in html
-    assert "Per-cell JSD" in html
+    assert "统计指纹对比" in html
+    assert "查看每个统计单元的 JSD 明细" in html
     assert "random-number-1-100:en" in html
     assert "collected" in html
 
@@ -164,7 +167,7 @@ def test_report_persists_and_renders_regression_artifacts(tmp_path):
     )
 
     rendered = (root / "report.html").read_text(encoding="utf-8")
-    assert "Regression Suites" in rendered
+    assert "回归规则结果" in rendered
     assert "expected HTTP 400" in rendered
     assert "received 200 OK" in rendered
     assert 'href="regression/01/promptfoo-result.json"' in rendered
