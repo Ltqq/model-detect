@@ -282,6 +282,24 @@ def _render_html(report: AuditReport) -> str:
         )
     providers_html = "".join(provider_items) or "<div class='empty'>未观察到足够明确的 Provider / Gateway 指纹。</div>"
 
+    blocked_items = []
+    for item in provider["detected"]:
+        signals = []
+        for ev in item.get("evidence") or []:
+            for signal in ev.get("signals") or []:
+                signals.append(
+                    f"{signal.get('kind')}:{signal.get('value')}"
+                )
+        blocked_items.append(
+            "<div class='issue fail'>"
+            f"<b>{html.escape(str(item.get('provider') or 'unknown'))}</b>"
+            f"<p>策略命中置信度：{float(item.get('confidence') or 0):.0%}"
+            f" · 最强单信号权重：{float(item.get('max_signal_weight') or 0):.2f}</p>"
+            f"<div class='tech'>命中信号：{html.escape('；'.join(signals[:12]) or '未列出')}</div>"
+            "</div>"
+        )
+    blocked_html = "".join(blocked_items)
+
     issues_html = []
     for item in human["issues"]:
         action = (
@@ -425,6 +443,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
     <div class="metric"><span>本轮 429</span><b>{provider['http_429_count']}</b></div>
   </div>
   <div style="margin-top:10px">{providers_html}</div>
+  {('<div style="margin-top:14px"><div class="eyebrow">禁止上游命中证据</div>' + blocked_html + '</div>') if blocked_html else ''}
 </section>
 
 {fingerprint_section}
@@ -457,7 +476,13 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 
 <script>
 function copyConclusion(){{
-  const text='准入建议：{html.escape(human["decision"])}\n结论：{html.escape(human["headline"])}\n综合分：{html.escape(score_text)}\n证据可信度：{html.escape(human["confidence_label"])}';
+  const text={json.dumps(
+      "准入建议：" + str(human["decision"]) + "\n"
+      + "结论：" + str(human["headline"]) + "\n"
+      + "综合分：" + str(score_text) + "\n"
+      + "证据可信度：" + str(human["confidence_label"]),
+      ensure_ascii=False
+  )};
   navigator.clipboard?.writeText(text).then(()=>alert('结论已复制')).catch(()=>{{}});
 }}
 function filterRows(mode){{
