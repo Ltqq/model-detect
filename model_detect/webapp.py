@@ -17,6 +17,7 @@ from .adapters import fingerprint
 from .audit import run_audit
 from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig
 from .models import AuditTarget
+from .interpretation import build_report_interpretation
 from .references import ReferenceRegistry
 from .probes.provider import load_provider_rule_set
 from .rules import match_model_rule
@@ -141,6 +142,10 @@ def create_app(
                 ),
                 "references": registry.list(),
                 "regression_suites": _list_regression_suites(regression_root),
+                "provider_options": [
+                    {"id": provider_id, "label": rule.label}
+                    for provider_id, rule in load_provider_rule_set().providers.items()
+                ],
                 "history_filters": {
                     "model": model or "",
                     "status": status or "",
@@ -196,7 +201,7 @@ def create_app(
         try:
             return store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
 
     @app.delete("/api/jobs/{job_id}")
     async def delete_job(job_id: str):
@@ -206,7 +211,7 @@ def create_app(
             raise HTTPException(404, "job not found")
 
         if item["status"] in {"queued", "running"}:
-            raise HTTPException(409, "running job cannot be deleted")
+            raise HTTPException(409, "运行中的任务不能删除")
 
         if item["kind"] == "audit":
             report_root = (app.state.output_dir / job_id).resolve()
@@ -231,7 +236,7 @@ def create_app(
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
         if payload.profile not in {"quick", "standard", "deep"}:
-            raise HTTPException(400, "profile must be quick, standard or deep")
+            raise HTTPException(400, "检测档位只能是 quick、standard 或 deep")
         try:
             regression_paths = _resolve_regression_suites(
                 app.state.regression_dir,
@@ -269,7 +274,7 @@ def create_app(
     @app.post("/api/references")
     async def create_reference_job(payload: WebReferenceRequest):
         if registry.exists(payload.id) and not payload.overwrite:
-            raise HTTPException(409, "reference already exists; set overwrite=true to replace it")
+            raise HTTPException(409, "Reference 已存在；如需替换请启用覆盖")
         job_id = "ref_" + uuid.uuid4().hex[:12]
         store.create(
             job_id=job_id,
@@ -391,6 +396,21 @@ def create_app(
     return app
 
 
+def _progress_label(name: str) -> str:
+    if name.startswith("protocol:"):
+        return "正在检查协议兼容"
+    return {
+        "integrity-suite": "正在检查参数完整性",
+        "context-suite": "正在检查上下文能力",
+        "routing-suite": "正在检查路由一致性",
+        "capability-suite": "正在进行能力抽检",
+        "coding-sandbox": "正在进行代码能力抽检",
+        "fingerprint-reference": "正在对比统计指纹",
+        "proxy-sleuth": "正在运行开源增强检测",
+        "regression-suite": "正在运行回归规则",
+    }.get(name, "正在检测")
+
+
 def _progress_value(name: str, current: int, total: int) -> float:
     if name.startswith("protocol:"):
         return min(0.38, 0.03 + 0.35 * (current / max(total, 1)))
@@ -416,7 +436,7 @@ async def _run_audit_job(
     store: JobStore = app.state.store
     registry: ReferenceRegistry = app.state.registry
     try:
-        store.update(job_id, status="running", progress=0.01, detail="starting")
+        store.update(job_id, status="running", progress=0.01, detail="正在准备检测")
         cfg = AuditConfig(
             target=AuditTarget(
                 base_url=payload.base_url,
@@ -444,7 +464,7 @@ async def _run_audit_job(
                 job_id,
                 status="running",
                 progress=_progress_value(name, current, total),
-                detail=name,
+                detail=_progress_label(name),
             )
 
         regression_work_dir = (
@@ -461,6 +481,7 @@ async def _run_audit_job(
         if regression_work_dir.exists():
             shutil.rmtree(regression_work_dir, ignore_errors=True)
 
+        human = build_report_interpretation(report)
         regression_adapter = report.adapters.get("promptfoo_regression")
         regression_status = (
             regression_adapter.get("status")
@@ -487,6 +508,17 @@ async def _run_audit_job(
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": regression_status,
                 "upstream_policy": report.adapters.get("upstream_policy"),
+                "human_summary": {
+                    "decision": human["decision"],
+                    "headline": human["headline"],
+                    "tone": human["tone"],
+                    "verdict_label": human["verdict_label"],
+                    "confidence_label": human["confidence_label"],
+                    "identity_state": human["identity"]["state"],
+                    "provider_state": human["provider"]["state"],
+                    "issue_count": len(human["issues"]),
+                    "http_429_count": human["provider"]["http_429_count"],
+                },
             },
         )
     except Exception as exc:
