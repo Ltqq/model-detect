@@ -100,6 +100,14 @@ def write_report(report: AuditReport, output_dir: str | Path) -> Path:
     return root
 
 
+from .interpretation import (
+    build_report_interpretation,
+    category_label,
+    probe_title,
+    result_explanation,
+    status_label,
+)
+
 def _status_class(value: str) -> str:
     return {
         "pass": "ok",
@@ -110,6 +118,12 @@ def _status_class(value: str) -> str:
         "skipped": "dim",
     }.get(value, "")
 
+
+def _evidence_links(result) -> str:
+    return " ".join(
+        f'<a href="evidence/{html.escape(eid)}.json">{html.escape(eid)}</a>'
+        for eid in result.evidence_ids
+    ) or "—"
 
 
 def _fingerprint_section(report: AuditReport) -> str:
@@ -125,11 +139,11 @@ def _fingerprint_section(report: AuditReport) -> str:
 
     observed = primary.observed
     cells = observed.get("cells") if isinstance(observed.get("cells"), list) else []
-    cell_rows = []
+    rows = []
     for cell in cells:
         if not isinstance(cell, dict):
             continue
-        cell_rows.append(
+        rows.append(
             "<tr>"
             f"<td><code>{html.escape(str(cell.get('cellId') or cell.get('cell_id') or ''))}</code></td>"
             f"<td>{html.escape(str(cell.get('jsd', '')))}</td>"
@@ -138,65 +152,46 @@ def _fingerprint_section(report: AuditReport) -> str:
             "</tr>"
         )
 
-    target_meta = observed.get("target_fingerprint") if isinstance(observed.get("target_fingerprint"), dict) else {}
-    ref_meta = observed.get("reference_fingerprint") if isinstance(observed.get("reference_fingerprint"), dict) else {}
-    adapter = observed.get("target_adapter")
+    mean_jsd = observed.get("mean_jsd")
     split_half = observed.get("target_split_half_jsd")
-    warnings = observed.get("warnings") if isinstance(observed.get("warnings"), list) else []
-    warning_html = "".join(f"<li>{html.escape(str(x))}</li>" for x in warnings) or "<li>None</li>"
-
-    reference_info = report.adapters.get("reference")
-    reference_source = ""
-    if isinstance(reference_info, dict):
-        source = reference_info.get("fingerprint_source")
-        ref_value = reference_info.get("fingerprint_reference")
-        if source or ref_value:
-            reference_source = (
-                f"<p><b>Reference source:</b> {html.escape(str(source or 'unknown'))}"
-                + (f" · {html.escape(str(ref_value))}" if ref_value else "")
-                + "</p>"
-            )
-
-    table = ""
-    if cell_rows:
-        table = (
-            "<h3>Per-cell JSD</h3>"
-            "<table><thead><tr><th>Cell</th><th>JSD</th><th>Target valid</th><th>Reference valid</th></tr></thead>"
-            f"<tbody>{''.join(cell_rows)}</tbody></table>"
+    verdict = observed.get("verdict")
+    explanation = (
+        "JSD 越低，目标接口与可信参考的统计行为越接近。"
+        "该结果是黑盒统计证据，不是密码学证明。"
+    )
+    cell_table = ""
+    if rows:
+        cell_table = (
+            "<details><summary>查看每个统计单元的 JSD 明细</summary>"
+            "<table><thead><tr><th>测试单元</th><th>JSD</th>"
+            "<th>目标有效样本</th><th>参考有效样本</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></details>"
         )
 
     return f"""
-<div class="card">
-<h2>Statistical Fingerprint</h2>
-<p><b>Verdict:</b> {html.escape(str(observed.get('verdict', '')))}
- · <b>Mean JSD:</b> {html.escape(str(observed.get('mean_jsd', 'N/A')))}
- · <b>Comparable cells:</b> {html.escape(str(observed.get('comparable_cell_count', 'N/A')))}</p>
-<p><b>Split-half JSD:</b> {html.escape(str(split_half if split_half is not None else 'N/A'))}
- · <b>Reasoning adapter:</b> {html.escape(json.dumps(adapter, ensure_ascii=False, default=str))}</p>
-{reference_source}
-<p><b>Target:</b> {html.escape(str(target_meta.get('model', '')))}
- · protocol {html.escape(str(target_meta.get('protocol', '')))}
- · collected {html.escape(str(target_meta.get('collected_at', '')))}
- · cells {html.escape(str(target_meta.get('cell_count', '')))}</p>
-<p><b>Reference:</b> {html.escape(str(ref_meta.get('model', '')))}
- · protocol {html.escape(str(ref_meta.get('protocol', '')))}
- · collected {html.escape(str(ref_meta.get('collected_at', '')))}
- · cells {html.escape(str(ref_meta.get('cell_count', '')))}</p>
-<h3>Warnings</h3><ul>{warning_html}</ul>
-{table}
-</div>"""
+<section class="card" id="fingerprint">
+  <div class="section-head">
+    <div><div class="eyebrow">强身份依据</div><h2>统计指纹对比</h2></div>
+    <span class="pill {_status_class(primary.status.value)}">{html.escape(status_label(primary.status))}</span>
+  </div>
+  <p class="lead">{html.escape(explanation)}</p>
+  <div class="metrics">
+    <div class="metric"><span>指纹结论</span><b>{html.escape(str(verdict or '未知'))}</b></div>
+    <div class="metric"><span>Mean JSD</span><b>{html.escape(str(mean_jsd if mean_jsd is not None else 'N/A'))}</b></div>
+    <div class="metric"><span>自一致性 JSD</span><b>{html.escape(str(split_half if split_half is not None else 'N/A'))}</b></div>
+    <div class="metric"><span>可比较单元</span><b>{html.escape(str(observed.get('comparable_cell_count', 'N/A')))}</b></div>
+  </div>
+  {cell_table}
+</section>
+"""
 
 
 def _regression_section(report: AuditReport) -> str:
-    results = [
-        result
-        for result in report.results
-        if result.probe_id.startswith("regression.")
-    ]
+    results = [r for r in report.results if r.probe_id.startswith("regression.")]
     if not results:
         return ""
 
-    rows: list[str] = []
+    rows = []
     for result in results:
         observed = result.observed if isinstance(result.observed, dict) else {}
         runs = observed.get("runs") if isinstance(observed.get("runs"), list) else []
@@ -206,133 +201,267 @@ def _regression_section(report: AuditReport) -> str:
             first = runs[0] if isinstance(runs[0], dict) else {}
             reason = str(first.get("reason") or "")
             output = str(first.get("output") or "")
-        if len(reason) > 500:
-            reason = reason[:500] + "…"
-        if len(output) > 800:
-            output = output[:800] + "…"
-
         artifact = result.metadata.get("artifact_path")
         artifact_html = "—"
         if isinstance(artifact, str) and artifact.startswith("regression/"):
             escaped = html.escape(artifact)
-            artifact_html = f'<a href="{escaped}">{escaped}</a>'
-
-        score = (
-            "—"
-            if result.score is None
-            else f"{result.score * 100:.0f}"
-        )
+            artifact_html = f'<a href="{escaped}">查看原始结果</a>'
         rows.append(
             "<tr>"
-            f"<td><code>{html.escape(result.probe_id)}</code></td>"
-            f'<td class="{_status_class(result.status.value)}">'
-            f"{html.escape(result.status.value)}</td>"
-            f"<td>{score}</td>"
-            f"<td>{html.escape(reason) or '—'}</td>"
-            f"<td><pre>{html.escape(output) or '—'}</pre></td>"
+            f"<td>{html.escape(probe_title(result.probe_id))}</td>"
+            f'<td><span class="pill {_status_class(result.status.value)}">{html.escape(status_label(result.status))}</span></td>'
+            f"<td>{html.escape(reason[:400]) or '—'}</td>"
+            f"<td><code>{html.escape(output[:500]) or '—'}</code></td>"
             f"<td>{artifact_html}</td>"
             "</tr>"
         )
 
-    adapter = report.adapters.get("promptfoo_regression")
-    status = (
-        adapter.get("status")
-        if isinstance(adapter, dict)
-        else "unknown"
-    )
     return (
-        '<div class="card">'
-        "<h2>Regression Suites</h2>"
-        f"<p><b>Status:</b> {html.escape(str(status))} · "
-        f"<b>Cases:</b> {len(results)}</p>"
-        "<table><thead><tr>"
-        "<th>Case</th><th>Status</th><th>Score</th>"
-        "<th>Reason</th><th>Output</th><th>Artifact</th>"
-        "</tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table></div>"
+        '<section class="card"><div class="section-head"><div>'
+        '<div class="eyebrow">可选增强</div><h2>回归规则结果</h2></div></div>'
+        '<p class="lead">这些用例用于检查已知协议/参数问题，不作为模型身份的独立证明。</p>'
+        '<div class="table-wrap"><table><thead><tr>'
+        '<th>规则</th><th>状态</th><th>原因</th><th>输出摘要</th><th>原始结果</th>'
+        '</tr></thead><tbody>' + "".join(rows) + "</tbody></table></div></section>"
     )
+
 
 def _render_html(report: AuditReport) -> str:
-    rows = []
-    for result in report.results:
-        score = "" if result.score is None else f"{result.score * 100:.0f}"
-        evidence = " ".join(
-            f'<a href="evidence/{html.escape(eid)}.json">{html.escape(eid)}</a>'
-            for eid in result.evidence_ids
-        ) or "—"
-        rows.append(
-            "<tr>"
-            f"<td><code>{html.escape(result.probe_id)}</code></td>"
-            f"<td>{html.escape(result.category)}</td>"
-            f'<td class="{_status_class(result.status.value)}">{html.escape(result.status.value)}</td>'
-            f"<td>{score}</td>"
-            f"<td>{html.escape(result.summary)}</td>"
-            f"<td>{evidence}</td>"
-            "</tr>"
-        )
-
-    providers = "".join(
-        f"<li><b>{html.escape(x.provider)}</b> — confidence {x.confidence:.0%}"
-        f"<br><small>{html.escape('; '.join(x.evidence[:8]))}</small></li>"
-        for x in report.provider_hypotheses
-    ) or "<li>No provider fingerprint with enough evidence.</li>"
-
-    categories = "".join(
-        f"<div class='metric'><span>{html.escape(k)}</span><b>{v:.1f}</b></div>"
-        for k, v in report.summary.category_scores.items()
+    from .interpretation import (
+        build_report_interpretation,
+        category_label,
+        probe_title,
+        result_explanation,
+        status_label,
     )
 
-    warnings = "".join(
-        f"<li>{html.escape(x)}</li>" for x in report.summary.warnings
-    ) or "<li>None</li>"
+    human = build_report_interpretation(report)
+    tone_class = {
+        "good": "hero-good",
+        "warn": "hero-warn",
+        "bad": "hero-bad",
+        "muted": "hero-muted",
+    }.get(human["tone"], "hero-muted")
 
-    fingerprint_section = _fingerprint_section(report)
-    regression_section = _regression_section(report)
+    category_cards = []
+    for item in human["categories"]:
+        value = item["score"]
+        score_text = "未覆盖" if value is None else f"{value:.1f}"
+        category_cards.append(
+            f"""
+            <div class="category-card">
+              <div class="category-top"><b>{html.escape(item['label'])}</b><span>{html.escape(score_text)}</span></div>
+              <div class="bar"><i style="width:{0 if value is None else max(0,min(100,value))}%"></i></div>
+              <p>{html.escape(item['help'])}</p>
+            </div>
+            """
+        )
+
+    identity = human["identity"]
+    provider = human["provider"]
+    identity_state_label = {
+        "match": "已有强身份匹配",
+        "mismatch": "强身份不一致",
+        "uncertain": "强身份结果不确定",
+        "missing": "缺少强身份依据",
+    }.get(identity["state"], identity["state"])
+
+    policy_state_label = {
+        "violation": "命中禁止上游",
+        "clear": "未观察到禁止上游",
+        "not_configured": "未配置禁止上游",
+    }.get(provider["state"], provider["state"])
+
+    provider_items = []
+    for item in provider["hypotheses"]:
+        evidence = "；".join(item["evidence"][:4])
+        provider_items.append(
+            "<div class='provider-row'>"
+            f"<div><b>{html.escape(item['provider'])}</b><small>{html.escape(evidence)}</small></div>"
+            f"<strong>{item['confidence']:.0%}</strong>"
+            "</div>"
+        )
+    providers_html = "".join(provider_items) or "<div class='empty'>未观察到足够明确的 Provider / Gateway 指纹。</div>"
+
+    issues_html = []
+    for item in human["issues"]:
+        action = (
+            f"<div class='action-line'>建议：{html.escape(item['action'])}</div>"
+            if item.get("action") else ""
+        )
+        evidence = " ".join(
+            f'<a href="evidence/{html.escape(eid)}.json">{html.escape(eid)}</a>'
+            for eid in item["evidence_ids"]
+        ) or "—"
+        issues_html.append(
+            f"""
+            <div class="issue {html.escape(item['status'])}">
+              <div class="issue-main">
+                <div><span class="pill {_status_class(item['status'])}">{html.escape(item['status_label'])}</span>
+                <b>{html.escape(item['title'])}</b>
+                <span class="muted">{html.escape(item['category'])}</span></div>
+                <p>{html.escape(item['explanation'])}</p>
+                <details><summary>技术原因</summary><div class="tech">{html.escape(item['technical_summary'])}</div><div class="evidence-line">Evidence：{evidence}</div></details>
+                {action}
+              </div>
+            </div>
+            """
+        )
+    if not issues_html:
+        issues_html.append("<div class='empty good-text'>没有需要优先处理的异常项。</div>")
+
+    actions_html = "".join(
+        f"<li>{html.escape(action)}</li>" for action in human["actions"]
+    )
+
+    result_rows = []
+    for result in report.results:
+        score = "—" if result.score is None else f"{result.score * 100:.0f}"
+        result_rows.append(
+            f"""
+            <tr data-status="{html.escape(result.status.value)}">
+              <td><b>{html.escape(probe_title(result.probe_id))}</b><small><code>{html.escape(result.probe_id)}</code></small></td>
+              <td>{html.escape(category_label(result.category))}</td>
+              <td><span class="pill {_status_class(result.status.value)}">{html.escape(status_label(result.status))}</span></td>
+              <td>{score}</td>
+              <td>{html.escape(result_explanation(result))}<small>{html.escape(result.summary)}</small></td>
+              <td>{_evidence_links(result)}</td>
+            </tr>
+            """
+        )
 
     adapter_rows = []
     for name, value in report.adapters.items():
+        compact = value
         if isinstance(value, dict):
-            compact = {
-                k: v for k, v in value.items()
-                if k not in {"raw", "stdout_tail"}
-            }
-        else:
-            compact = value
+            compact = {k: v for k, v in value.items() if k not in {"raw", "stdout_tail"}}
         adapter_rows.append(
             f"<details><summary>{html.escape(name)}</summary><pre>{html.escape(json.dumps(compact, ensure_ascii=False, indent=2, default=str))}</pre></details>"
         )
+
+    limitations = "".join(
+        f"<li>{html.escape(item)}</li>" for item in human["limitations"]
+    )
+    score_text = "N/A" if human["score"] is None else str(human["score"])
+    hard_cap = "无" if human["hard_cap"] is None else str(human["hard_cap"])
+    model = html.escape(str(report.target.get("model", "")))
+    base_url = html.escape(str(report.target.get("base_url", "")))
+    fingerprint_section = _fingerprint_section(report)
+    regression_section = _regression_section(report)
 
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>model-detect audit report</title>
+<title>{model} · 模型渠道审计报告</title>
 <style>
-:root{{color-scheme:light dark}}body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:1400px;margin:32px auto;padding:0 20px}}
-code{{background:rgba(127,127,127,.15);padding:2px 4px;border-radius:4px}}a{{color:#2f81f7}}
-table{{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}}th,td{{border-bottom:1px solid rgba(127,127,127,.28);padding:8px;text-align:left;vertical-align:top}}th{{position:sticky;top:0;background:Canvas}}
-.card{{border:1px solid rgba(127,127,127,.3);border-radius:10px;padding:16px;margin:16px 0}}.metrics{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}}
-.metric{{border:1px solid rgba(127,127,127,.25);border-radius:8px;padding:12px;display:flex;justify-content:space-between}}.ok{{color:#238636;font-weight:700}}.warn{{color:#bf8700;font-weight:700}}.bad{{color:#cf222e;font-weight:700}}.dim{{opacity:.65}}
-pre{{white-space:pre-wrap;overflow:auto;background:rgba(127,127,127,.1);padding:12px;border-radius:8px}}small{{opacity:.72}}
-</style></head>
-<body>
-<h1>model-detect Audit Report</h1>
-<div class="card">
-<b>Model:</b> {html.escape(str(report.target.get("model", "")))}<br>
-<b>Base URL:</b> {html.escape(str(report.target.get("base_url", "")))}<br>
-<b>Profile:</b> {html.escape(report.profile)}<br>
-<b>Verdict:</b> {html.escape(report.summary.final_verdict)}<br>
-<b>Overall score:</b> {report.summary.overall_score if report.summary.overall_score is not None else "N/A"}<br>
-<b>Hard cap:</b> {report.summary.hard_cap if report.summary.hard_cap is not None else "None"}
+:root{{--bg:#0b0f14;--panel:#111820;--panel2:#151e28;--border:#263241;--text:#eaf2f8;--muted:#8fa2b5;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;--purple:#bc8cff}}
+*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.55}}
+a{{color:var(--blue);text-decoration:none}}a:hover{{text-decoration:underline}}code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
+.wrap{{max-width:1240px;margin:auto;padding:28px 20px 80px}}.topbar{{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px}}.topbar h1{{margin:2px 0 4px;font-size:26px}}.subtitle{{color:var(--muted);font-size:13px}}
+.card{{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin:16px 0;box-shadow:0 8px 24px rgba(0,0,0,.12)}}.hero{{padding:24px;border-width:1px}}.hero-good{{border-color:rgba(63,185,80,.5)}}.hero-warn{{border-color:rgba(210,153,34,.55)}}.hero-bad{{border-color:rgba(248,81,73,.55)}}.hero-muted{{border-color:var(--border)}}
+.hero-grid{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:22px;align-items:center}}.decision{{font-size:14px;color:var(--muted)}}.decision strong{{display:block;font-size:30px;color:var(--text);margin:4px 0 8px}}.headline{{font-size:16px;margin:0;max-width:760px}}.scorebox{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}.scorebox .metric{{background:var(--panel2)}}
+.metrics{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:14px}}.metric{{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:3px}}.metric span{{font-size:12px;color:var(--muted)}}.metric b{{font-size:18px}}
+.section-head{{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px}}h2{{font-size:19px;margin:0}}.eyebrow{{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:3px}}.lead{{color:var(--muted);margin:7px 0 14px}}
+.quick-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.quick-card{{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}}.quick-card small{{display:block;color:var(--muted);margin-bottom:5px}}.quick-card b{{font-size:16px}}.quick-card p{{font-size:13px;color:var(--muted);margin:7px 0 0}}
+.category-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.category-card{{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}}.category-top{{display:flex;justify-content:space-between;gap:8px}}.category-top span{{font-weight:700}}.category-card p{{color:var(--muted);font-size:12px;margin:9px 0 0}}.bar{{height:5px;background:#202b36;border-radius:99px;overflow:hidden;margin-top:9px}}.bar i{{height:100%;display:block;background:var(--blue)}}
+.pill{{display:inline-flex;align-items:center;border-radius:99px;padding:3px 8px;font-size:12px;font-weight:700;background:#202b36;margin-right:6px}}.ok{{color:var(--green)}}.warn{{color:var(--yellow)}}.bad{{color:var(--red)}}.dim{{color:var(--muted)}}
+.issue{{border-top:1px solid var(--border);padding:14px 0}}.issue:first-of-type{{border-top:0}}.issue p{{margin:7px 0;color:#d5e0ea}}.action-line{{margin-top:8px;padding:8px 10px;border-left:3px solid var(--blue);background:rgba(88,166,255,.07);font-size:13px}}.tech{{color:var(--muted);font-size:13px;margin-top:8px}}.evidence-line{{font-size:12px;margin-top:5px}}
+.provider-row{{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--border)}}.provider-row:first-child{{border-top:0}}.provider-row small{{display:block;color:var(--muted);margin-top:3px;max-width:760px}}.provider-row strong{{font-size:16px}}
+.actions li,.limits li{{margin:7px 0}}.empty{{padding:14px;border:1px dashed var(--border);border-radius:10px;color:var(--muted)}}.good-text{{color:var(--green)}}.muted{{color:var(--muted);font-size:12px}}
+.table-wrap{{overflow:auto}}table{{width:100%;border-collapse:collapse;font-size:13px}}th,td{{padding:10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}}th{{color:var(--muted);font-weight:600;white-space:nowrap}}td small{{display:block;color:var(--muted);margin-top:4px;max-width:520px}}pre{{white-space:pre-wrap;overflow:auto;background:#0a0f14;border:1px solid var(--border);padding:12px;border-radius:9px;font-size:12px}}
+details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}}button{{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:8px;padding:7px 11px;cursor:pointer}}button:hover{{border-color:var(--blue)}}
+.notice{{padding:12px 14px;background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);border-radius:10px;color:#e5c07b;font-size:13px}}
+@media(max-width:900px){{.hero-grid{{grid-template-columns:1fr}}.quick-grid,.category-grid{{grid-template-columns:1fr 1fr}}}}@media(max-width:620px){{.quick-grid,.category-grid{{grid-template-columns:1fr}}.wrap{{padding:18px 12px 60px}}}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="topbar">
+  <div><div class="eyebrow">model-detect</div><h1>模型渠道审计报告</h1><div class="subtitle">{model} · {base_url} · {html.escape(report.profile.upper())}</div></div>
+  <div><a href="/">← 返回检测首页</a></div>
 </div>
-<div class="card"><h2>Category scores</h2><div class="metrics">{categories}</div></div>
-<div class="card"><h2>Provider hypotheses</h2><ul>{providers}</ul></div>
-<div class="card"><h2>Warnings</h2><ul>{warnings}</ul></div>
+
+<section class="card hero {tone_class}">
+  <div class="hero-grid">
+    <div>
+      <div class="decision">准入建议<strong>{html.escape(human['decision'])}</strong></div>
+      <p class="headline">{html.escape(human['headline'])}</p>
+      <div class="notice" style="margin-top:14px">综合分数是审计评分，不是“模型为真”的概率。模型真假优先看“模型身份”与 Trusted Reference / Statistical Fingerprint。</div>
+    </div>
+    <div class="scorebox">
+      <div class="metric"><span>综合分</span><b>{html.escape(score_text)}</b></div>
+      <div class="metric"><span>证据可信度</span><b>{html.escape(human['confidence_label'])}</b></div>
+      <div class="metric"><span>系统 Verdict</span><b>{html.escape(human['verdict_label'])}</b></div>
+      <div class="metric"><span>分数硬上限</span><b>{html.escape(hard_cap)}</b></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">先看这里</div><h2>这次结果怎么理解</h2></div></div>
+  <div class="quick-grid">
+    <div class="quick-card"><small>模型身份</small><b>{html.escape(identity_state_label)}</b><p>{html.escape(identity['text'])}</p></div>
+    <div class="quick-card"><small>禁止上游策略</small><b>{html.escape(policy_state_label)}</b><p>{html.escape(provider['text'])}</p></div>
+    <div class="quick-card"><small>429 限流</small><b>{provider['http_429_count']} 次</b><p>429 只表示限流，本工具不会用 429 单独判断 Fireworks 或其他上游。</p></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与得分</h2></div></div>
+  <div class="category-grid">{''.join(category_cards)}</div>
+</section>
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">优先处理</div><h2>风险与异常解读</h2></div><span class="muted">最多展示 12 项</span></div>
+  {''.join(issues_html)}
+</section>
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">上游可观测证据</div><h2>Provider / Gateway 指纹</h2></div></div>
+  <p class="lead">{html.escape(provider['text'])}</p>
+  <div class="metrics">
+    <div class="metric"><span>禁止列表</span><b>{html.escape(', '.join(provider['disallowed']) or '未配置')}</b></div>
+    <div class="metric"><span>策略状态</span><b>{html.escape(policy_state_label)}</b></div>
+    <div class="metric"><span>本轮 429</span><b>{provider['http_429_count']}</b></div>
+  </div>
+  <div style="margin-top:10px">{providers_html}</div>
+</section>
+
 {fingerprint_section}
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">下一步</div><h2>建议怎么处理</h2></div></div>
+  <ol class="actions">{actions_html}</ol>
+</section>
+
 {regression_section}
-<h2>Probe results</h2>
-<table><thead><tr><th>Probe</th><th>Category</th><th>Status</th><th>Score</th><th>Summary</th><th>Evidence</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
-<div class="card"><h2>Adapters / Reference</h2>{''.join(adapter_rows)}</div>
-<p><small>Provider identification and black-box model identity checks are evidence-based estimates, not cryptographic proof. Open the linked evidence JSON files to inspect raw, redacted request/response records.</small></p>
-</body></html>"""
+
+<section class="card" id="all-results">
+  <div class="section-head"><div><div class="eyebrow">技术明细</div><h2>全部检测项</h2></div><span class="muted">普通使用只需看上面的中文结论</span></div>
+  <div class="filter-row">
+    <button onclick="filterRows('important')">只看异常</button>
+    <button onclick="filterRows('fail')">只看失败</button>
+    <button onclick="filterRows('all')">全部</button>
+  </div>
+  <div class="table-wrap"><table id="probe-table"><thead><tr><th>检测项</th><th>维度</th><th>状态</th><th>分数</th><th>解读 / 技术摘要</th><th>证据</th></tr></thead><tbody>{''.join(result_rows)}</tbody></table></div>
+</section>
+
+<section class="card">
+  <details><summary>高级：Adapters / Reference / 原始配置</summary>{''.join(adapter_rows)}</details>
+</section>
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">边界说明</div><h2>这份报告不能证明什么</h2></div></div>
+  <ul class="limits">{limitations}</ul>
+</section>
+
+<script>
+function filterRows(mode){{
+  document.querySelectorAll('#probe-table tbody tr').forEach(row=>{{
+    const s=row.dataset.status;
+    const show=mode==='all'||(mode==='important'&&['fail','warn','error','insufficient'].includes(s))||(mode==='fail'&&['fail','error'].includes(s));
+    row.style.display=show?'':'none';
+  }});
+}}
+</script>
+</div></body></html>"""
