@@ -277,3 +277,25 @@ def preferred_feature_value(
     if values:
         return values[0]
     return preferred
+
+
+
+def apply_feature_probe_request(
+    model: str,
+    feature: str,
+    payload: dict[str, Any],
+    *,
+    protocol: str = "chat_completions",
+) -> dict[str, Any]:
+    """Apply model-rule request overrides required to validly probe one feature.
+
+    This is intentionally separate from global request constraints: a feature may be
+    supported only under a specific request setting (for example tool calling with a
+    particular reasoning effort) without that setting being required for every probe.
+    """
+    out = dict(payload)
+    spec = feature_spec_for(model, feature, protocol=protocol)
+    overrides = spec.get("probe_request")
+    if isinstance(overrides, dict):
+        out.update(overrides)
+    return out
