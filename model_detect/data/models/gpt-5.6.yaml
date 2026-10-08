@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 id: gpt-5.6
 family: gpt
 model_version: "5.6"
@@ -6,32 +6,84 @@ patterns:
   - "gpt-5.6"
   - "gpt-5.6-*"
 aliases: ["GPT-5.6", "GPT-5.6 Sol", "GPT-5.6 Terra", "GPT-5.6 Luna"]
-updated_at: "2026-09-30"
+updated_at: "2026-10-08"
 declared_context_tokens: 1050000
 sources:
   - id: openai-gpt-5.6-sol
     type: official_doc
     title: "OpenAI API - GPT-5.6 Sol model"
     url: "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
-    collected_at: "2026-09-30"
+    collected_at: "2026-10-08"
+    confidence: high
+  - id: openai-reasoning-guide
+    type: official_doc
+    title: "OpenAI API - Reasoning models"
+    url: "https://developers.openai.com/api/docs/guides/reasoning"
+    collected_at: "2026-10-08"
+    confidence: high
+  - id: openai-function-calling
+    type: official_doc
+    title: "OpenAI API - Function calling"
+    url: "https://developers.openai.com/api/docs/guides/function-calling"
+    collected_at: "2026-10-08"
+    confidence: high
+  - id: openai-responses-migration
+    type: official_doc
+    title: "OpenAI API - Migrate to Responses"
+    url: "https://developers.openai.com/api/docs/guides/migrate-to-responses"
+    collected_at: "2026-10-08"
     confidence: high
 strict: false
 features:
   reasoning_effort:
     expected: true
-    values: [none, low, medium, high, xhigh, max]
-    source_refs: [openai-gpt-5.6-sol]
+    source_refs:
+      - openai-gpt-5.6-sol
+      - openai-reasoning-guide
   disable_thinking:
     expected: null
-    notes:
-      - "reasoning_effort=none is not treated as proof that every relay supports a separate thinking-disable field."
   tools:
     expected: true
-    source_refs: [openai-gpt-5.6-sol]
+    source_refs:
+      - openai-function-calling
+      - openai-responses-migration
   json_schema:
     expected: null
+
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [none, low, medium, high, xhigh, max]
+      default: medium
+      native_parameter: reasoning_effort
+      source_refs:
+        - openai-gpt-5.6-sol
+        - openai-reasoning-guide
+    tools:
+      expected: true
+      probe_request:
+        reasoning_effort: none
+      source_refs:
+        - openai-function-calling
+        - openai-responses-migration
+
+  responses:
+    reasoning_effort:
+      values: [none, low, medium, high, xhigh, max]
+      default: medium
+      native_parameter: reasoning.effort
+      source_refs:
+        - openai-gpt-5.6-sol
+        - openai-reasoning-guide
+    tools:
+      expected: true
+      source_refs:
+        - openai-function-calling
+        - openai-responses-migration
+
 notes:
-  - "GPT-5.6 Sol, Terra, and Luna are documented with a 1.05M context window and the same reasoning effort tiers."
-  - "The official model documentation lists function/tool support."
-  - "Structured-output expectations remain unset until a model-specific source is attached."
+  - "GPT-5.6 Sol has a 1.05M context window and defaults to medium reasoning effort."
+  - "Starting with GPT-5.4, Chat Completions tool calling requires reasoning_effort=none; Responses is the richer tool-calling path."
+  - "The model page documents 128K max output for GPT-5.6 Sol."
+  - "Structured-output expectations remain unset until a model-specific assertion is attached."
   - "The rule is non-strict to account for relay-side API normalization."
