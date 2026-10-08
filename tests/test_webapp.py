@@ -109,7 +109,7 @@ def test_web_rejects_regression_suite_outside_catalog(tmp_path):
     )
 
     assert r.status_code == 400
-    assert "unknown regression suites" in r.json()["detail"]
+    assert "未允许的回归规则" in r.json()["detail"]
 
 
 def test_web_serves_persisted_regression_artifact_and_job_status(tmp_path):
