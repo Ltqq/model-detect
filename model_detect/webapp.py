@@ -17,6 +17,7 @@ from .adapters import fingerprint
 from .audit import run_audit
 from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig
 from .models import AuditTarget
+from .interpretation import build_report_interpretation
 from .references import ReferenceRegistry
 from .probes.provider import load_provider_rule_set
 from .rules import match_model_rule
@@ -66,7 +67,7 @@ def _resolve_regression_suites(
     catalog = set(_list_regression_suites(root))
     unknown = sorted(set(selected) - catalog)
     if unknown:
-        raise ValueError(f"unknown regression suites: {unknown}")
+        raise ValueError(f"存在未允许的回归规则: {unknown}")
     return [
         str((root / name).resolve())
         for name in dict.fromkeys(selected)
@@ -141,6 +142,10 @@ def create_app(
                 ),
                 "references": registry.list(),
                 "regression_suites": _list_regression_suites(regression_root),
+                "provider_options": [
+                    {"id": provider_id, "label": rule.label}
+                    for provider_id, rule in load_provider_rule_set().providers.items()
+                ],
                 "history_filters": {
                     "model": model or "",
                     "status": status or "",
@@ -196,17 +201,17 @@ def create_app(
         try:
             return store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
 
     @app.delete("/api/jobs/{job_id}")
     async def delete_job(job_id: str):
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
 
         if item["status"] in {"queued", "running"}:
-            raise HTTPException(409, "running job cannot be deleted")
+            raise HTTPException(409, "运行中的任务不能删除")
 
         if item["kind"] == "audit":
             report_root = (app.state.output_dir / job_id).resolve()
@@ -225,13 +230,13 @@ def create_app(
             shutil.rmtree(regression_work, ignore_errors=True)
 
         if not store.delete(job_id):
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         return {"ok": True, "id": job_id}
 
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
         if payload.profile not in {"quick", "standard", "deep"}:
-            raise HTTPException(400, "profile must be quick, standard or deep")
+            raise HTTPException(400, "检测档位只能是 quick、standard 或 deep")
         try:
             regression_paths = _resolve_regression_suites(
                 app.state.regression_dir,
@@ -269,7 +274,7 @@ def create_app(
     @app.post("/api/references")
     async def create_reference_job(payload: WebReferenceRequest):
         if registry.exists(payload.id) and not payload.overwrite:
-            raise HTTPException(409, "reference already exists; set overwrite=true to replace it")
+            raise HTTPException(409, "Reference 已存在；如需替换请启用覆盖")
         job_id = "ref_" + uuid.uuid4().hex[:12]
         store.create(
             job_id=job_id,
@@ -285,7 +290,7 @@ def create_app(
     @app.delete("/api/references/{reference_id}")
     async def delete_reference(reference_id: str):
         if not registry.delete(reference_id):
-            raise HTTPException(404, "reference not found")
+            raise HTTPException(404, "Reference 不存在")
         return {"ok": True}
 
     @app.get("/api/references")
@@ -299,12 +304,12 @@ def create_app(
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
-            raise HTTPException(404, "report not ready")
+            raise HTTPException(404, "报告尚未生成")
         path = Path(item["report_path"])
         if not path.exists():
-            raise HTTPException(404, "report file missing")
+            raise HTTPException(404, "报告文件不存在")
         content = path.read_text(encoding="utf-8")
         content = re.sub(
             r'href="evidence/(ev_[A-Za-z0-9_-]+)\\.json"',
@@ -325,27 +330,27 @@ def create_app(
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
-            raise HTTPException(404, "report not ready")
+            raise HTTPException(404, "报告尚未生成")
         path = Path(item["report_path"]).with_name("report.json")
         if not path.exists():
-            raise HTTPException(404, "report JSON missing")
+            raise HTTPException(404, "报告 JSON 不存在")
         return JSONResponse(json.loads(path.read_text(encoding="utf-8")))
 
     @app.get("/api/audits/{job_id}/evidence/{evidence_id}")
     async def evidence(job_id: str, evidence_id: str):
         if not evidence_id.startswith("ev_"):
-            raise HTTPException(400, "invalid evidence id")
+            raise HTTPException(400, "Evidence ID 无效")
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
-            raise HTTPException(404, "report not ready")
+            raise HTTPException(404, "报告尚未生成")
         path = Path(item["report_path"]).parent / "evidence" / f"{evidence_id}.json"
         if not path.exists():
-            raise HTTPException(404, "evidence not found")
+            raise HTTPException(404, "Evidence 不存在")
         return JSONResponse(json.loads(path.read_text(encoding="utf-8")))
 
     @app.get("/api/audits/{job_id}/regression/{artifact_path:path}")
@@ -353,18 +358,18 @@ def create_app(
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
-            raise HTTPException(404, "report not ready")
+            raise HTTPException(404, "报告尚未生成")
 
         root = (
             Path(item["report_path"]).parent / "regression"
         ).resolve()
         candidate = (root / artifact_path).resolve()
         if not candidate.is_relative_to(root):
-            raise HTTPException(400, "invalid regression artifact path")
+            raise HTTPException(400, "回归结果路径无效")
         if not candidate.exists() or not candidate.is_file():
-            raise HTTPException(404, "regression artifact not found")
+            raise HTTPException(404, "回归结果文件不存在")
         return FileResponse(candidate)
 
     @app.get("/api/audits/{job_id}/download")
@@ -372,12 +377,12 @@ def create_app(
         try:
             item = store.get(job_id)
         except KeyError:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
-            raise HTTPException(404, "report not ready")
+            raise HTTPException(404, "报告尚未生成")
         root = Path(item["report_path"]).parent
         if not root.exists():
-            raise HTTPException(404, "report directory missing")
+            raise HTTPException(404, "报告目录不存在")
         archive_base = app.state.state_dir / f"{job_id}-report"
         archive = Path(
             shutil.make_archive(str(archive_base), "zip", root_dir=str(root))
@@ -389,6 +394,21 @@ def create_app(
         )
 
     return app
+
+
+def _progress_label(name: str) -> str:
+    if name.startswith("protocol:"):
+        return "正在检查协议兼容"
+    return {
+        "integrity-suite": "正在检查参数完整性",
+        "context-suite": "正在检查上下文能力",
+        "routing-suite": "正在检查路由一致性",
+        "capability-suite": "正在进行能力抽检",
+        "coding-sandbox": "正在进行代码能力抽检",
+        "fingerprint-reference": "正在对比统计指纹",
+        "proxy-sleuth": "正在运行开源增强检测",
+        "regression-suite": "正在运行回归规则",
+    }.get(name, "正在检测")
 
 
 def _progress_value(name: str, current: int, total: int) -> float:
@@ -416,7 +436,7 @@ async def _run_audit_job(
     store: JobStore = app.state.store
     registry: ReferenceRegistry = app.state.registry
     try:
-        store.update(job_id, status="running", progress=0.01, detail="starting")
+        store.update(job_id, status="running", progress=0.01, detail="正在准备检测")
         cfg = AuditConfig(
             target=AuditTarget(
                 base_url=payload.base_url,
@@ -444,7 +464,7 @@ async def _run_audit_job(
                 job_id,
                 status="running",
                 progress=_progress_value(name, current, total),
-                detail=name,
+                detail=_progress_label(name),
             )
 
         regression_work_dir = (
@@ -461,6 +481,7 @@ async def _run_audit_job(
         if regression_work_dir.exists():
             shutil.rmtree(regression_work_dir, ignore_errors=True)
 
+        human = build_report_interpretation(report)
         regression_adapter = report.adapters.get("promptfoo_regression")
         regression_status = (
             regression_adapter.get("status")
@@ -487,6 +508,17 @@ async def _run_audit_job(
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": regression_status,
                 "upstream_policy": report.adapters.get("upstream_policy"),
+                "human_summary": {
+                    "decision": human["decision"],
+                    "headline": human["headline"],
+                    "tone": human["tone"],
+                    "verdict_label": human["verdict_label"],
+                    "confidence_label": human["confidence_label"],
+                    "identity_state": human["identity"]["label"],
+                    "provider_state": human["provider"]["label"],
+                    "issue_count": len(human["issues"]),
+                    "http_429_count": human["provider"]["http_429_count"],
+                },
             },
         )
     except Exception as exc:
@@ -501,7 +533,7 @@ async def _run_reference_job(
     store: JobStore = app.state.store
     registry: ReferenceRegistry = app.state.registry
     try:
-        store.update(job_id, status="running", progress=0.05, detail="collecting protocol baseline")
+        store.update(job_id, status="running", progress=0.05, detail="正在采集协议基准")
         if payload.overwrite and registry.exists(payload.id):
             registry.delete(payload.id)
 
@@ -521,13 +553,13 @@ async def _run_reference_job(
             use_proxy_sleuth=False,
             api_key_override=payload.api_key,
         )
-        store.update(job_id, progress=0.55, detail="protocol baseline collected")
+        store.update(job_id, progress=0.55, detail="协议基准已采集，正在处理 Reference")
 
         fp_path = None
         fp_meta = None
         if payload.fingerprint and fingerprint.availability().get("available"):
             fp_path = registry.path_for(payload.id) / "fingerprint.json"
-            store.update(job_id, progress=0.60, detail="collecting statistical fingerprint")
+            store.update(job_id, progress=0.60, detail="正在采集统计指纹")
             collected = await asyncio.to_thread(
                 fingerprint.collect,
                 base_url=payload.base_url,

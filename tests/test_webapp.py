@@ -17,10 +17,12 @@ def test_web_pages_and_reference_api(tmp_path):
     r = client.get("/")
     assert r.status_code == 200
     assert "model-detect" in r.text
+    assert "综合分 ≠ 模型为真的概率" in r.text
+    assert "禁止上游 Provider" in r.text
 
     r = client.get("/references")
     assert r.status_code == 200
-    assert "Trusted References" in r.text
+    assert "可信 Reference" in r.text
 
     r = client.get("/api/references")
     assert r.status_code == 200
@@ -107,7 +109,7 @@ def test_web_rejects_regression_suite_outside_catalog(tmp_path):
     )
 
     assert r.status_code == 400
-    assert "unknown regression suites" in r.json()["detail"]
+    assert "未允许的回归规则" in r.json()["detail"]
 
 
 def test_web_serves_persisted_regression_artifact_and_job_status(tmp_path):
@@ -167,9 +169,8 @@ def test_web_serves_persisted_regression_artifact_and_job_status(tmp_path):
     client = TestClient(app)
 
     page = client.get("/")
-    assert "completed" in page.text
-    assert "Kimi official docs" in page.text
-    assert "Fireworks AI" in page.text
+    assert "已完成" in page.text
+    assert "中文报告" in page.text
 
     report = client.get("/reports/audit_test")
     assert (
@@ -487,16 +488,20 @@ def test_local_e2e_audit_history_reports_filter_and_delete(tmp_path, monkeypatch
     assert completed.json()["status"] == "done"
     assert completed.json()["meta"]["verdict"] == "MATCH"
     assert completed.json()["meta"]["score"] == 97.5
+    assert completed.json()["meta"]["human_summary"]["decision"] == "可通过"
+    assert completed.json()["meta"]["human_summary"]["confidence_label"] == "高"
 
     history = client.get("/")
     assert history.status_code == 200
     assert job_id in history.text
-    assert "MATCH" in history.text
+    assert "可通过" in history.text
     assert "97.5" in history.text
 
     html_report = client.get(f"/reports/{job_id}")
     assert html_report.status_code == 200
-    assert "MATCH" in html_report.text
+    assert "准入建议" in html_report.text
+    assert "可通过" in html_report.text
+    assert "这次结果怎么理解" in html_report.text
 
     json_report = client.get(f"/api/audits/{job_id}/report")
     assert json_report.status_code == 200

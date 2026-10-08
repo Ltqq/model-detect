@@ -2,41 +2,97 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>References - model-detect</title>
+<title>可信 Reference · model-detect</title>
 <style>
-:root{color-scheme:dark;font-family:system-ui;background:#0d1117;color:#e6edf3}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:28px 20px}a{color:#58a6ff;text-decoration:none}
-.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin:18px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
-label{display:block;color:#8b949e;font-size:12px;margin-bottom:6px}input{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;color:white}
-button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 16px;cursor:pointer}.danger{background:#da3633}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #21262d}.muted{color:#8b949e;font-size:13px}
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--panel2:#151e28;--border:#263241;--text:#eaf2f8;--muted:#8fa2b5;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.55}.wrap{max-width:1120px;margin:auto;padding:28px 20px 70px}
+a{color:var(--blue);text-decoration:none}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.12em;text-transform:uppercase}h1{margin:2px 0 4px;font-size:26px}h2{margin:0;font-size:19px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin:16px 0}.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.guide div{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:13px}.guide b{display:block;margin-bottom:4px}.guide p{margin:0;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.wide{grid-column:1/-1}label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input{width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px}button{background:#238636;color:white;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:650}.danger{background:#b62324;padding:6px 9px;font-size:12px}.muted{color:var(--muted);font-size:12px}.notice{padding:10px 12px;background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.2);border-radius:9px;color:#b9d8ff;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-weight:600}.table-wrap{overflow:auto}.ok{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+@media(max-width:760px){.guide,.grid{grid-template-columns:1fr}.wide{grid-column:auto}.wrap{padding:18px 12px 60px}}
 </style></head>
-<body><div class="wrap"><a href="/">← 返回审计</a><h1>Trusted References</h1>
-<div class="card"><h2 style="margin-top:0">采集官方 / 可信基准</h2>
-<div class="grid">
-<div><label>Reference ID</label><input id="rid" placeholder="kimi-k3-official"></div>
-<div><label>Provider</label><input id="provider" value="official"></div>
-<div><label>Base URL</label><input id="url" placeholder="https://official.example.com/v1"></div>
-<div><label>Model</label><input id="model" placeholder="kimi-k3"></div>
-<div class="wide"><label>API Key（不会落库）</label><input id="key" type="password"></div>
+<body><div class="wrap">
+<div class="top"><div><div class="eyebrow">model-detect</div><h1>可信 Reference（Trusted Reference）</h1><div class="muted">用官方 / 高可信端点建立基准，增强“是不是同一个模型”的判断能力。</div></div><a href="/">← 返回模型检测</a></div>
+
+<div class="card">
+  <div class="guide">
+    <div><b>Reference 最好来自官方端点</b><p>例如官方 Kimi、GLM、DeepSeek API。不要把待审计供应商自己当作“可信参考”。</p></div>
+    <div><b>Statistical Fingerprint 很重要</b><p>统计指纹会比较目标渠道与 Reference 的行为分布，是当前工具里最强的身份类证据之一。</p></div>
+    <div><b>Reference 也要定期更新</b><p>厂商模型、协议或路由发生变化后，旧 Reference 可能失效；建议记录采集时间并按版本更新。</p></div>
+  </div>
 </div>
-<div style="margin-top:14px"><label><input id="fp" type="checkbox" checked style="width:auto"> 同时采集 Statistical Fingerprint（需要 Node/npm）</label></div>
-<button id="collect">开始采集</button> <span id="msg" class="muted"></span>
+
+<div class="card">
+  <h2>采集新的可信基准</h2>
+  <div class="notice" style="margin:12px 0">采集 Reference 会实际调用该 API。API Key 只用于本次任务，不会写入数据库或报告。</div>
+  <div class="grid">
+    <div><label>Reference ID</label><input id="rid" placeholder="例如 kimi-k3-official-202610"></div>
+    <div><label>来源标识</label><input id="provider" value="official" placeholder="official"></div>
+    <div><label>官方 / 可信 Base URL</label><input id="url" placeholder="https://official.example.com/v1"></div>
+    <div><label>模型 ID</label><input id="model" placeholder="kimi-k3"></div>
+    <div class="wide"><label>API Key</label><input id="key" type="password" placeholder="sk-..."></div>
+  </div>
+  <div style="margin:14px 0">
+    <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" checked style="width:auto">同时采集 Statistical Fingerprint（推荐，需要 Node/npm）</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="overwrite" type="checkbox" style="width:auto">如果同名 Reference 已存在则覆盖</label>
+  </div>
+  <button id="collect">开始采集</button> <span id="msg" class="muted"></span>
 </div>
-<div class="card"><h2>现有 References</h2>
-<table><thead><tr><th>ID</th><th>Model</th><th>Provider</th><th>时间</th><th>Fingerprint</th><th>来源</th><th></th></tr></thead><tbody>
-{% for r in references %}<tr><td>{{ r.id }}</td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td><td>{{ '✓' if (r.fingerprint_artifact or r.fingerprint_reference) else '—' }}</td><td>{{ r.fingerprint_source or '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td></tr>{% endfor %}
-</tbody></table></div>
-<div class="card"><h2>Reference 任务</h2><table><thead><tr><th>ID</th><th>模型</th><th>状态</th><th>详情</th></tr></thead><tbody>
-{% for j in jobs %}<tr><td>{{ j.id }}</td><td>{{ j.model }}</td><td>{{ j.status }}</td><td>{{ j.detail or j.error or '' }}{% if j.report_path %} · <a href="/reports/{{ j.id }}">基准报告</a>{% endif %}</td></tr>{% endfor %}
-</tbody></table></div>
+
+<div class="card">
+  <h2>现有可信 Reference</h2>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>模型</th><th>来源</th><th>采集时间</th><th>统计指纹</th><th>指纹来源</th><th>操作</th></tr></thead><tbody>
+  {% for r in references %}
+  <tr>
+    <td><b>{{ r.id }}</b></td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td>
+    <td class="{{ 'ok' if (r.fingerprint_artifact or r.fingerprint_reference) else 'warn' }}">{{ '已采集' if (r.fingerprint_artifact or r.fingerprint_reference) else '未采集' }}</td>
+    <td>{{ r.fingerprint_source or '—' }}</td><td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td>
+  </tr>
+  {% endfor %}
+  {% if not references %}<tr><td colspan="7" class="muted">还没有 Reference。若核心目标是判断模型身份，建议先从官方端点采集一份。</td></tr>{% endif %}
+  </tbody></table></div>
+</div>
+
+<div class="card">
+  <h2>采集任务</h2>
+  <div class="table-wrap"><table><thead><tr><th>任务</th><th>模型</th><th>状态</th><th>详情 / 报告</th></tr></thead><tbody>
+  {% for j in jobs %}
+  <tr><td>{{ j.id }}</td><td>{{ j.model }}</td>
+    <td>{% if j.status == 'done' %}<span class="ok">已完成</span>{% elif j.status == 'failed' %}<span class="bad">失败</span>{% elif j.status == 'running' %}<span class="warn">采集中</span>{% else %}排队中{% endif %}</td>
+    <td>{{ j.detail or j.error or '' }}{% if j.report_path %} · <a href="/reports/{{ j.id }}">查看基准报告</a>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody></table></div>
+</div>
 </div>
 <script>
 const q=id=>document.getElementById(id);
 q('collect').onclick=async()=>{
- const body={id:q('rid').value.trim(),provider:q('provider').value.trim()||'trusted',base_url:q('url').value.trim(),model:q('model').value.trim(),api_key:q('key').value,fingerprint:q('fp').checked};
- if(!body.id||!body.base_url||!body.model||!body.api_key){q('msg').textContent='请填写完整';return}
- q('collect').disabled=true;q('msg').textContent='创建任务...';
- try{const r=await fetch('/api/references',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.detail||JSON.stringify(d));q('key').value='';q('msg').textContent='任务 '+d.id+' 已启动';poll(d.id)}catch(e){q('msg').textContent=e.message;q('collect').disabled=false}
+ const body={
+   id:q('rid').value.trim(),provider:q('provider').value.trim()||'trusted',
+   base_url:q('url').value.trim(),model:q('model').value.trim(),api_key:q('key').value,
+   fingerprint:q('fp').checked,overwrite:q('overwrite').checked
+ };
+ if(!body.id||!body.base_url||!body.model||!body.api_key){q('msg').textContent='请把 Reference ID、Base URL、模型和 API Key 填完整';return}
+ q('collect').disabled=true;q('msg').textContent='正在创建采集任务…';
+ try{
+   const r=await fetch('/api/references',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+   const d=await r.json();if(!r.ok)throw new Error(d.detail||JSON.stringify(d));
+   q('key').value='';q('msg').textContent='任务已启动：'+d.id;poll(d.id);
+ }catch(e){q('msg').textContent='创建失败：'+e.message;q('collect').disabled=false}
 };
-async function poll(id){const t=setInterval(async()=>{const r=await fetch('/api/jobs/'+id);if(!r.ok)return;const j=await r.json();q('msg').textContent=j.status+' — '+(j.detail||'');if(j.status==='done'||j.status==='failed'){clearInterval(t);q('collect').disabled=false;setTimeout(()=>location.reload(),600)}},1200)}
-async function delRef(id){if(!confirm('删除 Reference '+id+' ?'))return;const r=await fetch('/api/references/'+encodeURIComponent(id),{method:'DELETE'});if(r.ok)location.reload();else alert('删除失败')}
+async function poll(id){
+ const t=setInterval(async()=>{
+   const r=await fetch('/api/jobs/'+encodeURIComponent(id));if(!r.ok)return;
+   const j=await r.json();q('msg').textContent=(j.detail||j.status)+' · '+Math.round((j.progress||0)*100)+'%';
+   if(j.status==='done'||j.status==='failed'){clearInterval(t);q('collect').disabled=false;setTimeout(()=>location.reload(),700)}
+ },1200)
+}
+async function delRef(id){
+ if(!confirm('确认删除 Reference '+id+'？删除后使用它的强身份对比将不可用。'))return;
+ const r=await fetch('/api/references/'+encodeURIComponent(id),{method:'DELETE'});
+ const d=await r.json().catch(()=>({}));
+ if(r.ok)location.reload();else alert('删除失败：'+(d.detail||'未知错误'));
+}
 </script></body></html>
