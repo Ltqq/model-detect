@@ -233,6 +233,83 @@ def _regression_section(report: AuditReport) -> str:
     )
 
 
+def _quality_section(quality: dict) -> str:
+    if quality.get("state") == "not_configured":
+        return ""
+
+    rows = []
+    verdict_labels = {
+        "match": ("基准范围内", "ok"),
+        "regression": ("明显退化", "bad"),
+        "informational": ("仅供参考", "dim"),
+    }
+    for item in quality.get("dimensions") or []:
+        if not isinstance(item, dict):
+            continue
+        verdict = str(item.get("verdict") or "informational")
+        verdict_label, verdict_class = verdict_labels.get(
+            verdict, (verdict, "dim")
+        )
+        baseline = item.get("baseline_mean")
+        target = item.get("target_score")
+        retention = item.get("retention_ratio")
+        lower = item.get("lower_bound")
+        stddev = item.get("baseline_stddev")
+        rows.append(
+            "<tr>"
+            f"<td><b>{html.escape(str(item.get('label') or item.get('id') or ''))}</b></td>"
+            f"<td>{'—' if baseline is None else f'{float(baseline)*100:.1f}%'}"
+            f"<small>{int(item.get('baseline_runs') or 0)} 次基准"
+            + (
+                f" · σ={float(stddev)*100:.1f}%"
+                if stddev is not None else ""
+            )
+            + "</small></td>"
+            f"<td>{'—' if target is None else f'{float(target)*100:.1f}%'}</td>"
+            f"<td>{'—' if retention is None else f'{float(retention)*100:.1f}%'}</td>"
+            f"<td>{'—' if lower is None else f'{float(lower)*100:.1f}%'}</td>"
+            f'<td><span class="pill {verdict_class}">{html.escape(verdict_label)}</span></td>'
+            f"<td><small>{html.escape(str(item.get('explanation') or ''))}</small></td>"
+            "</tr>"
+        )
+
+    rows_html = "".join(rows)
+    if not rows_html:
+        rows_html = (
+            '<tr><td colspan="7" class="muted">没有可比较的同套件质量维度。</td></tr>'
+        )
+
+    state = quality.get("state")
+    state_class = {
+        "match": "ok",
+        "regression": "bad",
+        "insufficient": "warn",
+    }.get(state, "dim")
+    return f"""
+<section class="card" id="quality-baseline">
+  <div class="section-head">
+    <div><div class="eyebrow">Official Baseline</div><h2>官方 / 可信基准质量对比</h2></div>
+    <span class="pill {state_class}">{html.escape(str(quality.get('label') or ''))}</span>
+  </div>
+  <p class="lead">{html.escape(str(quality.get('text') or ''))}</p>
+  <div class="notice">
+    这里比较的是 model-detect 用同一套 Suite 对官方 / 可信端点和当前渠道的实际测量。
+    “质量退化”不能单独证明具体量化格式、蒸馏方式、GPU 或 Serving Engine。
+  </div>
+  <div class="metrics">
+    <div class="metric"><span>基准重复次数</span><b>{int(quality.get('baseline_runs') or 0)}</b></div>
+    <div class="metric"><span>可比较维度</span><b>{int(quality.get('comparable_dimensions') or 0)}</b></div>
+    <div class="metric"><span>可估计波动维度</span><b>{int(quality.get('statistically_evaluable_dimensions') or 0)}</b></div>
+    <div class="metric"><span>Suite</span><b>{html.escape(str(quality.get('suite_version') or '—'))}</b></div>
+  </div>
+  <div class="table-wrap" style="margin-top:14px"><table>
+    <thead><tr><th>能力维度</th><th>可信基准</th><th>当前渠道</th><th>保持率</th><th>基准下界</th><th>判断</th><th>说明</th></tr></thead>
+    <tbody>{rows_html}</tbody>
+  </table></div>
+</section>
+"""
+
+
 def _render_html(report: AuditReport) -> str:
     human = build_report_interpretation(report)
     tone_class = {
@@ -258,6 +335,7 @@ def _render_html(report: AuditReport) -> str:
 
     identity = human["identity"]
     provider = human["provider"]
+    quality = human["quality"]
     identity_state_label = {
         "match": "已有强身份匹配",
         "mismatch": "强身份不一致",
@@ -364,12 +442,14 @@ def _render_html(report: AuditReport) -> str:
     model = html.escape(str(report.target.get("model", "")))
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
+    quality_section = _quality_section(quality)
     regression_section = _regression_section(report)
     copy_text_json = json.dumps(
         "准入建议：" + str(human["decision"]) + "\n"
         + "结论：" + str(human["headline"]) + "\n"
         + "综合分：" + str(score_text) + "\n"
-        + "证据可信度：" + str(human["confidence_label"]),
+        + "证据可信度：" + str(human["confidence_label"]) + "\n"
+        + "质量基准：" + str(quality.get("label") or "未配置"),
         ensure_ascii=False,
     )
 
@@ -387,7 +467,7 @@ a{{color:var(--blue);text-decoration:none}}a:hover{{text-decoration:underline}}c
 .hero-grid{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:22px;align-items:center}}.decision{{font-size:14px;color:var(--muted)}}.decision strong{{display:block;font-size:30px;color:var(--text);margin:4px 0 8px}}.headline{{font-size:16px;margin:0;max-width:760px}}.scorebox{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}.scorebox .metric{{background:var(--panel2)}}
 .metrics{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:14px}}.metric{{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:3px}}.metric span{{font-size:12px;color:var(--muted)}}.metric b{{font-size:18px}}
 .section-head{{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px}}h2{{font-size:19px;margin:0}}.eyebrow{{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:3px}}.lead{{color:var(--muted);margin:7px 0 14px}}
-.quick-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.quick-card{{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}}.quick-card small{{display:block;color:var(--muted);margin-bottom:5px}}.quick-card b{{font-size:16px}}.quick-card p{{font-size:13px;color:var(--muted);margin:7px 0 0}}
+.quick-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}.quick-card{{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}}.quick-card small{{display:block;color:var(--muted);margin-bottom:5px}}.quick-card b{{font-size:16px}}.quick-card p{{font-size:13px;color:var(--muted);margin:7px 0 0}}
 .category-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.category-card{{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}}.category-top{{display:flex;justify-content:space-between;gap:8px}}.category-top span{{font-weight:700}}.category-card p{{color:var(--muted);font-size:12px;margin:9px 0 0}}.bar{{height:5px;background:#202b36;border-radius:99px;overflow:hidden;margin-top:9px}}.bar i{{height:100%;display:block;background:var(--blue)}}
 .pill{{display:inline-flex;align-items:center;border-radius:99px;padding:3px 8px;font-size:12px;font-weight:700;background:#202b36;margin-right:6px}}.ok{{color:var(--green)}}.warn{{color:var(--yellow)}}.bad{{color:var(--red)}}.dim{{color:var(--muted)}}
 .issue{{border-top:1px solid var(--border);padding:14px 0}}.issue:first-of-type{{border-top:0}}.issue p{{margin:7px 0;color:#d5e0ea}}.action-line{{margin-top:8px;padding:8px 10px;border-left:3px solid var(--blue);background:rgba(88,166,255,.07);font-size:13px}}.tech{{color:var(--muted);font-size:13px;margin-top:8px}}.evidence-line{{font-size:12px;margin-top:5px}}
@@ -426,10 +506,13 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
   <div class="section-head"><div><div class="eyebrow">先看这里</div><h2>这次结果怎么理解</h2></div></div>
   <div class="quick-grid">
     <div class="quick-card"><small>模型身份</small><b>{html.escape(identity_state_label)}</b><p>{html.escape(identity['text'])}</p></div>
+    <div class="quick-card"><small>质量保持</small><b>{html.escape(str(quality.get('label') or '未配置'))}</b><p>{html.escape(str(quality.get('text') or ''))}</p></div>
     <div class="quick-card"><small>禁止上游策略</small><b>{html.escape(policy_state_label)}</b><p>{html.escape(provider['text'])}</p></div>
     <div class="quick-card"><small>429 限流</small><b>{provider['http_429_count']} 次</b><p>429 只表示限流，本工具不会用 429 单独判断 Fireworks 或其他上游。</p></div>
   </div>
 </section>
+
+{quality_section}
 
 <section class="card">
   <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与得分</h2></div></div>
