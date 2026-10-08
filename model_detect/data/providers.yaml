@@ -323,3 +323,22 @@ providers:
     confidence_calibration:
       migrated_from_schema: 1
       behavior: legacy-v1-weights
+
+
+  new_api:
+    label: New API / OneAPI
+    headers:
+      x-new-api-version: 0.95
+      x-oneapi-request-id: 0.90
+    patterns:
+      "new_api_error": 0.85
+    source_refs:
+      - provider-fingerprint-v1-baseline
+      - blackbox-response-header-signals
+      - blackbox-response-body-patterns
+    false_positive_notes:
+      - "These signals identify the gateway implementation, not the ultimate model provider."
+      - "Forwarded or injected headers can survive another proxy hop."
+    confidence_calibration:
+      migrated_from_schema: 2
+      behavior: legacy-v1-weights

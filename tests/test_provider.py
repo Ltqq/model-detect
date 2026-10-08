@@ -165,7 +165,7 @@ def test_bundled_provider_db_is_v2_and_every_provider_has_provenance():
     rules = load_provider_rule_set()
 
     assert rules.schema_version == 2
-    assert len(rules.providers) == 18
+    assert len(rules.providers) == 19
     assert rules.sources
     assert all(rule.source_refs for rule in rules.providers.values())
     assert all(
@@ -216,3 +216,32 @@ def test_provider_v2_migration_preserves_detection_confidence():
 
     assert by_name["fireworks"].confidence == 0.841
     assert by_name["azure_apim"].confidence == 0.533
+
+
+
+def test_detect_new_api_gateway_from_response_headers():
+    evidences = [
+        Evidence(
+            id="ev-new-api",
+            probe_id="provider.error.invalid_model",
+            url="https://example.com/v1/chat/completions",
+            response_status=503,
+            response_headers={
+                "x-new-api-version": "v0.9",
+                "x-oneapi-request-id": "req-123",
+            },
+            response_body={
+                "error": {
+                    "type": "new_api_error",
+                    "message": "No available channel for model",
+                }
+            },
+        )
+    ]
+
+    by_name = {
+        item.provider: item
+        for item in detect_provider_hypotheses(evidences)
+    }
+    assert "new_api" in by_name
+    assert by_name["new_api"].confidence > 0.8

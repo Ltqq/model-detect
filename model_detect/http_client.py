@@ -10,6 +10,7 @@ import httpx
 
 from .models import Evidence
 from .redaction import redact_headers, redact_payload
+from .rules import apply_request_constraints
 
 
 @dataclass
@@ -27,9 +28,11 @@ class AuditHttpClient:
         api_key: str,
         timeout_seconds: float = 30.0,
         extra_headers: dict[str, str] | None = None,
+        model: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout_seconds
+        self.model = model
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -48,8 +51,16 @@ class AuditHttpClient:
         path: str,
         payload: dict[str, Any],
         stream: bool = False,
+        constraint_exempt_fields: set[str] | frozenset[str] | None = None,
     ) -> CallResult:
         url = self._url(path)
+        actual_payload = dict(payload)
+        if self.model and path.rstrip("/").endswith("/chat/completions"):
+            actual_payload = apply_request_constraints(
+                self.model,
+                actual_payload,
+                exempt_fields=constraint_exempt_fields,
+            )
         started = time.perf_counter()
         evidence = Evidence(
             id="ev_" + uuid.uuid4().hex[:16],
@@ -57,7 +68,7 @@ class AuditHttpClient:
             method="POST",
             url=url,
             request_headers=redact_headers(self.headers),
-            request_body=redact_payload(payload),
+            request_body=redact_payload(actual_payload),
         )
         try:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
@@ -66,7 +77,7 @@ class AuditHttpClient:
                     response_headers: dict[str, str] = {}
                     status_code: int | None = None
                     async with client.stream(
-                        "POST", url, headers=self.headers, json=payload
+                        "POST", url, headers=self.headers, json=actual_payload
                     ) as response:
                         status_code = response.status_code
                         response_headers = dict(response.headers)
@@ -82,7 +93,7 @@ class AuditHttpClient:
                     evidence.response_body = parsed if parsed is not None else text[:65536]
                     return CallResult(evidence=evidence, json_body=parsed, text_body=text)
 
-                response = await client.post(url, headers=self.headers, json=payload)
+                response = await client.post(url, headers=self.headers, json=actual_payload)
                 text = response.text
                 try:
                     parsed = response.json()
