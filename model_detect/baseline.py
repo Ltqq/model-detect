@@ -88,6 +88,10 @@ def _task_counts(result: ProbeResult) -> tuple[int | None, int | None]:
             )
             return passed, total
 
+    benchmark_limit = result.metadata.get("benchmark_limit")
+    if isinstance(benchmark_limit, int) and benchmark_limit > 0:
+        return None, benchmark_limit
+
     return None, None
 
 
@@ -157,6 +161,23 @@ def aggregate_baseline_reports(
             if passed is not None and total is not None:
                 dimension_passed[dimension].append(passed)
                 dimension_total[dimension].append(total)
+
+        for result in report.results:
+            if (
+                result.score is not None
+                and result.metadata.get("engine") == "lm-evaluation-harness"
+            ):
+                task = str(result.metadata.get("task") or "")
+                if task:
+                    dimension = f"benchmark:{task}"
+                    dimension_values.setdefault(dimension, []).append(
+                        float(result.score)
+                    )
+                    dimension_passed.setdefault(dimension, [])
+                    dimension_total.setdefault(dimension, [])
+                    _, total = _task_counts(result)
+                    if total is not None:
+                        dimension_total[dimension].append(total)
 
         for category, score in report.summary.category_scores.items():
             category_values.setdefault(category, []).append(float(score) / 100.0)
