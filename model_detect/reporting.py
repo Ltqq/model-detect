@@ -269,7 +269,7 @@ def _render_html(report: AuditReport) -> str:
         evidence = "；".join(item["evidence"][:4])
         provider_items.append(
             "<div class='provider-row'>"
-            f"<div><b>{html.escape(item['provider'])}</b><small>{html.escape(evidence)}</small></div>"
+            f"<div><b>{html.escape(item.get('label') or item['provider'])}</b><small><code>{html.escape(item['provider'])}</code> · {html.escape(evidence)}</small></div>"
             f"<strong>{item['confidence']:.0%}</strong>"
             "</div>"
         )
