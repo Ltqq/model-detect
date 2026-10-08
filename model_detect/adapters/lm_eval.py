@@ -501,3 +501,79 @@ def parse_result_file(path: str | Path) -> list[ProbeResult]:
     if not isinstance(raw, dict):
         raise ValueError("lm-eval result JSON root must be an object")
     return parse_result_payload(raw, source_path=str(result_path))
+
+
+
+def discover_result_file(output_path: str | Path) -> Path:
+    root = Path(output_path)
+    candidates = sorted(
+        [
+            path
+            for path in root.rglob("*.json")
+            if path.is_file()
+        ],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for path in candidates:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("results"), dict):
+            return path
+    raise FileNotFoundError(
+        f"lm-eval output contains no result JSON under {root}"
+    )
+
+
+def run_builtin_profile_results(
+    *,
+    profile_name: str,
+    base_url: str,
+    model: str,
+    api_key: str,
+    output_path: str | Path,
+    include_native_overlap: bool = True,
+    num_concurrent: int = 1,
+    max_retries: int = 3,
+    timeout_seconds: float = 1800,
+    binary: str | None = None,
+) -> tuple[list[ProbeResult], dict[str, Any]]:
+    profile = resolve_builtin_profile(
+        profile_name,
+        include_native_overlap=include_native_overlap,
+    )
+    meta = run_builtin_profile(
+        profile_name=profile_name,
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        output_path=output_path,
+        include_native_overlap=include_native_overlap,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        timeout_seconds=timeout_seconds,
+        binary=binary,
+    )
+    if int(meta.get("returncode") or 0) != 0:
+        raise RuntimeError(
+            "lm-eval failed: " + str(meta.get("stderr_tail") or "")[-1200:]
+        )
+    result_path = discover_result_file(output_path)
+    results = parse_result_file(result_path)
+    task_meta = profile.get("task_metadata") or {}
+    for result in results:
+        task = str(result.metadata.get("task") or "")
+        result.metadata["benchmark_profile"] = profile_name
+        result.metadata["benchmark_suite"] = "lm-evaluation-harness"
+        result.metadata["benchmark_limit"] = profile.get("limit")
+        result.metadata["benchmark_task_metadata"] = task_meta.get(task) or {}
+    return results, {
+        **meta,
+        "result_file": str(result_path),
+        "profile": profile_name,
+        "include_native_overlap": include_native_overlap,
+        "limit": profile.get("limit"),
+        "tasks": list(profile.get("tasks") or []),
+    }
