@@ -519,6 +519,10 @@ async def _run_audit_job(
                     "confidence_label": human["confidence_label"],
                     "identity_state": human["identity"]["label"],
                     "provider_state": human["provider"]["label"],
+                    "quality_state": human["quality"]["label"],
+                    "quality_regressions": list(
+                        human["quality"].get("regression_dimensions") or []
+                    ),
                     "issue_count": len(human["issues"]),
                     "http_429_count": human["provider"]["http_429_count"],
                 },
