@@ -31,6 +31,7 @@ class RuleSource(BaseModel):
 
 class RequestConstraint(BaseModel):
     fixed: dict[str, Any] = Field(default_factory=dict)
+    source_refs: list[str] = Field(default_factory=list)
 
 
 class ModelRule(BaseModel):
@@ -55,6 +56,13 @@ class ModelRule(BaseModel):
             raise ValueError("model rule source ids must be unique")
 
         known_sources = set(source_ids)
+        for endpoint, constraint in self.request_constraints.items():
+            missing = sorted(set(constraint.source_refs) - known_sources)
+            if missing:
+                raise ValueError(
+                    f"request constraint {endpoint!r} references unknown sources: {missing}"
+                )
+
         for feature, spec in self.features.items():
             if not isinstance(spec, dict):
                 continue
