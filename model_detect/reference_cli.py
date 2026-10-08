@@ -11,6 +11,7 @@ from rich.table import Table
 
 from .adapters import fingerprint
 from .audit import run_audit
+from .baseline_collection import collect_quality_baseline
 from .config import AuditConfig, get_api_key
 from .models import AuditTarget
 from .references import ReferenceManifest, ReferenceRegistry
@@ -27,7 +28,15 @@ def list_references(
 ) -> None:
     registry = ReferenceRegistry(reference_dir)
     rows = registry.list()
-    table = Table("ID", "Model", "Provider", "Collected", "Fingerprint", "Source")
+    table = Table(
+        "ID",
+        "Model",
+        "Provider",
+        "Collected",
+        "Fingerprint",
+        "Quality Baseline",
+        "Source",
+    )
     for item in rows:
         table.add_row(
             item.id,
@@ -35,6 +44,11 @@ def list_references(
             item.provider,
             item.collected_at,
             "yes" if (item.fingerprint_artifact or item.fingerprint_reference) else "no",
+            (
+                f"{item.baseline_runs} runs"
+                if item.baseline_artifact
+                else "no"
+            ),
             item.fingerprint_source or "—",
         )
     console.print(table)
@@ -60,6 +74,16 @@ def collect_reference(
     collect_fingerprint: bool = typer.Option(
         True, "--fingerprint/--no-fingerprint"
     ),
+    quality_baseline: bool = typer.Option(
+        True,
+        "--quality-baseline/--no-quality-baseline",
+        help="Collect repeated native quality baseline runs from this trusted endpoint.",
+    ),
+    baseline_runs: int = typer.Option(
+        3,
+        "--baseline-runs",
+        help="Number of repeated quality baseline runs (1-5).",
+    ),
 ) -> None:
     target = AuditTarget(
         base_url=base_url,
@@ -67,14 +91,41 @@ def collect_reference(
         api_key_env=api_key_env,
         protocol="openai",
     )
-    cfg = AuditConfig(
-        target=target,
-        profile="standard",
-        capability_enabled=False,
-        proxy_sleuth_enabled=False,
-    )
-    console.print("[cyan]Collecting trusted protocol signature...[/cyan]")
-    report = asyncio.run(run_audit(cfg, use_proxy_sleuth=False))
+    api_key = get_api_key(target)
+    baseline = None
+    if quality_baseline:
+        if not 1 <= baseline_runs <= 5:
+            raise typer.BadParameter("--baseline-runs must be between 1 and 5")
+        console.print(
+            f"[cyan]Collecting trusted quality baseline ({baseline_runs} runs)...[/cyan]"
+        )
+
+        def baseline_progress(current: int, total: int, phase: str) -> None:
+            if phase == "running":
+                console.print(
+                    f"[cyan]Baseline run {current}/{total}...[/cyan]"
+                )
+
+        reports, baseline = asyncio.run(
+            collect_quality_baseline(
+                target=target,
+                api_key=api_key,
+                runs=baseline_runs,
+                profile="standard",
+                progress=baseline_progress,
+            )
+        )
+        report = reports[0]
+    else:
+        cfg = AuditConfig(
+            target=target,
+            profile="standard",
+            capability_enabled=False,
+            proxy_sleuth_enabled=False,
+        )
+        console.print("[cyan]Collecting trusted protocol signature...[/cyan]")
+        report = asyncio.run(run_audit(cfg, use_proxy_sleuth=False))
+
     registry = ReferenceRegistry(reference_dir)
     fp_path = None
     fp_meta = None
@@ -85,7 +136,7 @@ def collect_reference(
             collected = fingerprint.collect(
                 base_url=base_url,
                 model=model,
-                api_key=get_api_key(target),
+                api_key=api_key,
                 output=fp_path,
             )
             fp_meta = {
@@ -110,6 +161,7 @@ def collect_reference(
         fingerprint_path=fp_path,
         fingerprint_metadata=fp_meta,
         fingerprint_source="collected" if fp_path else None,
+        baseline=baseline,
     )
     report_dir = registry.path_for(reference_id) / "baseline-report"
     write_report(report, report_dir)
