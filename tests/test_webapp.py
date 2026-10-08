@@ -76,7 +76,7 @@ def test_web_lists_controlled_regression_suites_and_knowledge(tmp_path):
     assert model.status_code == 200
     body = model.json()["rule"]
     assert body["id"] == "kimi-k3"
-    assert body["schema_version"] == 2
+    assert body["schema_version"] == 3
     assert body["sources"]
 
     providers = client.get("/api/knowledge/providers")
