@@ -35,7 +35,7 @@ class RequestConstraint(BaseModel):
 
 
 class ModelRule(BaseModel):
-    schema_version: Literal[1, 2] = 1
+    schema_version: Literal[1, 2, 3] = 1
     id: str
     family: str | None = None
     model_version: str | None = None
@@ -47,6 +47,7 @@ class ModelRule(BaseModel):
     declared_context_tokens: int | None = None
     request_constraints: dict[str, RequestConstraint] = Field(default_factory=dict)
     features: dict[str, Any] = Field(default_factory=dict)
+    protocol_features: dict[str, dict[str, Any]] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -63,31 +64,40 @@ class ModelRule(BaseModel):
                     f"request constraint {endpoint!r} references unknown sources: {missing}"
                 )
 
-        for feature, spec in self.features.items():
-            if not isinstance(spec, dict):
-                continue
-            refs = spec.get("source_refs")
-            if refs is None:
-                continue
-            if not isinstance(refs, list) or not all(
-                isinstance(ref, str) and ref.strip() for ref in refs
-            ):
-                raise ValueError(
-                    f"feature {feature!r} source_refs must be a list of source ids"
-                )
-            missing = sorted(set(refs) - known_sources)
-            if missing:
-                raise ValueError(
-                    f"feature {feature!r} references unknown sources: {missing}"
-                )
+        feature_sets = [("features", self.features)]
+        feature_sets.extend(
+            (f"protocol_features.{protocol}", specs)
+            for protocol, specs in self.protocol_features.items()
+        )
+        for namespace, specs in feature_sets:
+            if not isinstance(specs, dict):
+                raise ValueError(f"{namespace} must be an object")
+            for feature, spec in specs.items():
+                if not isinstance(spec, dict):
+                    continue
+                refs = spec.get("source_refs")
+                if refs is None:
+                    continue
+                if not isinstance(refs, list) or not all(
+                    isinstance(ref, str) and ref.strip() for ref in refs
+                ):
+                    raise ValueError(
+                        f"{namespace}.{feature} source_refs must be a list of source ids"
+                    )
+                missing = sorted(set(refs) - known_sources)
+                if missing:
+                    raise ValueError(
+                        f"{namespace}.{feature} references unknown sources: {missing}"
+                    )
 
-        if self.strict and self.schema_version == 2:
+        if self.strict and self.schema_version >= 2:
             referenced = set()
-            for spec in self.features.values():
-                if isinstance(spec, dict):
-                    refs = spec.get("source_refs")
-                    if isinstance(refs, list):
-                        referenced.update(str(ref) for ref in refs)
+            for specs in [self.features, *self.protocol_features.values()]:
+                for spec in specs.values():
+                    if isinstance(spec, dict):
+                        refs = spec.get("source_refs")
+                        if isinstance(refs, list):
+                            referenced.update(str(ref) for ref in refs)
             referenced_sources = [
                 source
                 for source in self.sources
@@ -142,13 +152,46 @@ def match_model_rule(model: str) -> ModelRule:
     return fallback or ModelRule(id="default", patterns=["*"])
 
 
+def feature_spec_for(
+    model: str,
+    feature: str,
+    *,
+    protocol: str = "chat_completions",
+) -> dict[str, Any]:
+    rule = match_model_rule(model)
+    base = rule.features.get(feature)
+    merged = dict(base) if isinstance(base, dict) else {}
+    override = (rule.protocol_features.get(protocol) or {}).get(feature)
+    if isinstance(override, dict):
+        merged.update(override)
+    return merged
+
+
+def effective_features_for(
+    model: str,
+    *,
+    protocol: str = "chat_completions",
+) -> dict[str, dict[str, Any]]:
+    rule = match_model_rule(model)
+    names = set(rule.features)
+    names.update((rule.protocol_features.get(protocol) or {}).keys())
+    return {
+        name: feature_spec_for(model, name, protocol=protocol)
+        for name in sorted(names)
+    }
+
+
 def evaluate_rule_expectations(
     model: str,
     observations: dict[str, Any],
+    *,
+    protocol: str = "chat_completions",
 ) -> list[dict[str, Any]]:
     rule = match_model_rule(model)
     out: list[dict[str, Any]] = []
-    for feature, spec in rule.features.items():
+    for feature, spec in effective_features_for(
+        model, protocol=protocol
+    ).items():
         if not isinstance(spec, dict) or spec.get("expected") is None:
             continue
         expected = bool(spec["expected"])
@@ -169,6 +212,7 @@ def evaluate_rule_expectations(
                 "rule_schema_version": rule.schema_version,
                 "source_refs": list(spec.get("source_refs") or []),
                 "strict": rule.strict,
+                "protocol": protocol,
             }
         )
     return out
@@ -218,10 +262,11 @@ def preferred_feature_value(
     feature: str,
     *,
     preferred: Any = None,
+    protocol: str = "chat_completions",
 ) -> Any:
     """Choose a documented valid feature value without hard-coding a model family."""
-    spec = match_model_rule(model).features.get(feature)
-    if not isinstance(spec, dict):
+    spec = feature_spec_for(model, feature, protocol=protocol)
+    if not spec:
         return preferred
     values = list(spec.get("values") or [])
     if preferred in values:
