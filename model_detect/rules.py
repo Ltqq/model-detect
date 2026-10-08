@@ -29,6 +29,10 @@ class RuleSource(BaseModel):
     confidence: SourceConfidence = "medium"
 
 
+class RequestConstraint(BaseModel):
+    fixed: dict[str, Any] = Field(default_factory=dict)
+
+
 class ModelRule(BaseModel):
     schema_version: Literal[1, 2] = 1
     id: str
@@ -40,6 +44,7 @@ class ModelRule(BaseModel):
     sources: list[RuleSource] = Field(default_factory=list)
     strict: bool = False
     declared_context_tokens: int | None = None
+    request_constraints: dict[str, RequestConstraint] = Field(default_factory=dict)
     features: dict[str, Any] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
 
@@ -159,3 +164,63 @@ def evaluate_rule_expectations(
             }
         )
     return out
+
+
+
+def request_constraint_for(
+    model: str,
+    endpoint: str = "chat_completions",
+) -> RequestConstraint:
+    rule = match_model_rule(model)
+    return rule.request_constraints.get(endpoint, RequestConstraint())
+
+
+def fixed_request_parameter(
+    model: str,
+    parameter: str,
+    *,
+    endpoint: str = "chat_completions",
+) -> Any:
+    return request_constraint_for(model, endpoint).fixed.get(parameter)
+
+
+def apply_request_constraints(
+    model: str,
+    payload: dict[str, Any],
+    *,
+    endpoint: str = "chat_completions",
+    exempt_fields: set[str] | frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Apply model-declared fixed constraints to an operational probe payload.
+
+    Fixed constraints are probe execution requirements, not identity evidence. A probe
+    that intentionally varies or corrupts a parameter must exempt that field.
+    """
+    out = dict(payload)
+    exempt = set(exempt_fields or ())
+    constraint = request_constraint_for(model, endpoint)
+    for field, value in constraint.fixed.items():
+        if field not in exempt:
+            out[field] = value
+    return out
+
+
+def preferred_feature_value(
+    model: str,
+    feature: str,
+    *,
+    preferred: Any = None,
+) -> Any:
+    """Choose a documented valid feature value without hard-coding a model family."""
+    spec = match_model_rule(model).features.get(feature)
+    if not isinstance(spec, dict):
+        return preferred
+    values = list(spec.get("values") or [])
+    if preferred in values:
+        return preferred
+    default = spec.get("default")
+    if default in values:
+        return default
+    if values:
+        return values[0]
+    return preferred
