@@ -15,7 +15,7 @@ from .probes.context import run_context_suite
 from .probes.coding import run_coding_suite
 from .probes.integrity import run_integrity_suite
 from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
-from .probes.provider import detect_provider_hypotheses
+from .probes.provider import detect_provider_hypotheses, evaluate_upstream_policy
 from .probes.routing import finalize_routing_analysis, run_routing_suite
 from .references import ReferenceRegistry, compare_protocol_signature
 from .regression_promptfoo import run_regression_file
@@ -366,6 +366,30 @@ async def run_audit(
 
     # Provider inference uses all native raw responses.
     report.provider_hypotheses = detect_provider_hypotheses(report.evidences)
+
+    if config.upstream_policy.disallowed:
+        policy_result = evaluate_upstream_policy(
+            report.evidences,
+            report.provider_hypotheses,
+            disallowed=config.upstream_policy.disallowed,
+            min_confidence=config.upstream_policy.min_confidence,
+            strong_signal_weight=config.upstream_policy.strong_signal_weight,
+        )
+        report.results.append(policy_result)
+        report.adapters["upstream_policy"] = {
+            "status": (
+                "violation"
+                if policy_result.metadata.get("policy_violation")
+                else "clear"
+            ),
+            "config": config.upstream_policy.model_dump(mode="json"),
+            "observed": policy_result.observed,
+        }
+    else:
+        report.adapters["upstream_policy"] = {
+            "status": "not_configured",
+            "config": config.upstream_policy.model_dump(mode="json"),
+        }
 
     # Model-family rule comparison.
     rule = match_model_rule(config.target.model)
