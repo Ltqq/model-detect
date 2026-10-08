@@ -1,3 +1,4 @@
+from model_detect.baseline import aggregate_baseline_reports
 from model_detect.models import AuditReport, ProbeResult, ProbeStatus
 from model_detect.references import ReferenceManifest, ReferenceRegistry, compare_protocol_signature
 
@@ -90,3 +91,49 @@ def test_old_reference_manifest_remains_compatible(tmp_path):
     assert loaded.id == "old"
     assert loaded.fingerprint_source is None
     assert loaded.fingerprint_metadata == {}
+
+
+
+def test_reference_can_persist_quality_baseline(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    report = make_report()
+    baseline = aggregate_baseline_reports(
+        [report, report, report],
+        model_rule_id="kimi-k3",
+        model_rule_updated_at="2026-10-08",
+    )
+    manifest = registry.create_from_report(
+        reference_id="kimi-baseline",
+        model="kimi-k3",
+        provider="official",
+        protocol="openai",
+        report=report,
+        baseline=baseline,
+    )
+
+    loaded = registry.get("kimi-baseline")
+    assert manifest.baseline_artifact == "baseline.json"
+    assert loaded.baseline_runs == 3
+    assert loaded.baseline_suite_version == "official-baseline-v1"
+    assert loaded.model_rule_id == "kimi-k3"
+    stored = registry.baseline(loaded)
+    assert stored is not None
+    assert stored.runs == 3
+    assert stored.model == "kimi-k3"
+    assert registry.baseline_path(loaded).exists()
+
+
+def test_old_reference_manifest_defaults_to_no_quality_baseline(tmp_path):
+    root = tmp_path / "refs" / "legacy-baseline"
+    root.mkdir(parents=True)
+    (root / "manifest.json").write_text(
+        '{"id":"legacy-baseline","model":"m","provider":"trusted","protocol":"openai"}',
+        encoding="utf-8",
+    )
+
+    loaded = ReferenceRegistry(tmp_path / "refs").get("legacy-baseline")
+
+    assert loaded.baseline_artifact is None
+    assert loaded.baseline_runs == 0
+    assert loaded.baseline_metadata == {}
+    assert ReferenceRegistry(tmp_path / "refs").baseline(loaded) is None
