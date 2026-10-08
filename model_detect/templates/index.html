@@ -165,6 +165,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
           {% if j.kind == 'audit' and h %}
             <div class="small">异常项：{{ h.get('issue_count',0) }}</div>
             <div class="small">身份：{{ h.get('identity_state','—') }}</div>
+            <div class="small">质量：{{ h.get('quality_state','—') }}</div>
             <div class="small">上游策略：{{ h.get('provider_state','—') }}</div>
             <div class="small">429：{{ h.get('http_429_count',0) }}</div>
           {% elif j.kind == 'audit' %}<span class="muted">旧报告暂无中文摘要，打开报告查看。</span>{% else %}—{% endif %}
