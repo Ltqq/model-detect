@@ -86,3 +86,28 @@ def test_weak_identity_failure_does_not_trigger_mismatch():
     )
     assert summary.hard_cap is None
     assert summary.final_verdict != "mismatch"
+
+
+
+def test_disallowed_upstream_policy_violation_fails_admission():
+    summary = build_summary(
+        [
+            r("protocol.chat.basic", "protocol", 1.0),
+            r(
+                "identity.fingerprint.reference_compare",
+                "identity",
+                1.0,
+                identity_strength="strong",
+            ),
+            r(
+                "provider.upstream_policy",
+                "provider",
+                0.0,
+                status=ProbeStatus.FAIL,
+                policy_violation=True,
+            ),
+        ]
+    )
+
+    assert summary.hard_cap == 40.0
+    assert summary.final_verdict == "fail"
