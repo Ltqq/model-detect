@@ -3,117 +3,269 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>model-detect</title>
+<title>模型渠道检测 · model-detect</title>
 <style>
-:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0d1117;color:#e6edf3}
-body{margin:0} .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
-a{color:#58a6ff;text-decoration:none}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin-bottom:18px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
-label{display:block;font-size:12px;color:#8b949e;margin-bottom:6px}
-input,select{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;color:#e6edf3}
-details{margin-top:5px}summary{cursor:pointer;color:#58a6ff}.knowledge{font-size:12px;line-height:1.45}
-button{background:#238636;color:white;border:0;border-radius:7px;padding:10px 18px;font-weight:600;cursor:pointer}.danger{background:#b62324;padding:5px 9px;font-size:12px}
-button:disabled{opacity:.5}.muted{color:#8b949e;font-size:13px}.row{display:flex;gap:10px;align-items:center}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px;border-bottom:1px solid #21262d}
-.badge{padding:3px 8px;border-radius:99px;background:#21262d}.done{color:#3fb950}.failed{color:#f85149}.running{color:#d29922}
-progress{width:120px}.err{white-space:pre-wrap;color:#f85149}
-@media(max-width:760px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--panel2:#151e28;--border:#263241;--text:#eaf2f8;--muted:#8fa2b5;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.55}
+.wrap{max-width:1220px;margin:0 auto;padding:28px 20px 70px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:22px}
+h1{margin:0 0 4px;font-size:26px}h2{font-size:19px;margin:0}.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}.muted{color:var(--muted);font-size:13px}.small{font-size:12px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin:16px 0;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.guide-item{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}.guide-item b{display:block;margin-bottom:5px}.guide-item p{margin:0;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.wide{grid-column:1/-1}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input,select{width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 11px;outline:none}
+input:focus,select:focus{border-color:var(--blue)}select[multiple]{min-height:118px}.field-help{color:var(--muted);font-size:12px;margin-top:5px}.field-warn{color:var(--yellow);font-size:12px;margin-top:5px}
+button{background:#238636;color:white;border:0;border-radius:8px;padding:10px 17px;font-weight:650;cursor:pointer}button.secondary{background:#263241}.danger{background:#b62324;padding:6px 10px;font-size:12px}button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.pill{display:inline-flex;border-radius:99px;padding:3px 8px;background:#202b36;font-size:12px;font-weight:700}.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+details.advanced{margin-top:14px;border-top:1px solid var(--border);padding-top:14px}summary{cursor:pointer;color:var(--blue)}
+.result-box{display:none;margin-top:16px;border:1px solid var(--border);border-radius:11px;padding:15px;background:var(--panel2)}.result-box.good{border-color:rgba(63,185,80,.5)}.result-box.warn{border-color:rgba(210,153,34,.5)}.result-box.bad{border-color:rgba(248,81,73,.5)}.result-box h3{margin:0 0 5px}.result-box p{margin:5px 0 10px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-weight:600;white-space:nowrap}.table-wrap{overflow:auto}
+.job-title{font-weight:700}.job-sub{color:var(--muted);font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis}.headline{max-width:340px;font-size:12px;color:var(--muted);margin-top:4px}
+progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-size:12px}.status-running{color:var(--yellow)}.status-done{color:var(--green)}.status-failed{color:var(--red)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.filters input,.filters select{max-width:200px;padding:8px}
+.notice{padding:10px 12px;border-radius:9px;background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.22);font-size:12px;color:#b9d8ff}
+@media(max-width:820px){.guide{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.wrap{padding:18px 12px 60px}.top{flex-direction:column}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1 style="margin:0">model-detect</h1><div class="muted">LLM API 真实性 / 协议 / 完整性 / 能力审计</div></div><a href="/references">Reference 管理 →</a></div>
-
-<div class="card">
-<h2 style="margin-top:0">新建审计</h2>
-<div class="grid">
-<div><label>Base URL</label><input id="base_url" placeholder="https://example.com/v1"></div>
-<div><label>Model</label><input id="model" placeholder="kimi-k3"><div id="model_rule_preview" class="muted"></div></div>
-<div class="wide"><label>API Key（只保存在本次后台任务内存，不写数据库/报告）</label><input id="api_key" type="password" placeholder="sk-..."></div>
-<div><label>检测档位</label><select id="profile"><option value="quick">Quick</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
-<div><label>Trusted Reference</label><select id="reference_id"><option value="">不使用 Reference</option>{% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}</select></div>
-<div><label>声明 Context Tokens（可空）</label><input id="context_tokens" type="number" placeholder="32768"></div>
-<div class="wide"><label>禁止上游 Provider（逗号分隔，可空）</label><input id="disallowed_upstreams" placeholder="fireworks"><div class="muted">基于可观测 Header / Body / Provider 指纹判定；429 只作为辅助证据，不单独识别供应商。</div></div>
-<div class="wide"><label>Regression Suites（受控规则目录，可多选）</label><select id="regression_suites" multiple size="4">{% for suite in regression_suites %}<option value="{{ suite }}">{{ suite }}</option>{% endfor %}</select><div class="muted">{% if regression_suites %}按 Ctrl/Cmd 多选；只允许 --regression-dir 中的 YAML。{% else %}当前 regression 目录没有 YAML suite。{% endif %}</div></div>
-<div><label>&nbsp;</label><div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>有 proxy-sleuth 时同时运行开源多层检测</span></div></div>
-<div><label>&nbsp;</label><div class="row"><input id="coding_sandbox" type="checkbox" style="width:auto"><span>运行 Docker Coding Sandbox（会执行模型生成代码）</span></div><div class="muted">显式开启；无 Docker 时不会回退宿主执行。</div></div>
-</div>
-<div style="margin-top:16px"><button id="run">开始审计</button> <span id="msg" class="muted"></span></div>
+<div class="top">
+  <div><div class="eyebrow">model-detect</div><h1>模型渠道检测</h1><div class="muted">验证模型接口是否可用、参数是否被改写、路由是否稳定，以及是否命中禁止上游。</div></div>
+  <a href="/references">可信 Reference 管理 →</a>
 </div>
 
 <div class="card">
-<div class="row" style="justify-content:space-between"><h2 style="margin:0">任务历史</h2><button onclick="location.reload()" style="background:#30363d">刷新</button></div>
-<form method="get" action="/" class="row" style="margin:14px 0;flex-wrap:wrap">
-  <input name="model" value="{{ history_filters.model }}" placeholder="模型筛选，如 kimi" style="max-width:240px">
-  <select name="status" style="max-width:150px">
-    <option value="">全部状态</option>
-    {% for value in ['queued','running','done','failed'] %}<option value="{{ value }}" {% if history_filters.status == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
-  </select>
-  <select name="kind" style="max-width:150px">
-    <option value="">全部类型</option>
-    <option value="audit" {% if history_filters.kind == 'audit' %}selected{% endif %}>audit</option>
-    <option value="reference" {% if history_filters.kind == 'reference' %}selected{% endif %}>reference</option>
-  </select>
-  <button type="submit" style="padding:8px 14px">筛选</button>
-  <a href="/" class="muted">清空</a>
-</form>
-<table><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>档位</th><th>状态</th><th>Verdict</th><th>Score</th><th>Regression</th><th>Knowledge</th><th>进度</th><th>结果</th><th>操作</th></tr></thead>
-<tbody id="jobs">
-{% for j in jobs %}
-<tr data-job="{{ j.id }}"><td>{{ j.created_at[:19] }}</td><td>{{ j.kind }}</td><td>{{ j.model }}</td><td>{{ j.profile }}</td><td class="{{ j.status }}">{{ j.status }}</td><td>{% if j.kind == 'audit' and j.meta.get('verdict') %}<span class="badge">{{ j.meta.get('verdict') }}</span>{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' and j.meta.get('score') is not none %}{{ j.meta.get('score') }}{% else %}—{% endif %}</td><td>{% if j.kind == 'audit' %}<span class="badge">{{ j.meta.get('regression_status','not_configured') }}</span>{% if j.meta.get('regression_suites') %}<div class="muted">{{ j.meta.get('regression_suites')|join(', ') }}</div>{% endif %}{% else %}—{% endif %}</td><td class="knowledge">{% if j.meta.get('model_rule') %}<details><summary>{{ j.meta.get('model_rule').get('id','model rule') }}</summary>{% for s in j.meta.get('model_rule').get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}</details>{% endif %}{% for p in j.meta.get('provider_provenance',[]) %}<details><summary>{{ p.get('label') or p.get('provider') }}</summary>{% for s in p.get('sources',[]) %}<div>{{ s.get('type') }} · {{ s.get('title') or s.get('id') }}</div>{% endfor %}{% for note in p.get('false_positive_notes',[]) %}<div class="muted">{{ note }}</div>{% endfor %}</details>{% endfor %}{% if not j.meta.get('model_rule') and not j.meta.get('provider_provenance') %}—{% endif %}</td><td><progress max="1" value="{{ j.progress }}"></progress><div class="muted">{{ j.detail or '' }}</div></td><td>{% if j.report_path %}<a href="/reports/{{ j.id }}">HTML</a> · <a href="/api/audits/{{ j.id }}/report">JSON</a> · <a href="/api/audits/{{ j.id }}/download">ZIP</a>{% elif j.error %}<span class="err">{{ j.error }}</span>{% else %}—{% endif %}</td><td>{% if j.status in ['done','failed'] %}<button class="danger" onclick="deleteJob('{{ j.id }}')">删除</button>{% else %}<span class="muted">运行中</span>{% endif %}</td></tr>
-{% endfor %}
-</tbody></table>
+  <div class="row between"><div><div class="eyebrow">先理解结果</div><h2>这三个原则最重要</h2></div></div>
+  <div class="guide" style="margin-top:14px">
+    <div class="guide-item"><b>综合分 ≠ 模型为真的概率</b><p>90 分表示审计维度总体表现好，不等于“90% 是真模型”。模型身份要优先看 Trusted Reference / Statistical Fingerprint。</p></div>
+    <div class="guide-item"><b>Provider 指纹是证据，不是身份证</b><p>Header、Body、网关特征可以说明“观察到了什么”，但中转可能清洗这些信息，所以“未发现”不等于绝对不存在。</p></div>
+    <div class="guide-item"><b>429 只代表限流</b><p>429 不会被单独用来判断 Fireworks。只有 Fireworks 等 Provider 的强 Header / Body 指纹达到阈值才会触发上游策略。</p></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row between"><div><div class="eyebrow">开始检测</div><h2>新建审计</h2></div><span class="muted">推荐日常使用 Standard</span></div>
+  <div class="grid" style="margin-top:16px">
+    <div>
+      <label>Base URL（模型 API 根地址）</label>
+      <input id="base_url" placeholder="https://example.com/v1">
+      <div id="url_tip" class="field-help">OpenAI 兼容接口通常以 /v1 结尾；如果填写成网站首页，系统会直接提示“检测地址无效”。</div>
+    </div>
+    <div>
+      <label>模型 ID</label>
+      <input id="model" placeholder="例如 kimi-k3">
+      <div id="model_rule_preview" class="field-help">填写后离开输入框，会显示命中的官方模型规则。</div>
+    </div>
+    <div class="wide">
+      <label>API Key</label>
+      <input id="api_key" type="password" placeholder="sk-...">
+      <div class="field-help">仅存在本次后台任务内存中，不写入数据库和报告。</div>
+    </div>
+    <div>
+      <label>检测档位</label>
+      <select id="profile">
+        <option value="quick">快速检测 Quick</option>
+        <option value="standard" selected>标准检测 Standard（推荐）</option>
+        <option value="deep">深度检测 Deep</option>
+      </select>
+      <div id="profile_help" class="field-help"></div>
+    </div>
+    <div>
+      <label>可信 Reference（强烈建议用于“真假模型”判断）</label>
+      <select id="reference_id">
+        <option value="">不使用 Reference</option>
+        {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}</option>{% endfor %}
+      </select>
+      <div class="field-help">{% if references %}选择官方/可信端点采集的 Reference 后，会运行更强的模型身份对比。{% else %}当前还没有 Reference；如果主要目标是判断模型身份，建议先去 Reference 管理页采集。{% endif %}</div>
+    </div>
+    <div>
+      <label>声明的上下文长度（可选）</label>
+      <input id="context_tokens" type="number" placeholder="例如 32768">
+      <div class="field-help">不知道就留空。Standard 会做基础长上下文检查，Deep 会覆盖更多档位。</div>
+    </div>
+    <div>
+      <label>禁止上游 Provider（可多选）</label>
+      <select id="disallowed_upstreams" multiple size="5">
+        {% for p in provider_options %}<option value="{{ p.id }}">{{ p.label }}（{{ p.id }}）</option>{% endfor %}
+      </select>
+      <div class="field-help">例如客户明确要求“不允许 Fireworks”，这里选择 Fireworks。命中强指纹时会直接影响准入结论。</div>
+    </div>
+  </div>
+
+  <details class="advanced">
+    <summary>高级选项（一般不用改）</summary>
+    <div class="grid" style="margin-top:14px">
+      <div class="wide">
+        <label>Regression Suites（回归规则，可多选）</label>
+        <select id="regression_suites" multiple size="4">
+          {% for suite in regression_suites %}<option value="{{ suite }}">{{ suite }}</option>{% endfor %}
+        </select>
+        <div class="field-help">{% if regression_suites %}用于复测已知协议/参数问题，不等同于模型身份验证。{% else %}当前 regression 目录没有配置规则。{% endif %}</div>
+      </div>
+      <div>
+        <label>开源增强检测</label>
+        <div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>运行 proxy-sleuth（如果已安装）</span></div>
+      </div>
+      <div>
+        <label>代码执行能力</label>
+        <div class="row"><input id="coding_sandbox" type="checkbox" style="width:auto"><span>运行 Docker Coding Sandbox</span></div>
+        <div class="field-help">只在需要代码能力准入时开启；不会回退到宿主机直接执行。</div>
+      </div>
+    </div>
+  </details>
+
+  <div style="margin-top:18px"><button id="run">开始检测</button> <span id="msg" class="muted"></span></div>
+  <div id="result_box" class="result-box">
+    <h3 id="result_title"></h3><p id="result_text"></p><a id="result_link" href="#">查看中文审计报告 →</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row between"><div><div class="eyebrow">历史记录</div><h2>检测结果</h2></div><button class="secondary" onclick="location.reload()">刷新</button></div>
+  <form method="get" action="/" class="filters">
+    <input name="model" value="{{ history_filters.model }}" placeholder="按模型筛选，例如 kimi">
+    <select name="status">
+      <option value="">全部状态</option>
+      <option value="queued" {% if history_filters.status == 'queued' %}selected{% endif %}>排队中</option>
+      <option value="running" {% if history_filters.status == 'running' %}selected{% endif %}>检测中</option>
+      <option value="done" {% if history_filters.status == 'done' %}selected{% endif %}>已完成</option>
+      <option value="failed" {% if history_filters.status == 'failed' %}selected{% endif %}>任务失败</option>
+    </select>
+    <select name="kind">
+      <option value="">全部类型</option>
+      <option value="audit" {% if history_filters.kind == 'audit' %}selected{% endif %}>模型审计</option>
+      <option value="reference" {% if history_filters.kind == 'reference' %}selected{% endif %}>Reference 采集</option>
+    </select>
+    <button type="submit">筛选</button><a class="muted" href="/">清空</a>
+  </form>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>时间 / 模型</th><th>结论</th><th>分数 / 可信度</th><th>重点解读</th><th>任务状态</th><th>报告</th><th>操作</th></tr></thead>
+    <tbody id="jobs">
+    {% for j in jobs %}
+      {% set h = j.meta.get('human_summary', {}) %}
+      <tr data-job="{{ j.id }}">
+        <td>
+          <div class="job-title">{{ j.model }}</div>
+          <div class="job-sub">{{ j.created_at[:19] }} · {{ '模型审计' if j.kind == 'audit' else 'Reference' }} · {{ j.profile }}</div>
+          <div class="job-sub">{{ j.base_url }}</div>
+        </td>
+        <td>
+          {% if j.kind == 'audit' and (h.get('decision') or j.meta.get('verdict')) %}
+            <span class="pill {% if h.get('tone') == 'good' %}good{% elif h.get('tone') == 'bad' %}bad{% else %}warn{% endif %}">{{ h.get('decision') or j.meta.get('verdict') }}</span>
+            <div class="headline">{{ h.get('headline','') }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if j.kind == 'audit' %}
+            <b>{{ j.meta.get('score') if j.meta.get('score') is not none else '—' }}</b>
+            <div class="job-sub">可信度：{{ h.get('confidence_label','—') }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if j.kind == 'audit' and h %}
+            <div class="small">异常项：{{ h.get('issue_count',0) }}</div>
+            <div class="small">身份：{{ h.get('identity_state','—') }}</div>
+            <div class="small">上游策略：{{ h.get('provider_state','—') }}</div>
+            <div class="small">429：{{ h.get('http_429_count',0) }}</div>
+          {% elif j.kind == 'audit' %}<span class="muted">旧报告暂无中文摘要，打开报告查看。</span>{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if j.status == 'running' %}<span class="status-running">检测中</span>
+          {% elif j.status == 'done' %}<span class="status-done">已完成</span>
+          {% elif j.status == 'failed' %}<span class="status-failed">失败</span>
+          {% else %}<span>排队中</span>{% endif %}
+          <div><progress max="1" value="{{ j.progress }}"></progress></div>
+          <div class="job-sub">{{ j.detail or '' }}</div>
+          {% if j.error %}<div class="err">{{ j.error }}</div>{% endif %}
+        </td>
+        <td>
+          {% if j.report_path %}
+            <a href="/reports/{{ j.id }}">中文报告</a><br>
+            <a class="small" href="/api/audits/{{ j.id }}/report">JSON</a> · <a class="small" href="/api/audits/{{ j.id }}/download">ZIP</a>
+          {% else %}—{% endif %}
+        </td>
+        <td>{% if j.status in ['done','failed'] %}<button class="danger" onclick="deleteJob('{{ j.id }}')">删除</button>{% else %}<span class="muted">运行中</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
 </div>
 </div>
+
 <script>
 const q=id=>document.getElementById(id);
-q('run').onclick=async()=>{
-  const body={
-    base_url:q('base_url').value.trim(),
-    api_key:q('api_key').value,
-    model:q('model').value.trim(),
-    profile:q('profile').value,
-    reference_id:q('reference_id').value||null,
-    declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
-    proxy_sleuth:q('proxy').checked,
-    coding_sandbox:q('coding_sandbox').checked,
-    regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
-    disallowed_upstreams:q('disallowed_upstreams').value.split(',').map(x=>x.trim()).filter(Boolean)
-  };
-  if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='Base URL / Key / Model 必填';return}
-  q('run').disabled=true;q('msg').textContent='创建任务中...';
-  try{
-    const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-    const data=await r.json(); if(!r.ok) throw new Error(data.detail||JSON.stringify(data));
-    q('msg').textContent='任务 '+data.id+' 已启动'; q('api_key').value='';
-    poll(data.id);
-  }catch(e){q('msg').textContent='失败: '+e.message;q('run').disabled=false}
+const profileHelp={
+  quick:'快速检查基础协议与明显错误，适合先确认接口能否正常调用；不适合做完整准入结论。',
+  standard:'推荐日常准入：覆盖协议、参数完整性、上下文、路由和基础能力，耗时与证据量比较均衡。',
+  deep:'在 Standard 基础上增加更多路由/能力/代码等检查，适合异常复核或重要供应商准入。'
 };
+function updateProfileHelp(){q('profile_help').textContent=profileHelp[q('profile').value]||''}
+q('profile').addEventListener('change',updateProfileHelp);updateProfileHelp();
+
+q('base_url').addEventListener('blur',()=>{
+  const v=q('base_url').value.trim();
+  q('url_tip').className=(v&& !/\/v\d*\/?$/i.test(v))?'field-warn':'field-help';
+  q('url_tip').textContent=(v&& !/\/v\d*\/?$/i.test(v))
+    ?'提示：这个地址看起来不像常见 API 根路径。可以继续检测，但请确认它不是网站首页。'
+    :'OpenAI 兼容接口通常以 /v1 结尾；如果填写成网站首页，系统会直接提示“检测地址无效”。';
+});
+
 async function previewModelRule(){
-  const model=q('model').value.trim(); if(!model){q('model_rule_preview').textContent='';return}
+  const model=q('model').value.trim(); if(!model){return}
   try{
-    const r=await fetch('/api/knowledge/model?model='+encodeURIComponent(model));
-    if(!r.ok)return;
-    const data=await r.json(); const rule=data.rule||{};
-    const sources=(rule.sources||[]).map(s=>(s.type||'source')+': '+(s.title||s.id)).join(' | ');
-    q('model_rule_preview').textContent=(rule.id||'default')+(sources?' · '+sources:'');
+    const r=await fetch('/api/knowledge/model?model='+encodeURIComponent(model)); if(!r.ok)return;
+    const rule=(await r.json()).rule||{};
+    const sources=(rule.sources||[]).filter(s=>s.type==='official_doc').map(s=>s.title||s.id);
+    const fixed=rule.request_constraints?.chat_completions?.fixed||{};
+    let text='命中规则：'+(rule.id||'default');
+    if(Object.keys(fixed).length) text+=' · 请求约束 '+JSON.stringify(fixed);
+    if(sources.length) text+=' · 官方来源 '+sources.slice(0,2).join(' / ');
+    q('model_rule_preview').textContent=text;
   }catch(e){}
 }
 q('model').addEventListener('blur',previewModelRule);
-async function deleteJob(id){
-  if(!confirm('删除这条历史记录及本地报告文件？'))return;
+
+q('run').onclick=async()=>{
+  const body={
+    base_url:q('base_url').value.trim(),api_key:q('api_key').value,model:q('model').value.trim(),
+    profile:q('profile').value,reference_id:q('reference_id').value||null,
+    declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
+    proxy_sleuth:q('proxy').checked,coding_sandbox:q('coding_sandbox').checked,
+    regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
+    disallowed_upstreams:Array.from(q('disallowed_upstreams').selectedOptions).map(o=>o.value)
+  };
+  if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='请填写 Base URL、API Key 和模型 ID';return}
+  q('run').disabled=true;q('msg').textContent='正在创建检测任务…';q('result_box').style.display='none';
   try{
-    const r=await fetch('/api/jobs/'+encodeURIComponent(id),{method:'DELETE'});
-    const data=await r.json(); if(!r.ok) throw new Error(data.detail||JSON.stringify(data));
-    location.reload();
-  }catch(e){alert('删除失败: '+e.message)}
-}
+    const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const data=await r.json();if(!r.ok)throw new Error(data.detail||JSON.stringify(data));
+    q('api_key').value='';q('msg').textContent='任务已启动：'+data.id;poll(data.id);
+  }catch(e){q('msg').textContent='创建失败：'+e.message;q('run').disabled=false}
+};
 async function poll(id){
   const timer=setInterval(async()=>{
-    const r=await fetch('/api/jobs/'+id); if(!r.ok)return;
-    const j=await r.json(); q('msg').textContent=j.status+' — '+(j.detail||'');
-    if(j.status==='done'||j.status==='failed'){clearInterval(timer);q('run').disabled=false;setTimeout(()=>location.reload(),500)}
+    const r=await fetch('/api/jobs/'+encodeURIComponent(id));if(!r.ok)return;
+    const j=await r.json();q('msg').textContent=(j.detail||j.status)+' · '+Math.round((j.progress||0)*100)+'%';
+    if(j.status==='done'||j.status==='failed'){
+      clearInterval(timer);q('run').disabled=false;
+      if(j.status==='done'){
+        const h=j.meta?.human_summary||{};
+        q('result_box').className='result-box '+(h.tone||'warn');
+        q('result_title').textContent=h.decision||'检测完成';
+        q('result_text').textContent=h.headline||'检测已完成，请查看报告。';
+        q('result_link').href='/reports/'+encodeURIComponent(id);
+        q('result_box').style.display='block';
+        q('msg').textContent='检测完成';
+      }else{
+        q('msg').textContent='检测任务失败：'+(j.error||'未知错误');
+      }
+    }
   },1200);
+}
+async function deleteJob(id){
+  if(!confirm('删除这条历史记录和本地报告文件？'))return;
+  const r=await fetch('/api/jobs/'+encodeURIComponent(id),{method:'DELETE'});
+  const d=await r.json();if(r.ok)location.reload();else alert('删除失败：'+(d.detail||'未知错误'));
 }
 </script>
 </body></html>
