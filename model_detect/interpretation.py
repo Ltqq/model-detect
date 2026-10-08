@@ -178,9 +178,17 @@ def _issue_level(result: ProbeResult) -> int:
 
 
 def _provider_summary(report: AuditReport) -> dict[str, Any]:
+    from .probes.provider import load_provider_rules
+
+    provider_rules = load_provider_rules()
     hypotheses = [
         {
             "provider": item.provider,
+            "label": (
+                provider_rules[item.provider].label
+                if item.provider in provider_rules
+                else item.provider
+            ),
             "confidence": item.confidence,
             "evidence": list(item.evidence),
         }
@@ -209,6 +217,11 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
 
     return {
         "state": state,
+        "label": {
+            "violation": "命中禁止上游",
+            "clear": "未观察到禁止上游",
+            "not_configured": "未配置禁止上游",
+        }.get(state, state),
         "text": text,
         "disallowed": disallowed,
         "detected": detected,
@@ -259,6 +272,12 @@ def _identity_summary(report: AuditReport) -> dict[str, Any]:
 
     return {
         "state": state,
+        "label": {
+            "match": "已有强身份匹配",
+            "mismatch": "强身份不一致",
+            "uncertain": "强身份结果不确定",
+            "missing": "缺少强身份依据",
+        }.get(state, state),
         "text": text,
         "fingerprint_verdict": (
             fingerprint.metadata.get("verdict") if fingerprint else None
