@@ -41,8 +41,9 @@ model-detect 要回答：
 - proxy-sleuth Adapter
 - lm-evaluation-harness Adapter + built-in/user profiles + result mapping + dedup
 - promptfoo declarative regression：YAML -> compile -> eval -> Unified ProbeResult
-- Model Rule v2 provenance：Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash
+- Model Rule v3 provenance：Kimi K3 / GLM-5.2 / Qwen3.8 / DeepSeek V4 / Claude 5 / GPT-5.6 / Gemini 3.8 Flash；支持协议级参数语义
 - Provider Fingerprint v2 provenance
+- Official / Trusted Quality Baseline：同 Suite 重复采样、均值/方差、能力保持率与质量退化
 - JSON / HTML / Web / Evidence / Drift Compare
 
 ## 当前产品形态
@@ -61,7 +62,7 @@ SQLite 保存历史
 
 不会继续建设 Saved Endpoint、Scheduler、通知、RBAC、PostgreSQL、Redis 等平台能力。
 
-最后只剩历史记录 UX 与本地 E2E 验收；之后主要维护 Model Rule、Provider Rule 和真实 Regression Case。
+核心产品闭环已经完成。当前维护重点是 Model Rule / Provider Rule / Regression Case，以及使用官方 / 可信端点持续采集 Quality Baseline 做真实渠道校准。
 
 详细文档：
 
@@ -73,6 +74,8 @@ SQLite 保存历史
 - [技术决策](docs/06-technical-decisions.md)
 - [Promptfoo Regression 设计](docs/design/11-promptfoo-regression.md)
 - [Model / Provider Knowledge 设计](docs/design/12-model-provider-knowledge.md)
+- [Official Baseline / Quality Regression 设计](docs/design/13-official-baseline-comparison.md)
+- [官方基准校准流程](docs/07-official-baseline-calibration.md)
 
 ## 快速开始
 
@@ -104,3 +107,46 @@ model-detect audit `
 - OSS 通过 Adapter 复用
 - API Key 不写入 Evidence / Report / SQLite
 - 性能测试永久独立
+
+
+## 官方 / 可信质量基准
+
+如果要判断“当前供应商和官方到底差多少”，不要直接拿厂商排行榜分数和本工具的小题分数相减。
+
+正确流程是：
+
+```text
+官方 / 可信 Endpoint
+  ↓
+同一 Standard Suite 重复采集 3 次
+  ↓
+Reference = Fingerprint + Quality Baseline
+  ↓
+供应商 Endpoint 用同一 Profile 检测
+  ↓
+Identity Compare + Quality Compare
+```
+
+CLI 示例：
+
+```bash
+export MODEL_DETECT_OFFICIAL_KEY="sk-..."
+
+model-detect reference collect \
+  --id kimi-k3-official-202610 \
+  --base-url https://api.moonshot.cn/v1 \
+  --model kimi-k3 \
+  --api-key-env MODEL_DETECT_OFFICIAL_KEY \
+  --provider official \
+  --quality-baseline \
+  --baseline-runs 3 \
+  --fingerprint
+```
+
+随后检测供应商时选择这份 Reference。质量对比只在模型、Profile 和 Baseline Suite 一致时生效。
+
+注意：
+
+- QUALITY_REGRESSION 表示黑盒能力/行为相对可信基准明显下降；
+- 它不能单独证明具体是 INT4、FP8、AWQ、GPTQ、蒸馏、低 reasoning 档位、GPU 或 Serving Engine 导致；
+- 真实官方 Baseline 必须使用你持有的官方 API 凭据实际采集，本仓库不会内置或伪造官方实测结果。
