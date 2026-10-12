@@ -35,6 +35,7 @@ class WebAuditRequest(BaseModel):
     declared_context_tokens: int | None = None
     proxy_sleuth: bool = True
     coding_sandbox: bool = False
+    benchmark_profile: str | None = None
     regression_suites: list[str] = Field(default_factory=list)
     disallowed_upstreams: list[str] = Field(default_factory=list)
 
@@ -48,8 +49,17 @@ class WebReferenceRequest(BaseModel):
     fingerprint: bool = True
     quality_baseline: bool = True
     baseline_runs: int = Field(default=3, ge=1, le=5)
+    benchmark_profile: str | None = None
     overwrite: bool = False
 
+
+
+def _validated_benchmark_profile(value: str | None) -> str | None:
+    if value is None or value == "":
+        return None
+    if value not in {"smoke", "standard", "deep"}:
+        raise ValueError("Benchmark 档位只能是 smoke、standard、deep")
+    return value
 
 
 def _list_regression_suites(root: Path) -> list[str]:
@@ -241,6 +251,10 @@ def create_app(
         if payload.profile not in {"quick", "standard", "deep"}:
             raise HTTPException(400, "检测档位只能是 quick、standard 或 deep")
         try:
+            _validated_benchmark_profile(payload.benchmark_profile)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        try:
             regression_paths = _resolve_regression_suites(
                 app.state.regression_dir,
                 payload.regression_suites,
@@ -257,6 +271,7 @@ def create_app(
             meta={
                 "reference_id": payload.reference_id,
                 "coding_sandbox": payload.coding_sandbox,
+                "benchmark_profile": payload.benchmark_profile,
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": (
                     "queued" if payload.regression_suites else "not_configured"
@@ -276,6 +291,12 @@ def create_app(
 
     @app.post("/api/references")
     async def create_reference_job(payload: WebReferenceRequest):
+        try:
+            _validated_benchmark_profile(payload.benchmark_profile)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        if payload.benchmark_profile and not payload.quality_baseline:
+            raise HTTPException(400, "Benchmark 需要同时开启质量 Baseline")
         if registry.exists(payload.id) and not payload.overwrite:
             raise HTTPException(409, "Reference 已存在；如需替换请启用覆盖")
         job_id = "ref_" + uuid.uuid4().hex[:12]
@@ -411,6 +432,7 @@ def _progress_label(name: str) -> str:
         "fingerprint-reference": "正在对比统计指纹",
         "proxy-sleuth": "正在运行开源增强检测",
         "regression-suite": "正在运行回归规则",
+        "strong-benchmark": "正在运行标准能力 Benchmark",
     }.get(name, "正在检测")
 
 
@@ -426,6 +448,7 @@ def _progress_value(name: str, current: int, total: int) -> float:
         "fingerprint-reference": 0.89,
         "proxy-sleuth": 0.94,
         "regression-suite": 0.97,
+        "strong-benchmark": 0.82,
     }
     return phase.get(name, 0.5)
 
@@ -454,6 +477,7 @@ async def _run_audit_job(
             declared_context_tokens=payload.declared_context_tokens,
             proxy_sleuth_enabled=payload.proxy_sleuth,
             coding_sandbox_enabled=payload.coding_sandbox,
+            benchmark_profile=payload.benchmark_profile,
             regression=RegressionAuditConfig(
                 suites=list(regression_paths or []),
             ),
@@ -588,6 +612,7 @@ async def _run_reference_job(
                 runs=payload.baseline_runs,
                 profile="standard",
                 coding_sandbox_enabled=False,
+                benchmark_profile=payload.benchmark_profile,
                 progress=baseline_progress,
             )
             report = reports[0]
@@ -664,6 +689,7 @@ async def _run_reference_job(
                 "reference_id": manifest.id,
                 "baseline_runs": manifest.baseline_runs,
                 "baseline_suite_version": manifest.baseline_suite_version,
+                "benchmark_profile": payload.benchmark_profile,
                 "fingerprint": bool(manifest.fingerprint_reference),
             },
         )
