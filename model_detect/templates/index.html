@@ -101,6 +101,16 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         </select>
         <div class="field-help">{% if regression_suites %}用于复测已知协议/参数问题，不等同于模型身份验证。{% else %}当前 regression 目录没有配置规则。{% endif %}</div>
       </div>
+      <div class="wide">
+        <label>标准能力 Benchmark（可选，仅有同档 Benchmark Reference 才可比较）</label>
+        <select id="benchmark_profile">
+          <option value="">不开启（默认；不额外消耗 Benchmark Token）</option>
+          <option value="smoke">Smoke：1 类 × 最多 5 题</option>
+          <option value="standard">Standard：3 类 × 最多 25 题</option>
+          <option value="deep">Deep：3 类 × 最多 100 题</option>
+        </select>
+        <div class="field-help">必须与官方 Reference 的 Benchmark 档位相同，且本机安装 lm-eval。不同题集/版本会判“不可比”。</div>
+      </div>
       <div>
         <label>开源增强检测</label>
         <div class="row"><input id="proxy" type="checkbox" checked style="width:auto"><span>运行 proxy-sleuth（如果已安装）</span></div>
@@ -232,6 +242,7 @@ q('run').onclick=async()=>{
     profile:q('profile').value,reference_id:q('reference_id').value||null,
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
     proxy_sleuth:q('proxy').checked,coding_sandbox:q('coding_sandbox').checked,
+    benchmark_profile:q('benchmark_profile').value||null,
     regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
     disallowed_upstreams:Array.from(q('disallowed_upstreams').selectedOptions).map(o=>o.value)
   };
