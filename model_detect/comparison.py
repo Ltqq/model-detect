@@ -33,7 +33,8 @@ class QualityDimensionComparison(BaseModel):
     lower_bound: float | None = None
     task_granularity: float | None = None
     statistically_evaluable: bool = False
-    verdict: Literal["match", "regression", "informational"]
+    contract_valid: bool = False
+    verdict: Literal["match", "regression", "informational", "incomparable"]
     explanation: str
 
 
@@ -46,6 +47,7 @@ class QualityComparison(BaseModel):
     comparable_dimensions: int = 0
     statistically_evaluable_dimensions: int = 0
     regression_dimensions: list[str] = Field(default_factory=list)
+    incomparable_dimensions: list[str] = Field(default_factory=list)
     dimensions: dict[str, QualityDimensionComparison] = Field(
         default_factory=dict
     )
@@ -61,6 +63,13 @@ def _target_scores(report: AuditReport) -> dict[str, float]:
         if result is None or result.score is None:
             continue
         out[dimension] = float(result.score)
+    for result in report.results:
+        if (
+            result.score is not None
+            and result.metadata.get("engine") == "lm-evaluation-harness"
+            and result.metadata.get("task")
+        ):
+            out[f"benchmark:{result.metadata['task']}"] = float(result.score)
     return out
 
 
@@ -131,22 +140,42 @@ def compare_report_to_baseline(
         )
         return comparison, [_summary_result(comparison)]
 
+    from .comparison_contract import build_dimension_contracts
     target_scores = _target_scores(report)
+    target_contracts = build_dimension_contracts(report)
     dimensions: dict[str, QualityDimensionComparison] = {}
     results: list[ProbeResult] = []
     regression_dimensions: list[str] = []
+    incomparable_dimensions: list[str] = []
     statistically_evaluable = 0
 
     for dimension, baseline_metric in baseline.dimensions.items():
         target = target_scores.get(dimension)
         mean = baseline_metric.mean
         if target is None or mean is None:
+            incomparable_dimensions.append(dimension)
+            warnings.append(f"{dimension}: missing target or reference score")
             continue
+
+        reference_contract = baseline.dimension_contracts.get(dimension)
+        target_contract = target_contracts.get(dimension)
+        contract_valid = bool(
+            reference_contract
+            and target_contract
+            and reference_contract == target_contract
+            and dimension not in baseline.incompatible_dimensions
+        )
+        if not contract_valid:
+            incomparable_dimensions.append(dimension)
+            warnings.append(
+                f"{dimension}: missing or different comparison contract; "
+                "recollect reference / use identical inputs and benchmark settings"
+            )
 
         delta = target - mean
         retention = target / mean if mean > 0 else None
         granularity = _task_granularity(baseline_metric.task_total)
-        can_evaluate = baseline_metric.run_count >= 3
+        can_evaluate = contract_valid and baseline_metric.run_count >= 3
         tolerance = None
         lower_bound = None
 
@@ -177,6 +206,13 @@ def compare_report_to_baseline(
                     f"range (lower bound {lower_bound:.3f})"
                 )
             )
+        elif not contract_valid:
+            verdict = "incomparable"
+            explanation = (
+                "reference and target used different/unknown inputs, tasks, "
+                "sampling parameters, or benchmark versions; quality comparison "
+                "is not valid"
+            )
         else:
             verdict = "informational"
             explanation = (
@@ -200,6 +236,7 @@ def compare_report_to_baseline(
             lower_bound=lower_bound,
             task_granularity=granularity,
             statistically_evaluable=can_evaluate,
+            contract_valid=contract_valid,
             verdict=verdict,
             explanation=explanation,
         )
@@ -219,6 +256,8 @@ def compare_report_to_baseline(
         )
     elif regression_dimensions:
         verdict = "quality_regression"
+    elif incomparable_dimensions:
+        verdict = "baseline_insufficient"
     else:
         verdict = "baseline_match"
 
@@ -230,6 +269,7 @@ def compare_report_to_baseline(
         comparable_dimensions=len(dimensions),
         statistically_evaluable_dimensions=statistically_evaluable,
         regression_dimensions=regression_dimensions,
+        incomparable_dimensions=incomparable_dimensions,
         dimensions=dimensions,
         warnings=warnings,
         metadata={
@@ -253,13 +293,14 @@ def _dimension_result(item: QualityDimensionComparison) -> ProbeResult:
         "match": ProbeStatus.PASS,
         "regression": ProbeStatus.FAIL,
         "informational": ProbeStatus.INSUFFICIENT,
+        "incomparable": ProbeStatus.INSUFFICIENT,
     }[item.verdict]
     return ProbeResult(
         probe_id=f"quality.baseline.{item.dimension}",
         category="quality",
         status=status,
-        score=item.target_score,
-        confidence=0.9 if item.statistically_evaluable else 0.45,
+        score=item.target_score if item.contract_valid else None,
+        confidence=0.9 if item.statistically_evaluable else 0.0,
         summary=item.explanation,
         expected={
             "baseline_mean": item.baseline_mean,
@@ -276,6 +317,7 @@ def _dimension_result(item: QualityDimensionComparison) -> ProbeResult:
             "quality_regression": item.verdict == "regression",
             "statistically_evaluable": item.statistically_evaluable,
             "dimension": item.dimension,
+            "contract_valid": item.contract_valid,
             "threshold_method": "trusted-baseline-variation",
         },
     )
@@ -316,6 +358,7 @@ def _summary_result(comparison: QualityComparison) -> ProbeResult:
         metadata={
             "quality_verdict": comparison.verdict,
             "regression_dimensions": list(comparison.regression_dimensions),
+            "incomparable_dimensions": list(comparison.incomparable_dimensions),
             "identity_strength": "none",
             "quantization_format_proof": False,
         },
