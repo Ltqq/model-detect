@@ -383,6 +383,11 @@ async def run_audit(
                     include_native_overlap=True,
                     num_concurrent=1,
                 )
+            # Raw benchmark scores are descriptive quality evidence, not
+            # identity/capability audit scores. Keep them outside weighted
+            # admission scoring until a valid official comparison is made.
+            for item in bench_results:
+                item.category = "benchmark"
             report.results.extend(bench_results)
             report.adapters["lm_eval_benchmark"] = {
                 "status": "completed",
