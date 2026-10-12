@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -448,11 +449,23 @@ def parse_result_payload(
 
     versions = data.get("versions") if isinstance(data.get("versions"), dict) else {}
     sample_counts = data.get("n-samples") if isinstance(data.get("n-samples"), dict) else {}
+    task_configs = data.get("configs") if isinstance(data.get("configs"), dict) else {}
     out: list[ProbeResult] = []
     for task, raw_metrics in raw_results.items():
         if not isinstance(raw_metrics, dict):
             continue
         metrics = _numeric_metrics(raw_metrics)
+        task_config = task_configs.get(task)
+        task_config_hash = (
+            hashlib.sha256(
+                json.dumps(
+                    task_config, ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"), default=str
+                ).encode("utf-8")
+            ).hexdigest()
+            if isinstance(task_config, dict)
+            else None
+        )
         count_info = sample_counts.get(task)
         effective_samples = (
             count_info.get("effective")
@@ -492,6 +505,7 @@ def parse_result_payload(
                     "metrics": metrics,
                     "version": versions.get(task),
                     "effective_samples": effective_samples,
+                    "task_config_hash": task_config_hash,
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",
@@ -499,6 +513,7 @@ def parse_result_payload(
                     "primary_metric": metric_name,
                     "benchmark_score_only": True,
                     "benchmark_effective_samples": effective_samples,
+                    "benchmark_task_config_sha256": task_config_hash,
                     "threshold_interpretation": False,
                     "source_path": source_path,
                 },
