@@ -50,8 +50,20 @@ def _native_contract(report: AuditReport, result: ProbeResult) -> dict[str, Any]
 
     scenarios = result.observed.get("scenarios") if isinstance(result.observed, dict) else None
     tasks = result.observed.get("tasks") if isinstance(result.observed, dict) else None
+    # Derived summaries may depend on optional OSS/fingerprint components.
+    # The same prompts alone do not mean the summary scores are comparable.
+    contributors = (
+        sorted(
+            r.probe_id
+            for r in report.results
+            if r.category == "routing" and r.probe_id != "routing.summary"
+        )
+        if result.probe_id == "routing.summary" else
+        sorted(str(item) for item in result.metadata.get("derived_from", []))
+    )
     manifest = {
         "probe_id": result.probe_id,
+        "contributors": contributors,
         "scenario_ids": (
             [item.get("probe_id") for item in scenarios if isinstance(item, dict)]
             if isinstance(scenarios, list) else []
@@ -88,6 +100,8 @@ def _benchmark_contract(result: ProbeResult) -> dict[str, Any] | None:
         meta.get("benchmark_task_metadata"),
     )
     if any(value is None for value in required):
+        return None
+    if meta.get("benchmark_harness_version") == "unknown":
         return None
     manifest = {
         "task": meta.get("task"),
