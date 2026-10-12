@@ -111,3 +111,19 @@ def test_disallowed_upstream_policy_violation_fails_admission():
 
     assert summary.hard_cap == 40.0
     assert summary.final_verdict == "fail"
+
+
+
+def test_benchmark_scores_do_not_change_authenticity_admission_score():
+    native = [
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("identity.fp", "identity", 0.9, identity_strength="strong"),
+        r("capability.reasoning", "capability", 0.4),
+    ]
+    original = build_summary(native)
+    with_benchmark = build_summary([
+        *native,
+        r("capability.external.lm_eval.gsm8k", "benchmark", 1.0),
+    ])
+    assert with_benchmark.overall_score == original.overall_score
+    assert with_benchmark.final_verdict == original.final_verdict
