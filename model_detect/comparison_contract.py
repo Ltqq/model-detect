@@ -98,6 +98,7 @@ def _benchmark_contract(result: ProbeResult) -> dict[str, Any] | None:
         obs.get("version"),
         meta.get("primary_metric"),
         meta.get("benchmark_task_metadata"),
+        obs.get("effective_samples"),
     )
     if any(value is None for value in required):
         return None
@@ -110,6 +111,7 @@ def _benchmark_contract(result: ProbeResult) -> dict[str, Any] | None:
         "harness_version": meta["benchmark_harness_version"],
         "dataset_version": obs["version"],
         "primary_metric": meta["primary_metric"],
+        "effective_samples": obs["effective_samples"],
         "task_metadata": meta["benchmark_task_metadata"],
         "model_type": meta.get("benchmark_model_type"),
         "apply_chat_template": meta.get("benchmark_apply_chat_template"),
@@ -121,7 +123,7 @@ def _benchmark_contract(result: ProbeResult) -> dict[str, Any] | None:
         "kind": "benchmark",
         "sha256": _digest(manifest),
         "request_count": 0,
-        "task_count": int(meta["benchmark_limit"]),
+        "task_count": int(obs["effective_samples"]),
     }
 
 
