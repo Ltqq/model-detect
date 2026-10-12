@@ -90,6 +90,9 @@ def _task_counts(result: ProbeResult) -> tuple[int | None, int | None]:
             )
             return passed, total
 
+    actual_samples = observed.get("effective_samples")
+    if isinstance(actual_samples, int) and actual_samples > 0:
+        return None, actual_samples
     benchmark_limit = result.metadata.get("benchmark_limit")
     if isinstance(benchmark_limit, int) and benchmark_limit > 0:
         return None, benchmark_limit
