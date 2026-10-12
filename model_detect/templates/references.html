@@ -37,6 +37,16 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" checked style="width:auto">同时采集 Statistical Fingerprint（推荐，需要 Node/npm）</label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" checked style="width:auto">同时采集质量 Baseline（推荐，用完全相同的检测套件做官方 vs 供应商对比）</label>
     <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">推荐 3 次；3 次及以上才开始估计基准自身波动。</div></div>
+    <div style="margin:10px 0;max-width:500px">
+      <label>标准能力 Benchmark（可选，默认不运行）</label>
+      <select id="benchmark_profile" style="width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <option value="">不开启：仅采轻量能力</option>
+        <option value="smoke">Smoke：1 类 × 最多 5 题/次</option>
+        <option value="standard">Standard：3 类 × 最多 25 题/次</option>
+        <option value="deep">Deep：3 类 × 最多 100 题/次</option>
+      </select>
+      <div class="muted">需要安装 EleutherAI lm-evaluation-harness；按 Baseline 重复次数执行，调用可能产生费用。建议先 Smoke 小样本验证。</div>
+    </div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="overwrite" type="checkbox" style="width:auto">如果同名 Reference 已存在则覆盖</label>
   </div>
   <button id="collect">开始采集</button> <span id="msg" class="muted"></span>
@@ -79,6 +89,7 @@ q('collect').onclick=async()=>{
    fingerprint:q('fp').checked,
    quality_baseline:q('quality').checked,
    baseline_runs:Number(q('baseline_runs').value||3),
+   benchmark_profile:q('benchmark_profile').value||null,
    overwrite:q('overwrite').checked
  };
  if(!body.id||!body.base_url||!body.model||!body.api_key){q('msg').textContent='请把 Reference ID、Base URL、模型和 API Key 填完整';return}
