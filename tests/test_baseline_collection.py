@@ -95,3 +95,59 @@ def test_collect_quality_baseline_limits_repeat_count():
         assert "capped at 5" in str(exc)
     else:
         raise AssertionError("expected baseline run cap validation")
+
+
+
+def test_collection_requires_successful_benchmark_when_requested(monkeypatch):
+    async def broken_benchmark(config, **kwargs):
+        report = make_report(config.target.model, 1.0)
+        report.adapters["lm_eval_benchmark"] = {
+            "status": "error", "reason": "lm_eval missing"
+        }
+        return report
+
+    monkeypatch.setattr(
+        "model_detect.baseline_collection.run_audit", broken_benchmark
+    )
+    import pytest
+
+    with pytest.raises(RuntimeError, match="Strong Benchmark failed"):
+        asyncio.run(
+            collect_quality_baseline(
+                target=AuditTarget(
+                    base_url="https://example.test/v1", model="kimi-k3"
+                ),
+                api_key="secret",
+                runs=3,
+                benchmark_profile="smoke",
+            )
+        )
+
+
+def test_collection_passes_benchmark_profile_to_each_run(monkeypatch):
+    seen = []
+
+    async def completed_benchmark(config, **kwargs):
+        seen.append(config.benchmark_profile)
+        report = make_report(config.target.model, 1.0)
+        report.adapters["lm_eval_benchmark"] = {
+            "status": "completed", "scored_tasks": 1
+        }
+        return report
+
+    monkeypatch.setattr(
+        "model_detect.baseline_collection.run_audit", completed_benchmark
+    )
+    _, baseline = asyncio.run(
+        collect_quality_baseline(
+            target=AuditTarget(
+                base_url="https://example.test/v1", model="kimi-k3"
+            ),
+            api_key="secret",
+            runs=3,
+            benchmark_profile="smoke",
+        )
+    )
+
+    assert seen == ["smoke"] * 3
+    assert baseline.metadata["benchmark_profile"] == "smoke"
