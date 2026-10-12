@@ -41,6 +41,7 @@ def benchmark_report(
     benchmark_profile="standard",
     task="gsm8k",
     metric="exact_match,flexible-extract",
+    effective_samples=25,
 ):
     return AuditReport(
         target={"base_url": "https://supplier.example/v1", "model": "kimi-k3"},
@@ -50,7 +51,10 @@ def benchmark_report(
                 probe_id=f"capability.external.lm_eval.{task}",
                 category="capability", status=ProbeStatus.PASS,
                 score=0.86, summary="benchmark score",
-                observed={"version": dataset_version, "task": task},
+                observed={
+                    "version": dataset_version, "task": task,
+                    "effective_samples": effective_samples,
+                },
                 metadata={
                     "engine": "lm-evaluation-harness", "task": task,
                     "benchmark_profile": benchmark_profile,
@@ -99,6 +103,7 @@ def test_benchmark_contract_includes_harness_dataset_metric_and_limit():
         benchmark_report(limit=100),
         benchmark_report(benchmark_profile="deep"),
         benchmark_report(metric="exact_match,strict-match"),
+        benchmark_report(effective_samples=20),
     ]
     for report in changes:
         current = build_dimension_contracts(report)["benchmark:gsm8k"]
@@ -121,4 +126,10 @@ def test_same_benchmark_profile_can_compare_and_mismatch_is_blocked():
 
 def test_unknown_benchmark_provenance_is_not_comparable():
     report = benchmark_report(dataset_version=None)
+    assert "benchmark:gsm8k" not in build_dimension_contracts(report)
+
+
+
+def test_benchmark_missing_actual_samples_is_unverified():
+    report = benchmark_report(effective_samples=None)
     assert "benchmark:gsm8k" not in build_dimension_contracts(report)
