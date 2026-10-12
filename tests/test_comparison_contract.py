@@ -42,6 +42,7 @@ def benchmark_report(
     task="gsm8k",
     metric="exact_match,flexible-extract",
     effective_samples=25,
+    task_config_hash="abc123",
 ):
     return AuditReport(
         target={"base_url": "https://supplier.example/v1", "model": "kimi-k3"},
@@ -54,6 +55,7 @@ def benchmark_report(
                 observed={
                     "version": dataset_version, "task": task,
                     "effective_samples": effective_samples,
+                    "task_config_hash": task_config_hash,
                 },
                 metadata={
                     "engine": "lm-evaluation-harness", "task": task,
@@ -104,6 +106,7 @@ def test_benchmark_contract_includes_harness_dataset_metric_and_limit():
         benchmark_report(benchmark_profile="deep"),
         benchmark_report(metric="exact_match,strict-match"),
         benchmark_report(effective_samples=20),
+        benchmark_report(task_config_hash="different-template"),
     ]
     for report in changes:
         current = build_dimension_contracts(report)["benchmark:gsm8k"]
