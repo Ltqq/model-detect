@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from importlib.metadata import PackageNotFoundError, version
 import subprocess
 
 import yaml
@@ -563,12 +564,26 @@ def run_builtin_profile_results(
     result_path = discover_result_file(output_path)
     results = parse_result_file(result_path)
     task_meta = profile.get("task_metadata") or {}
+    try:
+        harness_version = version("lm-eval")
+    except PackageNotFoundError:
+        harness_version = "unknown"
     for result in results:
         task = str(result.metadata.get("task") or "")
         result.metadata["benchmark_profile"] = profile_name
         result.metadata["benchmark_suite"] = "lm-evaluation-harness"
         result.metadata["benchmark_limit"] = profile.get("limit")
         result.metadata["benchmark_task_metadata"] = task_meta.get(task) or {}
+        result.metadata["benchmark_harness_version"] = harness_version
+        result.metadata["benchmark_model_type"] = "local-chat-completions"
+        result.metadata["benchmark_apply_chat_template"] = True
+        result.metadata["benchmark_num_fewshot"] = "task-default"
+        result.metadata["benchmark_run_config"] = {
+            "num_concurrent": num_concurrent,
+            "max_retries": max_retries,
+            "tokenized_requests": False,
+            "task_profile_version": load_builtin_profiles()["version"],
+        }
     return results, {
         **meta,
         "result_file": str(result_path),
