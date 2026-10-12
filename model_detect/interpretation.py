@@ -39,6 +39,7 @@ CATEGORY_ZH = {
     "capability": "能力抽检",
     "provider": "上游 / 网关",
     "quality": "官方基准差异",
+    "benchmark": "标准能力评测",
     "target": "目标地址",
     "internal": "检测器内部",
 }
@@ -179,6 +180,11 @@ def _result_action(result: ProbeResult) -> str | None:
 
 
 def result_explanation(result: ProbeResult) -> str:
+    if result.probe_id.startswith("capability.external.lm_eval."):
+        return (
+            "标准 Benchmark 已采集分数；本项“通过”仅表示评测数据有效，"
+            "不能证明达到官方模型水平。需要相同配置的 Reference 才能比较质量。"
+        )
     status = result.status
     title = probe_title(result.probe_id)
     if status == ProbeStatus.PASS:
