@@ -447,11 +447,20 @@ def parse_result_payload(
         raise ValueError("lm-eval result JSON is missing the results object")
 
     versions = data.get("versions") if isinstance(data.get("versions"), dict) else {}
+    sample_counts = data.get("n-samples") if isinstance(data.get("n-samples"), dict) else {}
     out: list[ProbeResult] = []
     for task, raw_metrics in raw_results.items():
         if not isinstance(raw_metrics, dict):
             continue
         metrics = _numeric_metrics(raw_metrics)
+        count_info = sample_counts.get(task)
+        effective_samples = (
+            count_info.get("effective")
+            if isinstance(count_info, dict)
+            else None
+        )
+        if not isinstance(effective_samples, int) or effective_samples < 1:
+            effective_samples = None
         metric_name, metric_value = _select_primary_metric(str(task), metrics)
 
         score = None
@@ -482,12 +491,14 @@ def parse_result_payload(
                     "primary_value": metric_value,
                     "metrics": metrics,
                     "version": versions.get(task),
+                    "effective_samples": effective_samples,
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",
                     "task": task,
                     "primary_metric": metric_name,
                     "benchmark_score_only": True,
+                    "benchmark_effective_samples": effective_samples,
                     "threshold_interpretation": False,
                     "source_path": source_path,
                 },
