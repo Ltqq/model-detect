@@ -243,6 +243,17 @@ def compare_report_to_baseline(
         dimensions[dimension] = item
         results.append(_dimension_result(item))
 
+    # A vendor-only benchmark is also not an official comparison.
+    for dimension in target_scores:
+        if (
+            dimension.startswith("benchmark:")
+            and dimension not in baseline.dimensions
+        ):
+            incomparable_dimensions.append(dimension)
+            warnings.append(
+                f"{dimension}: trusted reference did not run this benchmark"
+            )
+
     if not dimensions:
         verdict: QualityVerdict = "baseline_insufficient"
         warnings.append(
