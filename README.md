@@ -150,3 +150,45 @@ model-detect reference collect \
 - QUALITY_REGRESSION 表示黑盒能力/行为相对可信基准明显下降；
 - 它不能单独证明具体是 INT4、FP8、AWQ、GPTQ、蒸馏、低 reasoning 档位、GPU 或 Serving Engine 导致；
 - 真实官方 Baseline 必须使用你持有的官方 API 凭据实际采集，本仓库不会内置或伪造官方实测结果。
+
+## 对比有效性保护与标准 Benchmark（P0/P1）
+
+从本版本开始，Official Baseline 与供应商分数比较会核对实际 Probe 请求题目和参数的 SHA-256 指纹。
+如果题目、temperature/reasoning、max_tokens、场景集合、请求数量等不一致，
+或 Reference 是缺少契约的旧版本，相关维度会标为 **不可比 / BASELINE_INSUFFICIENT**，不会误报通过。
+旧 Reference 可读取，但如需有效质量对比，必须重新采集。
+
+`lm-evaluation-harness` 已能以可选 Strong Benchmark 参与官方 Reference 和供应商检测，
+默认 **关闭**，必须主动指定：
+
+```bash
+# 官方基准：Standard（原生审计）× 3 + Smoke Benchmark（每轮最多 5 题）
+model-detect reference collect \
+  --id kimi-k3-official-bench \
+  --base-url https://your-official-api.example/v1 \
+  --model kimi-k3 \
+  --api-key-env KIMI_OFFICIAL_API_KEY \
+  --quality-baseline --baseline-runs 3 \
+  --benchmark-profile smoke
+
+# 供应商：必须选择相同 Reference 与 benchmark_profile
+model-detect audit \
+  --base-url https://your-vendor-api.example/v1 \
+  --model kimi-k3 \
+  --api-key-env SUPPLIER_API_KEY \
+  --profile standard \
+  --reference-id kimi-k3-official-bench \
+  --benchmark-profile smoke
+```
+
+内置 Benchmark 档位：`smoke` 1 类 × 5 题；
+`standard` 3 类 × 25 题；`deep` 3 类 × 100 题，实际题数以 lm-eval 输出为准。
+Reference 每重复一轮都会重复执行 Benchmark，因此有额外 Token 开销。
+需要本机预先安装 `lm-evaluation-harness` 并可运行 `lm_eval`。
+
+报告将记录官方均值、供应商分数、能力保持率、对比契约及不可比原因。
+Benchmark 契约核对任务配置哈希、实际样本数、任务版本、评测框架版本、
+评分指标、Profile 与参数；仍不能在无法确认数据集不可变修订版本时宣称完整可复现实验。
+`3 次 + 2×stddev` 仍是待真实渠道校准的启发式阈值，并非正式的统计显著性检验。
+
+完整计划： [下一阶段实施计划](docs/design/14-comparison-integrity-and-strong-benchmark-plan.md)。

@@ -60,3 +60,28 @@ def test_parse_result_file_tracks_artifact_path(tmp_path):
 def test_parse_result_payload_requires_results_object():
     with pytest.raises(ValueError):
         parse_result_payload({"config": {}})
+
+
+
+def test_lm_eval_result_tracks_task_config_hash_and_effective_count():
+    payload = {
+        "results": {
+            "gsm8k": {"exact_match,flexible-extract": 0.81}
+        },
+        "versions": {"gsm8k": 3},
+        "configs": {
+            "gsm8k": {
+                "dataset_path": "gsm8k",
+                "output_type": "generate_until",
+                "fewshot_config": {"sampler": "default"},
+            }
+        },
+        "n-samples": {"gsm8k": {"original": 1319, "effective": 25}},
+    }
+    row = parse_result_payload(payload)[0]
+    assert row.observed["effective_samples"] == 25
+    assert row.metadata["benchmark_effective_samples"] == 25
+    assert len(row.observed["task_config_hash"]) == 64
+    payload["configs"]["gsm8k"]["output_type"] = "multiple_choice"
+    changed = parse_result_payload(payload)[0]
+    assert changed.observed["task_config_hash"] != row.observed["task_config_hash"]

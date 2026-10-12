@@ -84,6 +84,10 @@ def collect_reference(
         "--baseline-runs",
         help="Number of repeated quality baseline runs (1-5).",
     ),
+    benchmark_profile: Optional[str] = typer.Option(
+        None, "--benchmark-profile",
+        help="Optional lm-eval benchmark: smoke/standard/deep, repeated for each run.",
+    ),
 ) -> None:
     target = AuditTarget(
         base_url=base_url,
@@ -92,6 +96,20 @@ def collect_reference(
         protocol="openai",
     )
     api_key = get_api_key(target)
+    if benchmark_profile and not quality_baseline:
+        raise typer.BadParameter(
+            "--benchmark-profile requires --quality-baseline"
+        )
+    if benchmark_profile:
+        from .adapters.lm_eval import resolve_builtin_profile
+        plan = resolve_builtin_profile(
+            benchmark_profile, include_native_overlap=True
+        )
+        console.print(
+            f"[yellow]Benchmark: {len(plan['tasks'])} tasks × "
+            f"up to {plan['limit']} items × {baseline_runs} runs; "
+            "API usage will be billed by provider.[/yellow]"
+        )
     baseline = None
     if quality_baseline:
         if not 1 <= baseline_runs <= 5:
@@ -112,6 +130,7 @@ def collect_reference(
                 api_key=api_key,
                 runs=baseline_runs,
                 profile="standard",
+                benchmark_profile=benchmark_profile,
                 progress=baseline_progress,
             )
         )

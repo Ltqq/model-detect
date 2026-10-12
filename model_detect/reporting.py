@@ -242,6 +242,7 @@ def _quality_section(quality: dict) -> str:
         "match": ("基准范围内", "ok"),
         "regression": ("明显退化", "bad"),
         "informational": ("仅供参考", "dim"),
+        "incomparable": ("条件不一致·不可比", "warn"),
     }
     for item in quality.get("dimensions") or []:
         if not isinstance(item, dict):
@@ -273,6 +274,13 @@ def _quality_section(quality: dict) -> str:
             "</tr>"
         )
 
+    incomparable = list(quality.get("incomparable_dimensions") or [])
+    incompatible_notice = (
+        '<div class="notice">不可比维度：'
+        + html.escape("、".join(incomparable))
+        + "。这些维度没有用于判定质量正常或退化。</div>"
+        if incomparable else ""
+    )
     rows_html = "".join(rows)
     if not rows_html:
         rows_html = (
@@ -292,6 +300,7 @@ def _quality_section(quality: dict) -> str:
     <span class="pill {state_class}">{html.escape(str(quality.get('label') or ''))}</span>
   </div>
   <p class="lead">{html.escape(str(quality.get('text') or ''))}</p>
+  {incompatible_notice}
   <div class="notice">
     这里比较的是 model-detect 用同一套 Suite 对官方 / 可信端点和当前渠道的实际测量。
     “质量退化”不能单独证明具体量化格式、蒸馏方式、GPU 或 Serving Engine。

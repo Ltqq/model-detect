@@ -56,6 +56,8 @@ class OfficialBaseline(BaseModel):
     dimensions: dict[str, BaselineMetric] = Field(default_factory=dict)
     category_scores: dict[str, BaselineMetric] = Field(default_factory=dict)
     probe_scores: dict[str, BaselineMetric] = Field(default_factory=dict)
+    dimension_contracts: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    incompatible_dimensions: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -88,6 +90,9 @@ def _task_counts(result: ProbeResult) -> tuple[int | None, int | None]:
             )
             return passed, total
 
+    actual_samples = observed.get("effective_samples")
+    if isinstance(actual_samples, int) and actual_samples > 0:
+        return None, actual_samples
     benchmark_limit = result.metadata.get("benchmark_limit")
     if isinstance(benchmark_limit, int) and benchmark_limit > 0:
         return None, benchmark_limit
@@ -207,6 +212,23 @@ def aggregate_baseline_reports(
         if values
     }
 
+    # Only stable, evidence-backed contracts can authorize a comparison.
+    # Incomplete synthetic/legacy reports may still be summarized but never
+    # silently become trustworthy reference baselines.
+    from .comparison_contract import build_dimension_contracts
+    run_contracts = [build_dimension_contracts(report) for report in reports]
+    contracts: dict[str, dict[str, Any]] = {}
+    incompatible: list[str] = []
+    for dimension in dimensions:
+        candidates = [run.get(dimension) for run in run_contracts]
+        if all(
+            candidate is not None and candidate == candidates[0]
+            for candidate in candidates
+        ):
+            contracts[dimension] = candidates[0]
+        else:
+            incompatible.append(dimension)
+
     return OfficialBaseline(
         suite_version=suite_version,
         model=model,
@@ -217,6 +239,8 @@ def aggregate_baseline_reports(
         dimensions=dimensions,
         category_scores=categories,
         probe_scores=probes,
+        dimension_contracts=contracts,
+        incompatible_dimensions=incompatible,
         metadata={
             "same_suite_required_for_comparison": True,
             "performance_metrics_included": False,

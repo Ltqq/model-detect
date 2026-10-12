@@ -4,9 +4,10 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 import uuid
+import tempfile
 from typing import Callable
 
-from .adapters import fingerprint, proxy_sleuth
+from .adapters import fingerprint, lm_eval, proxy_sleuth
 from .comparison import compare_report_to_baseline
 from .config import AuditConfig, get_api_key
 from .http_client import AuditHttpClient
@@ -364,6 +365,56 @@ async def run_audit(
                     else "coding_sandbox_enabled=false"
                 ),
             }
+
+    # Strong Benchmark is expensive and must be explicitly requested.
+    # Its scores are independent of the lightweight audit score.
+    if config.benchmark_profile:
+        if progress:
+            progress("strong-benchmark", 1, 1)
+        try:
+            with tempfile.TemporaryDirectory(prefix="model-detect-lm-eval-") as work:
+                bench_results, bench_meta = await asyncio.to_thread(
+                    lm_eval.run_builtin_profile_results,
+                    profile_name=config.benchmark_profile,
+                    base_url=config.target.base_url,
+                    model=config.target.model,
+                    api_key=api_key,
+                    output_path=Path(work),
+                    include_native_overlap=True,
+                    num_concurrent=1,
+                )
+            # Raw benchmark scores are descriptive quality evidence, not
+            # identity/capability audit scores. Keep them outside weighted
+            # admission scoring until a valid official comparison is made.
+            for item in bench_results:
+                item.category = "benchmark"
+            report.results.extend(bench_results)
+            report.adapters["lm_eval_benchmark"] = {
+                "status": "completed",
+                "profile": config.benchmark_profile,
+                "tasks": bench_meta.get("tasks") or [],
+                "limit": bench_meta.get("limit"),
+                "harness": "EleutherAI/lm-evaluation-harness",
+                "scored_tasks": sum(r.score is not None for r in bench_results),
+            }
+        except Exception as exc:
+            report.results.append(
+                ProbeResult(
+                    probe_id="internal.lm_eval_benchmark",
+                    category="internal",
+                    status=ProbeStatus.ERROR,
+                    score=None,
+                    confidence=1.0,
+                    summary=f"strong benchmark unavailable: {type(exc).__name__}: {exc}",
+                )
+            )
+            report.adapters["lm_eval_benchmark"] = {
+                "status": "error",
+                "profile": config.benchmark_profile,
+                "reason": f"{type(exc).__name__}: {exc}",
+            }
+    else:
+        report.adapters["lm_eval_benchmark"] = {"status": "disabled"}
 
     # Provider inference uses all native raw responses.
     report.provider_hypotheses = detect_provider_hypotheses(report.evidences)

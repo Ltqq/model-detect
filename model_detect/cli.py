@@ -55,6 +55,10 @@ def audit(
             "Regression YAML suite to run; repeat this option to add multiple suites."
         ),
     ),
+    benchmark_profile: Optional[str] = typer.Option(
+        None, "--benchmark-profile",
+        help="Opt-in lm-eval profile: smoke (5), standard (25), deep (100 items/task).",
+    ),
     disallow_upstream: list[str] = typer.Option(
         [],
         "--disallow-upstream",
@@ -87,6 +91,8 @@ def audit(
             cfg.regression.suites = list(
                 dict.fromkeys(cfg.regression.suites)
             )
+        if benchmark_profile is not None:
+            cfg.benchmark_profile = benchmark_profile
         if disallow_upstream:
             cfg.upstream_policy = UpstreamPolicyConfig(
                 disallowed=[
@@ -113,6 +119,7 @@ def audit(
             reference_dir=str(reference_dir),
             declared_context_tokens=declared_context_tokens,
             coding_sandbox_enabled=bool(coding_sandbox),
+            benchmark_profile=benchmark_profile,
             regression=RegressionAuditConfig(
                 suites=[
                     str(path.expanduser().resolve())
@@ -122,6 +129,17 @@ def audit(
             upstream_policy=UpstreamPolicyConfig(
                 disallowed=disallow_upstream,
             ),
+        )
+
+    if cfg.benchmark_profile:
+        from .adapters.lm_eval import resolve_builtin_profile
+        plan = resolve_builtin_profile(
+            cfg.benchmark_profile, include_native_overlap=True
+        )
+        console.print(
+            f"[yellow]Strong Benchmark enabled: "
+            f"{len(plan['tasks'])} tasks × up to {plan['limit']} items each; "
+            "this may consume paid tokens.[/yellow]"
         )
 
     def progress(name: str, current: int, total: int) -> None:

@@ -1,10 +1,12 @@
 from model_detect.baseline import BaselineMetric, OfficialBaseline
 from model_detect.comparison import compare_report_to_baseline
+from model_detect.comparison_contract import build_dimension_contracts
 from model_detect.models import (
     AuditReport,
     AuditSummary,
     ProbeResult,
     ProbeStatus,
+    Evidence,
 )
 
 
@@ -23,13 +25,27 @@ def target_report(score, *, model="kimi-k3", profile="standard"):
                 status=ProbeStatus.PASS,
                 score=score,
                 summary="reasoning",
+                evidence_ids=["ev_reason"],
                 observed={
                     "tasks": [
-                        {"matched": score >= 0.5},
-                        {"matched": score >= 1.0},
+                        {"id": "logic_a", "matched": score >= 0.5},
+                        {"id": "logic_b", "matched": score >= 1.0},
                     ]
                 },
             )
+        ],
+        evidences=[
+            Evidence(
+                id="ev_reason",
+                probe_id="capability.reasoning.logic_a",
+                url="https://example.test/v1/chat/completions",
+                request_body={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "identical question"}],
+                    "temperature": 0,
+                    "max_tokens": 96,
+                },
+            ),
         ],
         summary=AuditSummary(
             overall_score=score * 100,
@@ -47,6 +63,9 @@ def baseline(*, runs=3, samples=None, task_total=None):
         runs=runs,
         model_rule_id="kimi-k3",
         model_rule_updated_at="2026-10-08",
+        dimension_contracts={
+            "reasoning": build_dimension_contracts(target_report(1.0))["reasoning"]
+        },
         dimensions={
             "reasoning": BaselineMetric(
                 samples=values,
@@ -125,3 +144,32 @@ def test_quality_comparison_requires_same_model_profile_and_suite():
     )
     assert comparison.verdict == "baseline_insufficient"
     assert "suite version mismatch" in comparison.warnings[0]
+
+
+
+def test_changed_request_budget_is_incomparable_not_pass():
+    report = target_report(1.0)
+    report.evidences[0].request_body["max_tokens"] = 512
+    comparison, rows = compare_report_to_baseline(report, baseline())
+    assert comparison.verdict == "baseline_insufficient"
+    assert comparison.incomparable_dimensions == ["reasoning"]
+    assert comparison.dimensions["reasoning"].verdict == "incomparable"
+    assert rows[0].score is None
+
+
+def test_legacy_reference_without_contract_never_claims_match():
+    old = baseline()
+    old.dimension_contracts = {}
+    comparison, _ = compare_report_to_baseline(target_report(1.0), old)
+    assert comparison.verdict == "baseline_insufficient"
+    assert comparison.incomparable_dimensions == ["reasoning"]
+
+
+def test_changed_task_order_is_incomparable():
+    report = target_report(1.0)
+    report.results[0].observed["tasks"] = [
+        {"id": "logic_b", "matched": True},
+        {"id": "logic_a", "matched": True},
+    ]
+    comparison, _ = compare_report_to_baseline(report, baseline())
+    assert comparison.verdict == "baseline_insufficient"

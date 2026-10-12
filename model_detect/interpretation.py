@@ -39,6 +39,7 @@ CATEGORY_ZH = {
     "capability": "能力抽检",
     "provider": "上游 / 网关",
     "quality": "官方基准差异",
+    "benchmark": "标准能力评测",
     "target": "目标地址",
     "internal": "检测器内部",
 }
@@ -126,6 +127,8 @@ def probe_title(probe_id: str) -> str:
         return "能力抽检：" + probe_id.split(".", 1)[1]
     if probe_id.startswith("quality.baseline."):
         dimension = probe_id.split(".", 2)[2]
+        if dimension.startswith("benchmark:"):
+            return "标准能力评测：" + dimension.split(":", 1)[1]
         labels = {
             "reasoning": "推理能力保持",
             "math": "数学能力保持",
@@ -177,6 +180,11 @@ def _result_action(result: ProbeResult) -> str | None:
 
 
 def result_explanation(result: ProbeResult) -> str:
+    if result.probe_id.startswith("capability.external.lm_eval."):
+        return (
+            "标准 Benchmark 已采集分数；本项“通过”仅表示评测数据有效，"
+            "不能证明达到官方模型水平。需要相同配置的 Reference 才能比较质量。"
+        )
     status = result.status
     title = probe_title(result.probe_id)
     if status == ProbeStatus.PASS:
@@ -384,10 +392,14 @@ def _quality_summary(report: AuditReport) -> dict[str, Any]:
             if not isinstance(item, dict):
                 continue
             retention = item.get("retention_ratio")
+            dimension_label = QUALITY_DIMENSION_ZH.get(dimension)
+            if dimension_label is None and dimension.startswith("benchmark:"):
+                dimension_label = "标准评测：" + dimension.split(":", 1)[1]
+            dimension_label = dimension_label or dimension
             dimensions.append(
                 {
                     "id": dimension,
-                    "label": QUALITY_DIMENSION_ZH.get(dimension, dimension),
+                    "label": dimension_label,
                     "baseline_mean": item.get("baseline_mean"),
                     "baseline_stddev": item.get("baseline_stddev"),
                     "baseline_runs": item.get("baseline_runs"),
@@ -408,6 +420,7 @@ def _quality_summary(report: AuditReport) -> dict[str, Any]:
         "text": text,
         "dimensions": dimensions,
         "regression_dimensions": regression_dimensions,
+        "incomparable_dimensions": list(raw.get("incomparable_dimensions") or []),
         "baseline_runs": int(meta.get("baseline_runs") or 0),
         "statistically_evaluable_dimensions": int(
             raw.get("statistically_evaluable_dimensions") or 0

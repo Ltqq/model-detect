@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
+from importlib.metadata import PackageNotFoundError, version
 import subprocess
 
 import yaml
@@ -446,11 +448,32 @@ def parse_result_payload(
         raise ValueError("lm-eval result JSON is missing the results object")
 
     versions = data.get("versions") if isinstance(data.get("versions"), dict) else {}
+    sample_counts = data.get("n-samples") if isinstance(data.get("n-samples"), dict) else {}
+    task_configs = data.get("configs") if isinstance(data.get("configs"), dict) else {}
     out: list[ProbeResult] = []
     for task, raw_metrics in raw_results.items():
         if not isinstance(raw_metrics, dict):
             continue
         metrics = _numeric_metrics(raw_metrics)
+        task_config = task_configs.get(task)
+        task_config_hash = (
+            hashlib.sha256(
+                json.dumps(
+                    task_config, ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"), default=str
+                ).encode("utf-8")
+            ).hexdigest()
+            if isinstance(task_config, dict)
+            else None
+        )
+        count_info = sample_counts.get(task)
+        effective_samples = (
+            count_info.get("effective")
+            if isinstance(count_info, dict)
+            else None
+        )
+        if not isinstance(effective_samples, int) or effective_samples < 1:
+            effective_samples = None
         metric_name, metric_value = _select_primary_metric(str(task), metrics)
 
         score = None
@@ -481,12 +504,16 @@ def parse_result_payload(
                     "primary_value": metric_value,
                     "metrics": metrics,
                     "version": versions.get(task),
+                    "effective_samples": effective_samples,
+                    "task_config_hash": task_config_hash,
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",
                     "task": task,
                     "primary_metric": metric_name,
                     "benchmark_score_only": True,
+                    "benchmark_effective_samples": effective_samples,
+                    "benchmark_task_config_sha256": task_config_hash,
                     "threshold_interpretation": False,
                     "source_path": source_path,
                 },
@@ -563,12 +590,26 @@ def run_builtin_profile_results(
     result_path = discover_result_file(output_path)
     results = parse_result_file(result_path)
     task_meta = profile.get("task_metadata") or {}
+    try:
+        harness_version = version("lm-eval")
+    except PackageNotFoundError:
+        harness_version = "unknown"
     for result in results:
         task = str(result.metadata.get("task") or "")
         result.metadata["benchmark_profile"] = profile_name
         result.metadata["benchmark_suite"] = "lm-evaluation-harness"
         result.metadata["benchmark_limit"] = profile.get("limit")
         result.metadata["benchmark_task_metadata"] = task_meta.get(task) or {}
+        result.metadata["benchmark_harness_version"] = harness_version
+        result.metadata["benchmark_model_type"] = "local-chat-completions"
+        result.metadata["benchmark_apply_chat_template"] = True
+        result.metadata["benchmark_num_fewshot"] = "task-default"
+        result.metadata["benchmark_run_config"] = {
+            "num_concurrent": num_concurrent,
+            "max_retries": max_retries,
+            "tokenized_requests": False,
+            "task_profile_version": load_builtin_profiles()["version"],
+        }
     return results, {
         **meta,
         "result_file": str(result_path),

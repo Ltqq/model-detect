@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -62,6 +62,8 @@ class AuditConfig(BaseModel):
     reference_dir: str = "references"
     declared_context_tokens: int | None = None
     capability_enabled: bool = True
+    # An opt-in, bounded academic benchmark; never part of the default audit.
+    benchmark_profile: Literal["smoke", "standard", "deep"] | None = None
     proxy_sleuth_enabled: bool = True
     coding_sandbox_enabled: bool = False
     coding_sandbox_auto_pull: bool = True

@@ -19,6 +19,7 @@ async def collect_quality_baseline(
     runs: int = 3,
     profile: str = "standard",
     coding_sandbox_enabled: bool = False,
+    benchmark_profile: str | None = None,
     progress: BaselineProgress | None = None,
 ) -> tuple[list[AuditReport], OfficialBaseline]:
     """Run the same native audit suite repeatedly against one trusted endpoint.
@@ -41,6 +42,7 @@ async def collect_quality_baseline(
             target=target,
             profile=profile,
             capability_enabled=True,
+            benchmark_profile=benchmark_profile,
             proxy_sleuth_enabled=False,
             coding_sandbox_enabled=coding_sandbox_enabled,
         )
@@ -49,6 +51,13 @@ async def collect_quality_baseline(
             use_proxy_sleuth=False,
             api_key_override=api_key,
         )
+        if benchmark_profile:
+            meta = report.adapters.get("lm_eval_benchmark") or {}
+            if meta.get("status") != "completed" or not meta.get("scored_tasks"):
+                raise RuntimeError(
+                    "Strong Benchmark failed: "
+                    + str(meta.get("reason") or "no scored benchmark tasks")
+                )
         reports.append(report)
         if progress:
             progress(index, runs, "completed")
@@ -65,6 +74,7 @@ async def collect_quality_baseline(
             "collector_profile": profile,
             "coding_sandbox_enabled": coding_sandbox_enabled,
             "sequential_collection": True,
+            "benchmark_profile": benchmark_profile,
         }
     )
     return reports, baseline
