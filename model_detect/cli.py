@@ -14,6 +14,7 @@ from .audit import run_audit
 from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig, load_config
 from .models import AuditTarget
 from .reference_cli import reference_app
+from .validation_cli import validation_app
 from .reporting import safe_name, write_report
 from .drift import compare_reports
 
@@ -23,6 +24,7 @@ app = typer.Typer(
     help="LLM API model authenticity, protocol and capability audit toolkit.",
 )
 app.add_typer(reference_app, name="reference")
+app.add_typer(validation_app, name="validation")
 console = Console()
 
 
