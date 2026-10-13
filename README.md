@@ -77,6 +77,20 @@ SQLite 保存历史
 - [Official Baseline / Quality Regression 设计](docs/design/13-official-baseline-comparison.md)
 - [官方基准校准流程](docs/07-official-baseline-calibration.md)
 
+## 当前开发状态与下一步（2026-10-13）
+
+主链已具备 Web/CLI、中文报告、历史记录、Reference、Fingerprint、协议/参数/Context/路由探测、强 Benchmark、受控实验和离线校准的**代码实现**。
+
+但 **代码实现与 CI 通过 ≠ 真实外部工具/模型检测准确率已验证**。工程收尾还有几个明确项：
+
+1. **P0：Reference 安全覆盖与失败保护**，避免重采集失败丢失原基准。
+2. **P0：每项 Token/费用计量、未知值标注与预算提醒**，当前尚无准确的整次付费成本报表。
+3. **P1：按官方源码评估并选择性接入 [Kimi-Vendor-Verifier](https://github.com/MoonshotAI/Kimi-Vendor-Verifier)**，现有通用 Probe 不等于官方套件。
+4. **P1：固定 OSS 版本和 Web/CLI 真正的端到端集成验收**。
+5. **必须用真实数据完成 Kimi-K3/GLM-5.2 校准**，不能从模拟单测推算误报/漏报。
+
+**权威后续任务入口：[工程收尾与最终验收路线](docs/design/17-engineering-closure-roadmap.md)**。旧开发计划保留作为历史记录，不再照其中“下一批”重复开发。坚持单机自用，不加入压测或重型平台化能力。
+
 ## 快速开始
 
 ```bash
