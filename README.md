@@ -192,3 +192,35 @@ Benchmark 契约核对任务配置哈希、实际样本数、任务版本、评�
 `3 次 + 2×stddev` 仍是待真实渠道校准的启发式阈值，并非正式的统计显著性检验。
 
 完整计划： [下一阶段实施计划](docs/design/14-comparison-integrity-and-strong-benchmark-plan.md)。
+
+
+## 受控鉴别实验（Phase 3）
+
+为了验证“模型被偷偷替换”“同模型降低推理档位”“混合路由”等场景**到底能检出多少**，
+本项目提供独立的 `validation` 工作流，不修改现有准入综合分。
+
+先复制并修改 [受控实验模板](examples/controlled-validation.yaml)，完成外部真实路由配置、
+官方 Reference 与真实标签来源的标注。完整操作见
+[受控鉴别实验指南](docs/08-controlled-validation-guide.md)。
+
+```bash
+# 第一步：预览，不发送请求，不消费 Token
+model-detect validation run --manifest examples/controlled-validation.yaml
+
+# 第二步：明确允许付费后串行运行（默认最多 16 次完整审计）
+model-detect validation run \
+  --manifest examples/controlled-validation.yaml \
+  --output-dir validation-results/run-001 \
+  --execute --max-audits 16
+
+# 第三步：对已有真实报告离线复算混淆矩阵，不调用 API
+model-detect validation evaluate \
+  --manifest examples/controlled-validation.yaml \
+  --output-dir validation-results/run-001
+```
+
+`validation.json` / `validation.md` 按身份/路由/质量分别给出
+TP、TN、FP、FN、弃权、有效覆盖率、灵敏度与误报率，并逐次记录
+“真实标签 vs 工具判断”。无报告/证据不足则没有准确率；分流比例只是
+**外部受控目标值**，不会被当作已证实的实测分流率。
+测试框架不提供虚构的官方基准或其他模型真假标签。
