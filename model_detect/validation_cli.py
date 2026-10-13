@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .validation import evaluate_suite, load_suite, write_validation
+from .calibration import calibrate_validation, write_calibration
 from .validation_runner import execution_plan, run_suite
 
 validation_app = typer.Typer(
@@ -57,6 +58,53 @@ def evaluate(
     if not result["observed_reports"]:
         console.print(
             "[yellow]没有真实报告：未计算检出率或误报率。[/yellow]"
+        )
+
+
+@validation_app.command("calibrate")
+def calibrate(
+    manifest: Path = typer.Option(
+        ..., "--manifest", exists=True, readable=True,
+        help="Controlled experiment manifest with real truth labels.",
+    ),
+    output_dir: Path = typer.Option(
+        Path("model-detect-validation"), "--output-dir", "-o",
+    ),
+) -> None:
+    """Offline per-case calibration diagnostics and threshold sensitivity."""
+    suite = load_suite(manifest)
+    evaluated = evaluate_suite(
+        suite, manifest_path=manifest, output_dir=output_dir,
+    )
+    results = calibrate_validation(evaluated)
+    json_path, md_path = write_calibration(results, output_dir)
+    console.print(
+        f"[cyan]Real reports: {results['observed_reports']}/"
+        f"{results['expected_reports']} · independent cases: "
+        f"{results['case_count']}[/cyan]"
+    )
+    table = Table("维度", "独立正例", "独立负例", "有效", "弃权", "状态")
+    labels = {
+        "identity": "模型身份",
+        "routing": "混合路由",
+        "quality": "质量退化",
+    }
+    for signal, label in labels.items():
+        case = results["case_metrics"][signal]
+        ready = results["readiness"][signal]
+        table.add_row(
+            label,
+            str(ready["independent_positive_cases"]),
+            str(ready["independent_negative_cases"]),
+            str(case["evaluated"]), str(case["abstained"]),
+            ready["status"],
+        )
+    console.print(table)
+    console.print(f"JSON: {json_path}")
+    console.print(f"中文校准诊断: {md_path}")
+    if not results["observed_reports"]:
+        console.print(
+            "[yellow]没有真实报告。已保留空白诊断，未推算任何准确率。[/yellow]"
         )
 
 
