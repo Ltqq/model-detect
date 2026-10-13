@@ -2,6 +2,18 @@
 
 > 临时业务需求；原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 原封保留。协议符合性、能力对照、模型身份是**三条不同证据**，不可相互替代。
 
+## 真实测试后优先级更新（2026-10-13）
+
+已取得 GLM-5.3 官方与客户真实对照：01/02/03 原生协议和轻量能力、04 Benchmark Smoke、05 原始 Standard Benchmark（双方各 75 个样本）。**代码测试通过不能替代真实数据；现在已定位影响结论的确定性缺陷。**
+
+**正式执行清单以 [20 号实测复盘 / P0-P1](20-glm53-live-evidence-triage.md) 为准**，不再继续盲目扩题、重复付费或把轻量题判分当权威依据。
+
+- **P0（先修，复用现有数据无需 Token）**：跨官方/客户稳定任务 hash（排除 endpoint 和函数内存地址、保留真正影响评分的配置）→ 原始成绩 Fixture 回放 → YAML 正则错误与答案格式规范化 → GLM 官方中文禁止关闭思考的 400 判定 → 报告结论降级。
+- **P1（再修）**：lm-eval / IFEval / Math 依赖安装与离线预检、venv PATH；确保 thinking/reasoning 档位同条件且真实生效；失败时保存已付费成功的中间结果。
+- **可延后**：更大样本的 Benchmark、复杂 Coding Agent、1M 上下文、Web 可视化。修复评分器和合同前不扩大付费测量。
+
+**重要：** 本次 05 的 GSM8K（0.96/0.96）、IFEval prompt strict（0.48/0.48）、MATH-500 exact（0.88/0.88）是可信的**原始抽样观测值**，但自动工具将其错误标为 incomparable；该 Bug 必须修。另有 IFEval instruction-level 和 MATH-500 math_verify 的差异，25 题不足以断言具有统计显著性。正式结论应是“本次有限样本未观察到系统性下降，尚未验证总体等价或模型权重身份”。
+
 ## 目标与现状
 
 通过官方 Z.ai Endpoint 与客户 Endpoint，在**相同模型 ID、请求参数、固定题集版本**下执行对照。输出中文报告，包含协议逐 Case 结果、能力分类成绩、官方基准方差/客户差异、未证实能力、请求量/粗预算与实际 usage（能取到时）。
@@ -36,7 +48,7 @@ API 格式：Z.ai OpenAI-compatible 路径形如 `https://api.z.ai/api/paas/v4/c
 - [x] 低样本或大方差时标“证据不足”；官方自身波动超过阈值时不得宣称客户退化；
 - [ ] 高难度编程/Agent 基准下一步可选通过现有 lm-eval、Coding Sandbox 或 zai-org/glm-simple-evals 来扩展，不自造不靠谱评分器。
 
-### Stage 4：报告与回归
+### Stage 4：报告与回归（代码已实现，真实评分缺陷待按 20 号修复）
 - [x] JSON + 中文 Markdown/HTML；内容分为协议、能力、对比有效性、用量/成本估计（不能获取 usage 时明确 unknown）；
 - [x] 用 mock/fake endpoint 测不同 thinking/reasoning 响应、JSON、tools、SSE、Token usage、缺失响应、空参考、失败/预算上限；
 - [ ] Python 3.11/3.12 CI 全绿，按小任务提交 PR 合并。
