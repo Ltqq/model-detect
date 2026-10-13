@@ -4,6 +4,23 @@
 > 当前产品目标：**单机自用的 AI 中转站 / 上游供应商准入检测工具**。  
 > 只需要 Web 检测、报告与本地历史记录。性能测试和平台化能力永久独立。
 
+## 0. 最新状态与当前开发任务（2026-10-13）
+
+**最新、唯一生效的后续任务清单：[17 号工程收尾与验收计划](design/17-engineering-closure-roadmap.md)。** 本文第 3～9 节保留为先前批次的实施记录，不再按其中“下一批”标题重复开发。
+
+| 模块 | 状态 | 关键结论 |
+|---|---|---|
+| Web/CLI/中文报告/SQLite 历史 | 已完成代码 | 主流程可使用；最终真实 E2E 仍需验收 |
+| Protocol/Integrity/Context/Routing/Capability | 已完成代码 | 可做黑盒证据采集，判定能力仍需实际校准 |
+| Fingerprint / proxy-sleuth / promptfoo / lm-eval | 已有 Adapter | 需固定版本、安装并通过真实调用联调，不等于第三方所有能力已覆盖 |
+| Official Quality Baseline / 同套件比较 | 已完成代码 | 合同不一致应不可比；Reference 覆盖保护、Collector 异常回滚尚待修复 |
+| 受控实验/离线校准工具 | 已完成代码 | 真实 Kimi/GLM 正负例和请求日志尚未采集 |
+| 每项 Token 用量、费用和执行前预算 | **待开发 P0** | 当前只有任务数/限制提示，不等于实际 Token/费用 |
+| Moonshot 官方 Kimi-Vendor-Verifier | **待评估/接入 P1** | 官方专用完整测试未接入；先做差距清单和必要子集 |
+| 完整真实验收与发布 | **待执行** | Mock CI 不是外部工具/付费 API E2E |
+
+**新任务依序**：A Reference 安全覆盖/失败语义 → B Token Meter/预算 → C 官方 Kimi 专项验证 → D OSS/Web/CLI 集成验收 → E Kimi/GLM 真实数据校准 → F 发布评审。阶段 A～D 可先用本地 Mock 测代码，但不能凭此勾选 E。
+
 ## 1. 已完成主链
 
 ### V1 Core
@@ -66,7 +83,7 @@
 
 这些由独立性能工具负责。
 
-# 3. 当前阶段目标
+# 3. 历史阶段目标（已实现，非新的开发任务）
 
 当前不是继续做更多排行榜题目，而是补齐两种核心资产：
 
@@ -75,7 +92,7 @@
 
 这比先做 Scheduler、重 Web、Anthropic/Gemini Native 更优先，因为它直接提升供应商准入准确性。
 
-# 4. 下一批 5 个小阶段
+# 4. 历史实施批次：lm-eval / promptfoo（已完成）
 
 严格一项一个 branch / commit / PR / CI / merge。
 
@@ -128,7 +145,7 @@
 > Model Rule schema version/source 顺延到下一批第 1 项，设计仍见
 > `docs/design/12-model-provider-knowledge.md`。
 
-# 5. Knowledge Asset 下一批 5 个小阶段
+# 5. 历史实施批次：Knowledge Asset（已完成）
 
 严格继续一项一个 branch / commit / PR / CI / merge。
 
@@ -173,7 +190,7 @@
 - [x] 官方来源 / empirical 来源分离
 - [x] 每条 feature 可追溯
 
-# 6. Audit Closure 下一批 5 个小阶段
+# 6. 历史实施批次：Audit Closure（已完成）
 
 设计：`docs/design/13-regression-audit-integration.md`
 
@@ -214,7 +231,7 @@
 - [x] 只写官方可验证能力
 - [x] expected feature 必须可追溯
 
-# 7. Lightweight Closure 最后一批 5 个小阶段
+# 7. 历史实施批次：Lightweight Closure（代码完成）
 
 这一批完成后停止功能扩张。
 
@@ -245,7 +262,7 @@
 - [x] 清理对应临时 ZIP
 - [x] 禁止删除运行中任务
 
-## Stage 5 — Local E2E Acceptance
+## Stage 5 — Local E2E Acceptance（自动化 Mock 路径，非真实 API E2E）
 
 - [x] Web 提交 Audit
 - [x] 任务完成进入 History
@@ -266,7 +283,7 @@
 
 # 9. V1.1 Definition of Done
 
-已满足：
+代码与模拟测试口径已满足；第三方真实环境兼容、准确率与成本尚未验收：
 
 - [x] strong identity 可展示统计证据
 - [x] self-consistency
@@ -285,3 +302,17 @@
 - [x] promptfoo 可作为 declarative regression adapter
 - [x] Model Rule 有版本和来源
 - [x] Web 更完整展示 identity/routing evidence
+
+
+# 10. 新一轮工程收尾：不继续堆功能
+
+现在执行 [17 号工程收尾与验收计划](design/17-engineering-closure-roadmap.md)，不以本文件前述历史批次当作待办：
+
+- **A（P0）**：Reference 原子更新与异常保护、显式 Benchmark 失败与不可比状态、单机安全边界。
+- **B（P0）**：逐 Probe 实际 Token 计量、缓存/Reasoning 正确口径、未知外部 Adapter 用量、执行前预算与费用表。
+- **C（P1）**：审阅 MoonshotAI/Kimi-Vendor-Verifier 官方代码；优先评估参数、工具 Schema 和 Prompt Token 正确性；选择性 Adapter，不复制重型测试。
+- **D（P1）**：四个 OSS Adapter 的真实安装/运行兼容性，Web/CLI/报告/历史 E2E 和规则来源复核。
+- **E（数据 P0）**：真实 Kimi-K3/GLM-5.2 官方 Reference 与已知模型替换、不同推理档、混路由校准。**需要真实 API 凭据和受控网关，当前未执行**。
+- **F（P2）**：满足 A～E 的验收与证据边界后发布版本，停止主动扩充 Probe。
+
+工作方式依旧：**一次只完成一个小任务 → 及时提交 → 回归测试 → PR/CI → 合并**。禁止引入性能压测、定时任务、RBAC、Redis/Postgres/Worker 等无关平台化功能。
