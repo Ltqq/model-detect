@@ -1,0 +1,126 @@
+# 这是实验模板，不是已执行/已验证的测量结果。
+# 把 URL、Reference、环境变量和 truth_source 改成真实受控配置。
+# 每个 case 的 model 是对外声明的模型 ID；要测偷换模型，请在受控网关内部修改真实上游。
+# 不要在该文件写 API Key；密钥只从环境变量读取。
+schema_version: 1
+id: kimi-k3-controlled-202610
+reference_dir: ../references
+cases:
+  - id: official-self
+    scenario: same_model
+    truth_source: "REPLACE_WITH_OFFICIAL_ENDPOINT_CONTROL_LOG"
+    variant_label: "官方原端点"
+    truth:
+      identity: same
+      routing_mixed: false
+      quality_regressed: false
+    runs: 1
+    base_url: "https://REPLACE_OFFICIAL_ENDPOINT/v1"
+    model: kimi-k3
+    api_key_env: OFFICIAL_KIMI_KEY
+    reference_id: kimi-k3-official
+    profile: standard
+
+  - id: switched-model
+    scenario: different_model
+    truth_source: "REPLACE_WITH_GATEWAY_UPSTREAM_SWITCH_LOG"
+    variant_label: "网关内部强制换成另一个已知模型"
+    truth:
+      identity: different
+    runs: 1
+    base_url: "https://REPLACE_SWITCHED_MODEL_GATEWAY/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    reference_id: kimi-k3-official
+    profile: standard
+
+  - id: low-effort
+    scenario: different_effort
+    truth_source: "REPLACE_WITH_GATEWAY_FORCE_LOW_EFFORT_CONFIG"
+    variant_label: "相同请求，受控网关内部强制降低 reasoning_effort"
+    truth:
+      identity: same
+      # 是否真正发生质量退化，必须另有经验证据，不能仅凭 low 档位认定。
+      quality_regressed: null
+    runs: 1
+    base_url: "https://REPLACE_FORCE_LOW_EFFORT_GATEWAY/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    reference_id: kimi-k3-official
+    profile: standard
+    # 只有官方/供应商都运行相同 Benchmark 时再开启：
+    # benchmark_profile: standard
+
+  - id: routing-0
+    scenario: mixed_routing
+    truth_source: "REPLACE_WITH_ROUTER_CONFIG_0PCT"
+    variant_label: "受控路由 0% 切换"
+    routing_fraction: 0.0
+    truth: {routing_mixed: false}
+    runs: 1
+    base_url: "https://REPLACE_CONTROL_ROUTER_0/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    profile: standard
+
+  - id: routing-10
+    scenario: mixed_routing
+    truth_source: "REPLACE_WITH_ROUTER_CONFIG_10PCT"
+    variant_label: "受控路由 10% 切换"
+    routing_fraction: 0.1
+    truth: {routing_mixed: true}
+    runs: 1
+    base_url: "https://REPLACE_CONTROL_ROUTER_10/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    profile: standard
+
+  - id: routing-30
+    scenario: mixed_routing
+    truth_source: "REPLACE_WITH_ROUTER_CONFIG_30PCT"
+    variant_label: "受控路由 30% 切换"
+    routing_fraction: 0.3
+    truth: {routing_mixed: true}
+    runs: 1
+    base_url: "https://REPLACE_CONTROL_ROUTER_30/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    profile: standard
+
+  - id: routing-50
+    scenario: mixed_routing
+    truth_source: "REPLACE_WITH_ROUTER_CONFIG_50PCT"
+    variant_label: "受控路由 50% 切换"
+    routing_fraction: 0.5
+    truth: {routing_mixed: true}
+    runs: 1
+    base_url: "https://REPLACE_CONTROL_ROUTER_50/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    profile: standard
+
+  - id: other-provider
+    scenario: different_provider
+    truth_source: "REPLACE_WITH_OTHER_PROVIDER_MODEL_PROVENANCE"
+    variant_label: "同模型不同 Provider"
+    truth:
+      identity: same
+    runs: 1
+    base_url: "https://REPLACE_TRUSTED_OTHER_PROVIDER/v1"
+    model: kimi-k3
+    api_key_env: OTHER_PROVIDER_KEY
+    reference_id: kimi-k3-official
+    profile: standard
+
+  - id: older-version
+    scenario: different_version
+    truth_source: "REPLACE_WITH_PINNED_MODEL_VERSION_PROOF"
+    variant_label: "网关返回已知另一 checkpoint/版本"
+    truth:
+      identity: different
+    runs: 1
+    base_url: "https://REPLACE_PINNED_VERSION_GATEWAY/v1"
+    model: kimi-k3
+    api_key_env: CONTROLLED_GATEWAY_KEY
+    reference_id: kimi-k3-official
+    profile: standard
