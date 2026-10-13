@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
-import os
-import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -99,9 +96,13 @@ def _find_report_paths(
     output_dir: Path,
 ) -> list[Path]:
     if case.reports:
-        return [
+        supplied = [
             (manifest.parent / relative).resolve()
             for relative in case.reports
+        ]
+        return supplied + [
+            output_dir / case.id / f"{run:02d}" / "report.json"
+            for run in range(len(supplied) + 1, case.runs + 1)
         ]
     return [
         output_dir / case.id / f"{run:02d}" / "report.json"
@@ -135,7 +136,17 @@ def _routing_signal(report: AuditReport) -> bool | None:
         return None
     if item.metadata.get("verdict") == "mixed-routing-likely":
         return True
-    if item.metadata.get("verdict") == "stable" and repeat.status.value == "pass":
+    cluster = _result(report, "routing.cluster")
+    if (
+        item.metadata.get("verdict") == "stable"
+        and repeat.status.value == "pass"
+        and cluster is not None
+        and cluster.status.value == "pass"
+        and not (
+            isinstance(item.observed, dict)
+            and item.observed.get("suspicious_signals")
+        )
+    ):
         return False
     return None
 
@@ -169,8 +180,6 @@ def _fraction(numerator: int, denominator: int) -> float | None:
 
 
 def _confusion(records: list[dict[str, Any]], signal: Signal) -> dict[str, Any]:
-    positives = 0
-    negatives = 0
     abstained = 0
     labelled = 0
     for row in records:
@@ -182,10 +191,6 @@ def _confusion(records: list[dict[str, Any]], signal: Signal) -> dict[str, Any]:
         if predicted is None:
             abstained += 1
             continue
-        if expected and predicted:
-            positives += 1
-        elif not expected and not predicted:
-            negatives += 1
         # Keep FP/FN separate; don't count uncertain calls as correct.
     tp = sum(
         1 for row in records
@@ -247,6 +252,10 @@ def evaluate_suite(
                 # detector negative predictions.
                 if report.summary.final_verdict == "invalid_target":
                     raise ValueError("invalid API target")
+                if case.model and str(report.target.get("model")) != case.model:
+                    raise ValueError("model does not match declared case")
+                if report.profile != case.profile:
+                    raise ValueError("profile does not match declared case")
             except (OSError, ValueError) as exc:
                 missing.append(f"{case.id} #{index}: invalid report ({type(exc).__name__})")
                 continue
