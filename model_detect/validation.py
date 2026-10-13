@@ -292,6 +292,14 @@ def evaluate_suite(
             })
         cases.append({
             "id": case.id,
+            "expected": {
+                "identity": (
+                    None if case.truth.identity is None
+                    else case.truth.identity == "different"
+                ),
+                "routing": case.truth.routing_mixed,
+                "quality": case.truth.quality_regressed,
+            },
             "scenario": case.scenario,
             "truth_source": case.truth_source,
             "routing_fraction": case.routing_fraction,
