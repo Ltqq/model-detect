@@ -53,7 +53,6 @@ protocol_features:
       native_parameter: reasoning_effort
       source_refs: [zai-glm-5.3-guide]
     thinking:
-      expected: true
       values: [enabled]
       native_parameter: thinking.type
       source_refs: [zai-glm-5.3-guide]
