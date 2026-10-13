@@ -307,3 +307,31 @@ model-detect glm53 compare \
 结果保存在 `glm53-comparison.json`、`glm53-comparison.md` 和 `glm53-comparison.html`，协议与能力分开展示。注意：`Standard` 能力档仍是轻量**客观小题抽检**（不是高难 Coding/Agent 官方成绩）；默认输出预算可能仍不足以让个别持续思考请求完成，截断记为证据不足。正式高难能力评测可在固定环境下追加现有 lm-eval/可执行 Coding 评测，不允许将此小题抽检称为“GLM-5.3 满血官方认证”。
 
 用户自行提供官方地址与凭据；本项目不内置 Key、官方分数或虚构的真实验收结果。
+
+
+## GLM-5.3 严格准入增强（官方同条件对照）
+
+参见 [GLM-5.3 官方依据与完整覆盖矩阵](docs/design/19-glm53-qualification-verification.md)。
+
+GLM-5.3 专项已增加完整 SSE 读取/结束验证、真正与 `thinking.disabled` 相关的错误码判别（401/429 不会假通过）、工具名/JSON 参数校验、恶意响应安全 HTML、官方参考域名校验及不覆盖原报告等。**注意范围限 OpenAI Chat Completions**，不是其他协议全覆盖；不做模型权重鉴定。
+
+原来的轻量协议+能力检查仍按 `glm53 compare` 工作；如需更有区分度的标准能力评测，可在原命令上**显式增加**：
+
+```bash
+pip install 'lm_eval[api]'
+
+# 先预览；外部标准 Benchmark 默认为关闭，需提高名义请求/样本预算上限
+model-detect glm53 compare \
+  --official-url https://api.z.ai/api/paas/v4 \
+  --customer-url https://relay.example/v1 \
+  --mode all --capability-profile smoke \
+  --official-runs 1 --customer-runs 1 \
+  --benchmark standard --benchmark-runs 1 \
+  --max-requests 200
+
+# 本地设置 GLM53_OFFICIAL_KEY / GLM53_CUSTOMER_KEY 后，再追加 --execute
+```
+
+标准档位的外部生成式评测为 GSM8K（数学）、IFEval（指令遵循）和 minerva_math500（MATH-500）。它们来自 EleutherAI 的 `lm-evaluation-harness`，**不是官方发布的 GLM-5.3 编程/Agent 榜单成绩复现**。普通 Chat Completions API 不支持基于 prompt logprobs 的默认 MMLU-Pro 选择题配置，所以不会错误地加入该任务。两端点独立运行，按 Harness 版本、任务配置、数据集版本、实际样本量、评分指标核对可比性；若有差异，报告只给观察值或“不可比”，绝不声称官方满血认证。
+
+默认 `all+standard` 仍为约 140 次原生请求和 245,760 Token 的**名义最大输出配置之和**，不是实际消耗。额外 `--benchmark standard --benchmark-runs 1` 会增加 150 道名义样本，上限另按每题 8192 输出 Token 计算，**外部评测子进程尚不能统一计量真实 Token**，可能远高于想象，务必先预览。客户正式验收仍须配好官方 Key、真实运行、保存日期和原始报告。

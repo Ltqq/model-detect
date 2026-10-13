@@ -61,6 +61,12 @@ API 格式：Z.ai OpenAI-compatible 路径形如 `https://api.z.ai/api/paas/v4/c
 
 本文只针对 GLM-5.3 业务急单。原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 不修改；本业务完成后继续 A1 Reference 安全覆盖、A2 错误语义、Token Meter、官方 Kimi 验证。
 
+## 准入加强复核（2026-10-13）
+
+后续专项审查修正了 SSE 仅读取前 30 行的假阳性风险、401/429 被当成禁用思考正确拒绝的风险、错误工具参数被当成合格、官方参考来源未经检查、付费结果被覆写等。新增可选的标准生成式 `lm-eval` 能力对照（GSM8K、IFEval、MATH-500 生成式），并且强制一致的 Dataset/Task/Metric/样本量才能比较。详细测试矩阵、成本预估和缺口以 [19 号专项验收说明](19-glm53-qualification-verification.md) 为准。
+
+**本次代码全绿不等于已做官方 GLM-5.3 真实付费测试。** 当前仅涵盖 OpenAI Chat Completions；Responses、Anthropic、百万上下文、真实 Agent Coding Benchmark、模型权重身份与实证显著性校准均不在已经验收的范围。原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 不变。
+
 ## 实施状态（2026-10-13）
 
 新增 `model-detect glm53 compare` 仅 CLI（Web 入口未新增）。支持离线预算预览（不需 API Key）、显式 `--execute` 的两端点串行调用、协议与轻量能力抽检、中文 JSON/Markdown/HTML。默认 10 个协议用例 + 每轮 25 道低难客观能力题，3 次官方 + 1 次客户合计 140 次 API 请求；所配置的最大输出预算之和为 245,760 Token，不等于真实使用量。**并未接入 GLM-5.3 官方高难 Coding/Agent Benchmark 的完整运行；请勿将轻量题集结果称为“满血”认证。** 原 17 号工程收尾路线不变。真实 API 付费实验尚未进行。
