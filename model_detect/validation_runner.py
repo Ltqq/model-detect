@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from pathlib import Path
@@ -60,6 +59,11 @@ async def run_suite(
     reference_dir = (manifest.parent / suite.reference_dir).resolve()
     # Preflight the entire suite before making any paid requests.
     for case in suite.cases:
+        if case.reports:
+            raise ValueError(
+                f"{case.id}: explicit reports are for offline evaluation only; "
+                "remove reports before running paid audits"
+            )
         if not case.base_url or not case.model:
             raise ValueError(
                 f"{case.id}: base_url and model are required to execute this case"
