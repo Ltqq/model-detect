@@ -46,6 +46,7 @@ def build_command(
     num_concurrent: int = 1,
     max_retries: int = 3,
     limit: int | None = None,
+    max_gen_toks: int | None = None,
     binary: str | None = None,
 ) -> list[str]:
     if not model.strip():
@@ -60,15 +61,18 @@ def build_command(
         )
 
     endpoint = normalize_chat_endpoint(base_url)
-    model_args = ",".join(
-        [
-            f"model={model}",
-            f"base_url={endpoint}",
-            f"num_concurrent={max(1, int(num_concurrent))}",
-            f"max_retries={max(0, int(max_retries))}",
-            "tokenized_requests=False",
-        ]
-    )
+    args = [
+        f"model={model}",
+        f"base_url={endpoint}",
+        f"num_concurrent={max(1, int(num_concurrent))}",
+        f"max_retries={max(0, int(max_retries))}",
+        "tokenized_requests=False",
+    ]
+    if max_gen_toks is not None:
+        if not 1 <= max_gen_toks <= 131072:
+            raise ValueError("max_gen_toks must be in 1..131072")
+        args.append(f"max_gen_toks={max_gen_toks}")
+    model_args = ",".join(args)
     cmd = [
         executable,
         "--model",
@@ -99,6 +103,7 @@ def run_endpoint(
     max_retries: int = 3,
     limit: int | None = None,
     timeout_seconds: float = 1800,
+    max_gen_toks: int | None = None,
     binary: str | None = None,
 ) -> dict[str, Any]:
     output = Path(output_path)
@@ -111,6 +116,7 @@ def run_endpoint(
         num_concurrent=num_concurrent,
         max_retries=max_retries,
         limit=limit,
+        max_gen_toks=max_gen_toks,
         binary=binary,
     )
     env = dict(os.environ)
