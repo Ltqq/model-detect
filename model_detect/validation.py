@@ -397,7 +397,7 @@ def write_validation(result: dict[str, Any], output_dir: str | Path) -> tuple[Pa
         local_path = str(run["report_path"]).replace("|", "/")
         lines.append(
             f"| {run['case_id']} #{run['run']} | {fields[0]} | {fields[1]} "
-            f"| {fields[2]} | \`{local_path}\` |"
+            f"| {fields[2]} | `{local_path}` |"
         )
 
     lines.extend(["", "## 证据边界", ""])
