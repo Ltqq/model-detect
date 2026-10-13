@@ -148,3 +148,18 @@ cases:
     assert response.exit_code == 0, response.output
     assert "预览模式" in response.output
     assert not (tmp_path / "out").exists()
+
+
+
+def test_run_rejects_placeholder_ground_truth_sources(tmp_path, monkeypatch):
+    monkeypatch.setenv("VALIDATION_FAKE_KEY", "sk-fake")
+    with pytest.raises(ValueError, match="truth_source"):
+        asyncio.run(run_suite(
+            suite(
+                runs=1,
+                truth_source="REPLACE_WITH_ACTUAL_GATEWAY_CONFIG",
+            ),
+            manifest_path=tmp_path / "experiment.yaml",
+            output_dir=tmp_path / "out",
+        ))
+    assert not (tmp_path / "out").exists()
