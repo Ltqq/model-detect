@@ -5,7 +5,6 @@ family: glm
 model_version: "5.3"
 patterns:
   - "glm-5.3"
-  - "glm-5.3-*"
 aliases:
   - "GLM-5.3"
 updated_at: "2026-10-13"
