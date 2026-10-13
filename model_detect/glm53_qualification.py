@@ -230,8 +230,11 @@ def plan_comparison(
 def _assistant_message(body: Any) -> dict[str, Any]:
     if not isinstance(body, dict):
         return {}
-    choices = body.get("choices") or []
-    return choices[0].get("message") or {} if choices and isinstance(choices[0], dict) else {}
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return {}
+    message = choices[0].get("message")
+    return message if isinstance(message, dict) else {}
 
 
 def _content(body: Any) -> str:
@@ -243,8 +246,8 @@ def _content(body: Any) -> str:
 def _finish_reason(body: Any) -> str | None:
     if not isinstance(body, dict):
         return None
-    choices = body.get("choices") or []
-    if choices and isinstance(choices[0], dict):
+    choices = body.get("choices")
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
         return choices[0].get("finish_reason")
     return None
 
