@@ -309,6 +309,20 @@ model-detect glm53 compare \
 用户自行提供官方地址与凭据；本项目不内置 Key、官方分数或虚构的真实验收结果。
 
 
+## 最新唯一后续开发计划（2026-10-13）
+
+**[完整修复 + 开发 + 真实验收统一总计划：docs/design/17](docs/design/17-engineering-closure-roadmap.md)**。本文件列明 G0/G1 实测缺陷 → A/B 工程可靠性和 Token → C Kimi 官方专项 → D 集成 → E 真值校准 → F 发布，包含执行依赖、估算、验收门槛与建议提交批次。真实 GLM-5.3 的数据与修复复现详见 [20 号证据复盘](docs/design/20-glm53-live-evidence-triage.md)。原 03/18/19 号文档仅作历史与专项技术说明，避免重复管理任务。
+
+## GLM-5.3 真实测试复盘：先修评测可信度（2026-10-13）
+
+已经在真实官方和客户 GLM-5.3 端点上运行了 10 项协议和轻量能力、lm-eval 0.4.13 的 GSM8K / IFEval / MATH-500（每端点各 25 样本/任务）。结果文件说明**代码 CI 全绿仍可能出现真实误判**：
+
+- Benchmark 两边都产出了原始成绩，但 task hash 包含 Endpoint URL、函数对象内存地址，导致比较结果错误地标 `incomparable`。
+- 轻量能力 `O(log n)` 正则、Markdown/代数答案的评分、官方中文 thinking.disabled 400 的判定存在假阴性。
+- 安装 lm-eval 的 IFEval/Math 依赖、离线 NLTK 数据、环境 PATH 影响真实执行；Benchmark 子进程真实 Token 用量仍无法统一计量。
+
+**请先按 [实测复盘与 G0/G1 缺陷清单](docs/design/20-glm53-live-evidence-triage.md) 修复并使用脱敏 fixture 离线回放，再扩大付费 Benchmark。** 原 [17 号工程收尾路线](docs/design/17-engineering-closure-roadmap.md) 保留，临时 G0/G1 已提到最前面。
+
 ## GLM-5.3 严格准入增强（官方同条件对照）
 
 参见 [GLM-5.3 官方依据与完整覆盖矩阵](docs/design/19-glm53-qualification-verification.md)。

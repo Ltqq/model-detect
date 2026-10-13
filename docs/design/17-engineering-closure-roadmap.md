@@ -1,154 +1,304 @@
-# model-detect 工程收尾与最终验收路线（2026-10-13）
+# model-detect 总开发计划：实测缺陷修复 → 工程收尾 → 真实校准 → 发布
 
-> 本文是 **2026-10-13 起唯一的下一批开发任务清单**。既有 `03-development-plan.md` 的早期开发批次、`14`～`16` 号设计文档保留作为历史设计/已实现记录，不再把旧的“下一步”重复安排。
+> **更新：2026-10-13｜状态：计划已冻结、待逐项实施｜唯一有效的未来开发任务主表。**
 >
-> 产品边界：**单机单用户的 AI 模型供应商黑盒审计**；Web + CLI + 中文 HTML/JSON/ZIP + SQLite 历史。**不做性能压测，不加 RBAC/任务队列/定时器/SaaS。**
+> 该计划整合原 A～F 工程收尾路线及本次 GLM-5.3 实际运行暴露的 G0/G1 问题。**原 18/19 号专项技术设计不废弃，20 号文档专门保存脱敏实测依据；本文件统一管理任务顺序、优先级、验收门槛与交付。**
+>
+> 产品定位不变：**单机、单用户、Web + CLI、中文报告、SQLite 历史记录**的模型中转/供应商协议、身份辅助证据和能力对照工具。**不做并发/吞吐压测，不做 SaaS/RBAC/调度/企业管理，也不自建大型 Benchmark。**
 
-## 0. 现状与证据级别
+## 0. 事实基线、完成定义与决策
 
-截至 `main` merge `3209132`，以下均已有代码：
-- 原生 OpenAI-compatible Protocol、Parameter Integrity、Context Needle、Routing/Provider Probe 与 Capability Lite；
-- Fingerprint、proxy-sleuth、promptfoo、lm-evaluation-harness 四类可选开源 Adapter（**存在适配器 ≠ 第三方工具在本机已安装，也 ≠ 其全部能力已覆盖**）；
-- Trusted Reference、Official Quality Baseline、同套件比较契约、版本化 Model/Provider Rule；
-- CLI/Web、SQLite 历史、Evidence、中文报告、受控实验 `validation run/evaluate` 与离线 `validation calibrate`；
-- Python 3.11/3.12 的源码/模拟数据 CI。
+### 0.1 已经具备的能力（代码实现，不等于真实验收）
 
-**仍待补齐**：安全的 Reference 原子替换、强制失败/证据不足语义、Token/费用的真实计量与可控预算、Kimi 官方 Vendor Verifier 专项适配、真实安装与 API 端到端验证，以及真实 Kimi/GLM 数据校准。
+- OpenAI-compatible 协议、参数完整性、Context、Routing、基础能力、Coding Sandbox、Fingerprint、Reference、结果对照、中文报告及 Web/CLI/历史。
+- `llm-fingerprint-detector`、`proxy-sleuth`、`promptfoo`、`lm-evaluation-harness` 适配器；**集成了入口不代表所有第三方能力可用**。
+- Official/Trusted Quality Baseline、Benchmark Contract、`validation run/evaluate/calibrate` 与 GLM-5.3 专项 `glm53 compare`（原生协议+轻量题+可选生成式 lm-eval）。
+- Python 3.11/3.12 Mock/Fixture CI；**CI 绿不等于在线真实准确率已校准**。
 
-**不得宣称**：国际权威官方认证、识别具体量化精度或权重、已实测换模检出率/误报率、第三方完整工具已覆盖、官方 Verifier 已经通过。
+### 0.2 已有真实证据（注意正确解释）
 
-状态词统一：
-- **已完成代码**：实现并有单元测试，但未必跑过真实外部系统。
-- **集成已验收**：指定版本的 OSS/本地 Web-CLI 流程经实际运行并存有记录。
-- **真实已校准**：具有可追溯官方 Reference、受控真值与重复运行统计。
-- **暂不做**：明确排除，而非等待实现。
+来源：[20 号 GLM-5.3 实测复盘](20-glm53-live-evidence-triage.md)，原始 `glm53-evidence.zip` 只由用户保存，**不提交仓库**。
 
-## 1. 执行顺序与门槛
+- GLM-5.3 官方/客户均完成协议、轻量能力与标准评测调用；Standard 原生检测为官方 3 轮、客户 1 轮，140 次请求。
+- 标准生成式 Benchmark 各自运行 GSM8K、IFEval、MATH-500，各任务 **25** 个有效样本；lm-eval 版本 **0.4.13**。观察到 GSM8K 96%/96%、IFEval prompt strict 48%/48%、MATH-500 exact 88%/88%；另有子指标差异。**不等于统计学证明二者能力等价。**
+- 真实缺陷：任务比较 hash 混入 `base_url`/函数内存 repr，误判 `incomparable`；轻量题正则/答案格式误判；官方 GLM 中文 `thinking.disabled` 拒绝被判无证据；lm-eval 依赖/资源预加载导致首次失败。
+- 已观察到原生部分 usage，但外部 lm-eval 未统一计量；执行前所有 `max_tokens` 相加不是实测 Token，也不是账单上限。
 
-| 顺序 | 任务组 | 优先级 | 当前状态 | 是否依赖付费官方 API | 完成产物 |
-|---|---|---|---|---|---|
-| A | Reference 和失败语义可靠性 | P0 | **待开发** | 否（用 Fake/Mock） | 不丢旧基准、失败不伪装成通过 |
-| B | Token 计量、预算与费用 | P0 | **待开发** | 否（代码测试用 Mock；准确成本需实际用量） | 分 Probe/阶段/来源的 usage 和成本摘要 |
-| C | Moonshot 官方 Kimi-Vendor-Verifier 专项接入 | P1 | **待开发** | 适配器可 Mock，真实运行需要 | 选择性官方验证、与通用检测分层 |
-| D | 第三方集成 + Web/CLI 最终产品验收 | P1 | **待验收** | 部分需要 | 真实安装兼容记录、错误场景、UI/导出闭环 |
-| E | Kimi-K3、GLM-5.2 真实基准和渠道校准 | 数据 P0 | **待采集** | **是** | 可追溯 Reference、已知正负实验、校准报告 |
-| F | 发布与停止条件 | P2 | **待评审** | 取决于 E | 变更日志、使用说明、版本标签 |
+### 0.3 任务状态定义（必须统一）
 
-原则：**一次一个小点、一个提交**；每组单独 PR，Python 3.11/3.12 CI 绿后合并。先完成 A/B，再 C/D；E 尽早准备真实数据，但不得阻塞 A/B 的纯工程修复。不能为了“跑通”而吞错误或弱化证据门槛。
+- **已开发**：实现 + 单测/静态检查通过。
+- **已集成验收**：依赖可安装，实际完整运行，结果/错误可复现。
+- **已实证校准**：可信真值 + 受控正负样本 + 覆盖率/误报/漏报/弃权 + 独立验证。
+- **证据不足 / 不可比**：不能升级为通过，也不等同于失败。
+- **不做**：排除出版本范围，不要悄悄加入规划。
 
-## 2. A · P0：工程可靠性（先做）
+**核心原则：报告结论正确性与可追溯性优先于题量、功能数量、UI 美观。**
 
-### A1 Reference 覆盖操作原子化
+## 1. 总路线、优先级和依赖
 
-- [ ] Web `/api/references` 覆盖时**不得先删除现有 Reference**；先在唯一临时目录完成 Baseline、Fingerprint、Manifest、报告采集。
-- [ ] 所有检查和持久化成功后才原子切换版本（同磁盘 rename/backup/rollback）；失败清理临时数据并保持原有 Reference 完整可用。
-- [ ] CLI 创建/覆盖路径遵循相同写入规则；重复 ID 默认拒绝覆盖，覆盖须用户显式确认，避免两套语义。
-- [ ] 处理并发覆盖同 ID、磁盘写失败、Fingerprint 外部进程失败和用户中断。
-- [ ] 单元/集成测试：旧 Reference 在任一阶段失败时 MD5/SHA256/文件内容保持不变；成功切换后新文件完整；不留下半成品和泄露密钥的错误文件。
+| 顺序 | 任务组 | 优先级 | 当前状态 | 前置依赖 | 验收交付物 | 粗估 |
+|---|---|---|---|---|---|---|
+| **G0** | 实测 P0：稳定 Benchmark Contract、评分器、中文协议与结论 | **P0 / 第一批** | 待修 | 已有 GLM53 zip，可脱敏提炼回归用例 | 05 原始结果可正确比较、03 正确答案不误判、报告保守 | 2～4 人日 |
+| **G1** | 实测评测链路：依赖、参数、失败恢复、证据 | **P0/P1 / 第二批** | 待修 | G0，实测环境配置可用 | 外部 lm-eval 可复现、不会无意义重复付费 | 2～4 人日 |
+| **A** | 全局审计可靠性：Reference 原子更新、失败语义与安全 | **P0** | 待修 | G0 的通用 Contract/错误语义复用 | 旧 Reference 不丢、任何失败不假通过 | 2～4 人日 |
+| **B** | 统一 Token Meter、成本与预算保护 | **P0** | 待开发 | A 的 Evidence 错误语义；可并行设计 | 分 Probe 实测/估算/未知、执行前预算 | 3～5 人日 |
+| **C** | Kimi Vendor Verifier 官方专项适配 | P1 | 待开发 | A/B 可信 Evidence 与费用界限 | 官方专项子集可运行、原始断言可追溯 | 2～4 人日 |
+| **D** | 外部 OSS + Web/CLI/报告/历史真实 E2E | P1 | 待验收 | G1 + A/B/C 可分批 | 四个 Adapter 与 Web 主流程验收记录 | 2～4 人日 |
+| **E** | Kimi K3/GLM-5.2/按需 GLM-5.3 实测校准 | 数据 P0 | 部分真实对照，**非真值校准完成** | G0/G1、可信官方 Key、受控网关 | TP/TN/FP/FN/弃权、置信区间及有条件准入 | 2～5 人日起，依赖环境 |
+| **F** | 验收、版本发布与维护交接 | P2 | 待实施 | G0～E 的完成/明确豁免 | Release、文档、升级/回滚说明、停止标准 | 1～2 人日 |
 
-**验收**：在注入失败的任何阶段，原 Baseline、Fingerprint、Manifest 和 baseline-report 仍可读取；真实环境不会静默删除可信资产。
+**粗略工程规模：全范围合计约 16～30 人日，即单人约 3～6 个工作周**；若只交付 G0/G1/A/B 的紧急可信闭环，可更早分阶段验收。以上不含付费测试等待、环境搭建、外部依赖变化和额外 Coding Agent/1M Context 任务。每阶段不为凑进度而提前宣布完成。
 
-### A2 结果有效性与错误状态
+### 发布门槛
 
-- [ ] Collector 逐轮核验 `invalid_target`、目标模型一致、核心 Probe/Evidence、Contract 可比、真实有效 run 数；失败不得生成可被正常引用的 Official Baseline。
-- [ ] 供应商**显式请求** Strong Benchmark、Fingerprint 或 Regression 时，其失败在报告和 Web 任务详情显著显示 `ERROR/INSUFFICIENT/PARTIAL`，不得靠其他绿项掩盖；不必让一个可选失败把所有原生结果作废。
-- [ ] `baseline_match` 只能来自**明确可比**的维度，无法进行的维度逐项标注；禁止“没跑/缺失 == 通过”。
-- [ ] 校验 Profile、模型 ID、Reference 型别、任务与参数契约；错误不输出明文凭证或第三方响应内的敏感信息。
-- [ ] CI 加覆盖成功、HTTP 401/403/429/HTML、部分成功、超时、旧 Reference/Benchmark 无版本的回归测试。
+- **门槛 1（允许继续付费）**：G0 全绿 + G1 的依赖/参数预检 + 可避免昂贵任务无证据丢失；不足时仅允许低成本端点诊断。
+- **门槛 2（允许官方/客户能力差异入报告）**：同一数据集/任务/评分器/实际推理参数，比较契约可复验，真实成功调用，观测样本足够且报告说明不确定性。
+- **门槛 3（允许正式供应商准入）**：A/B 稳定、必要的 OSS/专项集成实际验收、客户业务阈值在测试前商定；未知不能写成通过。
+- **门槛 4（允许声称真实模型真实性检测效果）**：E 有可信已知正负真值及保留测试集；**仅官方 vs 客户结果相近绝非权重身份认证。**
 
-**验收**：用户能明确区分：`完整检测通过 / 部分检测完成 / 完全失败 / 缺失官方基准 / 不可比`。
+## 2. G0 · 第一批 P0：纠正实测错误（全部先用离线数据）
 
-### A3 安全边界（只覆盖单机必要范围）
+### G0.1 稳定、可审计的 Benchmark 比较契约
 
-- [ ] Web 仅回环监听作为默认；若外网部署在 README 明确要求额外认证/反向代理访问控制。
-- [ ] 检查报告/任务/子进程错误日志的 API Key、Authorization、Cookie、Query Token 脱敏。
-- [ ] 防止通过恶意 Reference ID/输出路径访问非工作目录；删除/覆盖操作受限于工作根目录。
-- [ ] 不新增登录/RBAC/企业权限体系；安全防护仅限合理的单机使用边界。
+- [ ] 审核 `model_detect/adapters/lm_eval.py` 的 `task_config_hash`、`glm53_benchmark.py` 的对比逻辑，编写结构化 Canonical Benchmark Contract。
+- [ ] **排除仅用于传输/环境标识**的 `metadata.base_url`、API Key、运行输出路径、进程对象内存地址和函数 repr；**保留任何影响实际得分**的数据集修订、subset/split、样本选择/seed、题目 ID、num_fewshot/示例策略、prompt 模板/过滤器、生成参数（thinking/effort/温度/max_gen_toks）、评分器版本/主 Metric。
+- [ ] 区分 `observed_provenance` 与 `comparable_contract`；无法从函数 repr 复原真实题目代码语义时保守标 `unknown/incomparable`，不能为了消除假不相等而一律丢弃关键配置。
+- [ ] 原生 Quality Baseline、通用 lm-eval、GLM-5.3 专项尽可能共用同一版本的契约校验器；旧结果须有格式升级或明确旧版不可比标记。
+- **验收**：同配置官方/客户跨进程比较键一致；改变真实题集、题量、抽样种子、评分、effort、输出预算任何一项均拒绝可比；不泄露 URL/Key。
 
-## 3. B · P0：Token Meter（必须做，避免盲测）
+### G0.2 从本次真实 03/04/05 制作脱敏 Fixture 回归
 
-### B1 每次 API 请求采集与规范化
+- [ ] 只提取必要指标/配置，删除完整 Endpoint URL、Account/Key、原始 Prompt/Answer、OS 环境路径和不能公开的 Benchmark 内容。
+- [ ] 回放 05 的 GSM8K / IFEval / MATH-500 全部实际指标（避免只取单个分数就误认为任务仅有一个 Metric），验证可比性、成绩差值和有效样本数。
+- [ ] 测 04 真实 Smoke 的 5 题对照以及 03 的轻量判分；同时加入专门“近似但不同”的负例。
+- **验收**：本地无需付费、无外网，Python 3.11/3.12 CI 通过；错误合同能在测试中明确失败。
 
-- [ ] 统一 `UsageRecord`：`probe_id`、阶段、HTTP 状态、尝试次数、请求/完成时间、`prompt_tokens`、`completion_tokens`、`cached_read_tokens`、`cached_write_tokens`（若有）、`reasoning_tokens`（若有）、`usage_source`、缺失原因。
-- [ ] 支持主流 OpenAI-compatible `usage`，包括 `prompt_tokens_details`、`completion_tokens_details`，以及可配置别名；流式响应要尽可能读取最后 usage chunk，不再仅为预览读取前 30 行就声称完整 usage。
-- [ ] 统计实际网络请求和错误/重试；`usage` 不存在时单独记 `unknown`，可选 tokenizer 估算必须显式标注 `estimated`，绝不混成实测。
-- [ ] 理清 Token 口径：`reasoning_tokens` 通常是输出总量的子集；缓存读通常是输入总量的子集，**不能重复相加计算总 Token/费用**。
-- [ ] 只把必要统计写入 Evidence/Report，不存客户请求原文之外的凭据；提供单元测试覆盖缓存、reasoning、SSE usage、空字段、失败调用。
+### G0.3 轻量能力评分器修复与语义边界
 
-### B2 审计级账单汇总与 CSV/JSON/中文报告
+- [ ] 修 `capability_lite.yaml` 的 `coding.complexity` 正则双重转义；逐条静态校验题库的 Regex 是否能匹配该题标准答案。
+- [ ] 对明确题型做**保守**规范化：Markdown 加粗、首尾空格、`x = 8` 等等价答案；记录规范化前后及规则来源。
+- [ ] 一律不能“全局清洗直到答对”；不同单位/数量级、逻辑相反、无有效答案仍判失败；输出截断记 `insufficient`。
+- [ ] 修复会影响其他模型的通用能力评分入口，避免只针对 `glm-5.3` 写临时 `if`。
+- **验收**：用户样本中正确的 `O(log n)`、`**11/8**`、`x = 8`、`**NO**` 匹配；错误变体明确不通过；报告有答案提取轨迹（脱敏）。
 
-- [ ] 按 `probe_id` → 阶段（Protocol/Integrity/Context/Routing/Capability/Fingerprint/Benchmark/OSS/Regression）→ 整次 Audit 聚合请求数和 Token。
-- [ ] 对 Adapter 子进程要求可解析其真实 Usage 或接受导入上游日志；无数据时标 `external_unmetered`，**总计标“部分覆盖”**，不能把缺失工具记为 0 成本。
-- [ ] 提供 `observed / estimated / unknown` 三栏，展示计量覆盖率及误差来源。
-- [ ] 在 Web、CLI、JSON/HTML/ZIP 和 Reference 采集结束后可查阅消耗。
-- [ ] 允许导出 CSV（如确有实际使用需求），优先复用现有报告结构，避免额外 DB 表。
+### G0.4 GLM-5.3 官方中文 Thinking 拒绝与错误分类
 
-### B3 执行前预算与可控运行
+- [ ] 在 GLM-5.3 专项协议中识别明确的中文 `HTTP 400 / code 1210 / 始终思考、不支持关闭思考` 与英文 `thinking must be enabled` 等官方错误；同时保留证据/来源。
+- [ ] 401/403/429/5xx、不相关 400、所有无错误体都按权限/限流/证据不足，不算符合；不能把 1210 推广成所有模型的通用成功码。
+- [ ] 补多语言/错误码 Positive、Negative Fixture，并用 01/03 的脱敏记录回放。
+- **验收**：这次官方明确拒绝 disabled 的记录可判 pass，错误 HTTP 仍严格不通过。
 
-- [ ] 依据 Profile 的 Probe 清单、预计 Context 长度、Benchmark 样本上限、Baseline 重复轮数及 Fingerprint/OSS 档位显示**预计请求数与粗略 Token 范围**；区分固定上限、可变输出、不可控 Adapter。
-- [ ] 用户输入价格（每百万输入/输出/缓存读/缓存写），在 **有完整 usage 或明确假设时**计算费用；不把 Sample Count 当 Token Count。
-- [ ] 缺估算来源时明确“无法保证费用上限”，不伪造精确预算。
-- [ ] 可按**请求数 / 已观察 usage / 可控制的原生检测模块**实现软停止；外部 subprocess 只有明确支持取消/限额时才能承诺硬上限。
-- [ ] 默认继续轻量，Benchmark 默认关闭；给官方 Reference × N runs 的费用放大明确提示。
+### G0.5 全局判定与客户报告修正
 
-**验收**：能够回答“Standard 跑了多少个网络请求、每个 Probe 实际用多少输入/输出 Token、哪些未知、按当前价格多少钱”，并在付费运行前显示风险提示。
+- [ ] `protocol`、`capability_lite`、`standard_benchmark` 与模型身份分开汇总；`partial/incomparable/insufficient` 不会被其它通过项掩盖。
+- [ ] 对 25 题抽样，报告只能给“已观察差异 / 未观察明显差异 / 证据不足”，不能宣称“通过了厂商公布的满血标准”或“差异属于正常统计波动”。
+- [ ] 正确显示 IFEval 两种级别 Metric、MATH500 的 `exact_match` 与 `math_verify`，不能把单项与总任务混为一谈。
+- [ ] 旧版 01～05 报告**保持不可变**；另出重算版本并记录来源文件摘要、解析/评分器版本，不悄悄覆盖已交付文档。
+- **验收**：对同份原始数据重算，可复核数值与判定边界；客户报告明确分“官方依据 / 官方观测 / 客户观测 / 解释限制”。
 
-## 4. C · P1：官方 Kimi-Vendor-Verifier 专项（选择性集成）
+## 3. G1 · 第二批：真实评测链路可靠性
 
-> 官方项目：https://github.com/MoonshotAI/Kimi-Vendor-Verifier 。先固定官方仓库版本/Commit、检查许可证/依赖与执行方法，再确认本项目可复用的测试边界。**不把通用 Protocol Probe 叫作官方 Verifier。**
+### G1.1 可复现安装 + 付费前 Preflight
 
-### C1 官方能力映射与差距清单
+- [ ] 固定已实测的 `lm-eval 0.4.13` 为支持目标或写出验证过的兼容范围；检查 `lm_eval[api]`、IFEval `langdetect/immutabledict`、NLTK `punkt/punkt_tab`、Math `lm_eval[math]` 所需 math_verify/ANTLR 环境。
+- [ ] 从当前 Python 虚拟环境定位执行器、校验任务名/输出类型/评分器/数据集离线可读性和版本；不能只根据 PATH 是否存在就宣布安装成功。
+- [ ] 给 `model-detect glm53 doctor` 或 `compare --preflight` 一个只检查环境、不调用收费 API 的入口；列缺失包和具体安装命令。
+- [ ] 对首次 NLTK/数据集缓存缺失，**在付费前**提供独立准备步骤，失败立即退出而不启动官方/客户调用。
+- **验收**：全新 Python 3.11/3.12 虚拟环境按文档装完能预检成功；故意删包/缓存时给出可操作错误；不消费 API Token。
 
-- [ ] 逐目录审核官方 Verifier 的真实测试入口、依赖、分组、断言与 Token 消耗；以实际代码为准，不靠 README 推断每项请求量。
-- [ ] 对照本项目已有 `Kimi-K3` Model Rule、Protocol、Parameter Integrity、Tool Schema、`usage.prompt_tokens` 计量验证等功能，形成 `已覆盖 / 部分重叠 / 缺失 / 不适用`。
-- [ ] 明确优先顺序：**参数语义 + Tool/JSON Schema + Prompt Token 正确性**；后续视需求/价格再决定是否跑视觉、百万上下文、Agent/Coding 等昂贵测试。
-- [ ] 检查官方 Verifier 的许可证、CLI 输出可解析程度和实际端点协议；若无法稳妥复用，只做结果导入适配，避免重新发明全套官方用例。
+### G1.2 Benchmark 请求配置与可比性真实性
 
-### C2 轻量适配与结果归并
+- [ ] 抽取并记录评测框架**真正生效**的请求体：`temperature`、`thinking.type`、`reasoning_effort`、`max_tokens`、chat template、few-shot、抽样题目 IDs；官方/客户任一项不相同时阻止成绩比较。
+- [ ] 特别核对 lm-eval Task 默认生成参数与命令级 `max_gen_toks` 优先级（IFEval 可能有任务内输出上限），不能只看 CLI 选项名称就以为生效。
+- [ ] 在范围内允许显式 `--reasoning-effort max` 等参数，文档说明默认值；证明两边请求并非被代理吞参数，并将最终生效性限制如实写入报告。
+- [ ] 识别截断、工具异常、非 JSON、超时、429；无效样本不应默认算正常答错。
+- **验收**：脱敏 HTTP Mock 检查双方一致；错误参数或不同 Task Contract 必须得到 `incomparable`，不浪费正式评分流量。
 
-- [ ] `KimiVendorVerifierAdapter` 显式启用，仅适用于校验过支持范围的 Kimi 模型；未安装/无 Reference 时明确 `SKIPPED/INSUFFICIENT`。
-- [ ] 提供子集选择、输入验证、超时与费用/请求量提醒；不在默认 Standard 自动跑大型官方套件。
-- [ ] 官方原始 artifact 保存校验和/版本/执行参数，映射到现有 `ProbeResult`/Evidence/中文报告；**保留原始官方断言和报错，不能把未覆盖项说成通过**。
-- [ ] 官方专项评分与自研通用分开展示，不冒称 Moonshot 官方认证；不混入身份强证据或原有总分。
-- [ ] Mock / fixture 测试官方结果解析，实际端点 E2E 后单独记录兼容性。
+### G1.3 中间产物、安全与续跑
 
-**验收**：能看到“通用检查结果”与“官方专项验证结果”并列，知道官方哪些 case 跑了、哪些没跑、每类请求/Token 是否可计量。
+- [ ] 标准 Benchmark 每次执行保存运行 manifest：套件哈希、任务、endpoint label（非敏感 URL）、样本范围、状态、耗时、脚本版本和去敏的任务结果。
+- [ ] 官方采集成功而客户失败时保留已付费的官方原始**非敏感**摘要；可按相同 suite/参数/样本范围恢复未完成项，禁止混用不同版本。
+- [ ] 清理临时密钥、隐藏思考和完整受版权保护的题目/回答；调试日志不得把 Authorization、Query Token 或账号信息写进 artifact。
+- [ ] 如果工具不支持安全断点恢复，先交付“每端点单独保存结果/离线导入比较”，**不要承诺尚未实现的真续跑**。
+- **验收**：模拟任务中途失败后已完成成绩不丢、重复执行不会默默覆盖或重新消费已成功请求。
 
-## 5. D · P1：集成验收、文档与兼容性
+### G1.4 协议兼容与精确失败定位
 
-- [ ] 把 `llm-fingerprint-detector`、`proxy-sleuth`、`promptfoo`、`lm-evaluation-harness` 的具体验证版本/安装命令写入 `docs/oss-compatibility.md`，运行至少一次真实 CLI 调用与解析（经用户同意产生费用时才调付费端点）。
-- [ ] 强制区分：Adapter 可用、二进制已安装、运行成功、数据可比、已证实检测效果；外部命令失败也能留存无密钥的详细原因。
-- [ ] Web → Reference → Supplier Audit → HTML/JSON/ZIP → History → Filter/Delete；覆盖历史升级、输出目录缺失、重复任务、403/429、SSE HTML 错误等。
-- [ ] 审核 Kimi/GLM/Qwen/DeepSeek/GPT/Claude/Gemini Model Rule 的官方 URL/字段与当前 API 版本；过期、未证实来源降级标注，不为覆盖率写死错误期待值。
-- [ ] 更新用户操作手册、费用说明、可复现示例和 CHANGELOG；UI 展示最终结论、关键证据、风险/待复核、Token/费用及“不足以判断”的原因。
-- [ ] Python 3.11/3.12 CI + 本地真实工具验收；**不能以纯 Mock CI 代表 E2E 完成**。
+- [ ] 对 GLM-5.3 Chat Completions 的 `thinking/reasoning`、SSE 尾包/usage、tools/JSON 和不同错误码做真实文档核对；保留 Source URL、测试日期、行为等级（必须/可选/观察）。
+- [ ] 对 HTTP 401/403/429、HTML 200、超时、响应 schema 缺失、部分 SSE 使用同一错误体系，给报告中的失败项明确定位。
+- [ ] 对外部 `lm-eval` 执行错误保留异常类型/所缺包信息，**不保存任何含 Key 的原始异常文本**。
+- **验收**：不论官方还是客户异常，都能明确区分“被测 API 不符合”和“测试框架没跑成功”。
 
-## 6. E · 真实 Kimi/GLM 校准（不能以开发替代）
+### G1.5 GLM-5.3 再验证门槛（付费前确认）
 
-- [ ] Kimi K3、GLM-5.2 **官方/可信端点**的 Reference 各至少 3～5 次；记录日期、具体版本、Prompt/参数、价格、Tokenizer、运行环境。
-- [ ] 受控网关真实标签：官方对自身、已知异模型、同模型不同 reasoning effort、0/10/30/50% 外部配置混路由、同模型不同 Provider（能证实来源时）。
-- [ ] 必须保留网关实际命中日志；声明的混路由比例只是目标配置，不能当实测比例。
-- [ ] 用 `validation evaluate/calibrate` 记录每类 **TP/TN/FP/FN/ABSTAIN**、覆盖率、Wilson 区间以及明细；按独立 Case 统计，不能把重复测试当独立渠道。
-- [ ] 只有数据支持才调整 Quality 阈值/路由参数；在保留数据上回测，列误报/漏报代价。
-- [ ] 不展示“智商下降 X%”“真模型概率 99%”“INT4/FP8 识别”，除非有合理、可复现、明确局限的实证定义。
+- [ ] G0 所有脱敏真实 Fixture 通过，且 G1.1～G1.4 全绿后，才允许追加新的付费 Benchmark。
+- [ ] 先双方各跑 **5 个样本/任务的 Smoke**，确认双方评分器和数据集配置一致；其后按客户业务需要跑 25/100+ 样本。
+- [ ] 对 Coding/长程 Agent 如确有客户合同要求，评估已有可执行 Benchmark；**不默认实现整套 DeepSWE/TerminalBench、1M Context**。
+- **验收**：新增一次真实 GLM 复测得到自动可比结果，没有人工手改 hash；原始证据可追踪，异常可解释。
 
-**前置**：使用者提供官方 API Key（只存在自己的环境变量/连接中）和受控网关；没有凭据只能完成 E 的计划，不能勾选“真实校准完成”。
+## 4. A · 全局 P0：Reference/审计可靠性
 
-## 7. F · 发布与停止开发门槛
+### A1 Reference 原子保存、覆盖和失败回滚
 
-达到下列条件后**不再新增普通 Probe/平台化功能，转入自用与维护**：
+- [ ] Web/CLI 共用安全的 Reference 存储服务；新版本先在临时工作目录完成 Baseline、Fingerprint、Manifest、Report 并验证，**不能先删旧 Reference**。
+- [ ] 写入成功并完整校验之后再切换；同盘 rename + 备份/恢复、并发同 ID 防护、磁盘满/超时/进程中断处理。
+- [ ] 默认 ID 重复拒绝，用户明确确认才能覆盖；版本/sha 可追溯。
+- [ ] 注入故障测试：原有可信基准在任意失败点保持可用，防止报错时留下半成品或泄密日志。
+- **验收**：原文件所有重要 SHA-256 在失败后仍一致；成功替换能完整读取/回滚。
 
-- [ ] A：任何 Reference 更新失败不丢原基准；错误、部分完成、不可比状态表达正确。
-- [ ] B：分 Probe 的 usage、覆盖率、未知量与费用估算可用；默认不会意外跑重型任务。
-- [ ] C：Kimi 官方专用适配完成**明确选择的范围**，或评估有理由明确决定不接并记录原因。
-- [ ] D：四个 OSS 适配器在固定版本完成真实环境联调；Web/CLI/报告/历史所有核心路径 E2E 有记录。
-- [ ] E：至少 Kimi/GLM 官方 Reference + 真实正负实验记录完整；无法获得的数据明确限制，不伪造“已验收”。
-- [ ] 提供版本变更说明，审计报告区分“供应商合规/身份佐证/质量保持/未知”；完成发布前复查敏感数据与费用风险。
+### A2 Official Baseline 合法性与错误状态
 
-## 8. 工作方式与非目标
+- [ ] 每轮合法性：目标 ID/Profile/Suite/模型规则、HTTP 返回、可用 Probe/Benchmark、任务参数契约、真实有效 run 数。
+- [ ] 客户明确选了 Strong Benchmark/Fingerprint/Regression 却失败时显示 `ERROR/PARTIAL/INSUFFICIENT`，其余原生结果允许保留，不会伪装最终无异常。
+- [ ] `baseline_match` 仅覆盖明确可比的真实维度；不可比需要列逐维原因并显著提示。
+- [ ] 将 G0 修好的比较契约/评分语义回归到通用审计路径，避免 GLM 专项与通用路径结果矛盾。
+- **验收**：空、部分、无法解析、失效、模型不匹配的 Reference 绝不会显示完整可用。
 
-**小提交顺序建议**：A1 → A2 → A3 → B1 → B2 → B3 → C1 → C2 → D → E → F；每个小任务完成后提交并运行必要的回归测试。不要一次性重构全仓。新功能先写设计和失败边界，再实现及覆盖 Mock；真数据另做分离的实测验收。
+### A3 单机安全边界
 
-**不做**：TTFT/TPOT/ITL/TPS/RPM/TPM/并发压测；企业管理、Redis/PostgreSQL/Worker、Scheduler、告警/通知、模型量化精度推测、大规模 Benchmark 题库自研。
+- [ ] Web 默认 loopback 监听；公网转发必须在文档明确外部认证/Nginx IP 控制，避免默认暴露密钥/历史。
+- [ ] secret redaction：Authorization、Cookie、Query Token、第三方异常、客户回答中意外含密钥；路径与 Reference ID 验证，避免目录穿越。
+- [ ] 不引入登录/RBAC/组织成员/多租户功能。
+- **验收**：安全回归及异常路径测试通过，不持久化密钥。
 
-**重新评估触发条件**：官方 API 重大变更、用户真正需要其他 Native Protocol 或真实验收证明现有检测器不足。这些需求出现时才单独立项。
+## 5. B · 全局 P0：Token、成本与预算（复用 GLM 实测）
+
+### B1 请求级 UsageRecord 和覆盖率
+
+- [ ] 统一 `UsageRecord`：probe、stage、请求/重试、HTTP 状态、prompt/completion、reasoning（输出子项）、cache read/write（输入子项）、usage_source=observed/estimated/unknown、缺失原因。
+- [ ] 支持普通 JSON 和完整 SSE usage；异常/流终止时未上报必须是 unknown，不把缺失计量做成 0。
+- [ ] 总 Token 不要重复加 reasoning/cache 子项；用户供应商不同 usage 字段通过明确版本化映射。
+- [ ] 回放 03 实测的 136/140 usage 覆盖（而不是误认为总 140 都精确计量）并加错误/限流用例。
+- **验收**：任一 Audit 可定位每个 Probe 实际已观测量、缺失比例及估算来源。
+
+### B2 统一汇总、费用和可用报告
+
+- [ ] 用配置价格（input/output/cache read/write）与 usage 计算可核对费用，分别标已观察费用、估算费用、未知费用。
+- [ ] CLI/Web/JSON/HTML/ZIP/Reference 与 GLM 专项使用**同一个计量器**；外部 subprocess 无 usage 时显示 `external_unmetered`。
+- [ ] 不复制所有原始生成文本；成本只依赖必要统计字段；可选 CSV 导出。
+- **验收**：报告可回答协议、Capability、Benchmark、Fingerprint、外部任务各用了多少 Token、哪些未知；不会展示假的“精确总成本”。
+
+### B3 运行前预算与停机保护
+
+- [ ] 预览原生请求数、重复轮数、Benchmark samples、输入 Token 估算方法、`max_tokens` 合计、失败重试风险；计算费用情景，不把名义输出上限叫作实测。
+- [ ] 对原生请求/观察到的 Usage 允许软件限额中止；对外部子进程只承诺其实际支持的限制，其他情形仍明确“无法保证硬预算上限”。
+- [ ] 默认不开昂贵 Benchmark；有偿运行必须显式 `--execute`；支持失败前保留安全结果，不重复扣费。
+- **验收**：用户可先估成本、可选择只跑免费预检或 5 题 Smoke，不会因配置遗漏盲目发起大额调用。
+
+## 6. C · P1：Kimi Vendor Verifier 官方专项
+
+### C1 官方源码与本项目功能映射
+
+- [ ] 固定 [MoonshotAI/Kimi-Vendor-Verifier](https://github.com/MoonshotAI/Kimi-Vendor-Verifier) Commit、许可证和准确执行入口；按代码统计实际样本数/请求数/上限。
+- [ ] 对照本项目 Kimi K3 的协议、thinking/effort、Tool JSON Schema、Prompt Token 准确性，列 `已覆盖/部分/缺失/不适用`。
+- [ ] 优先选择可自动核验的**参数合法性、工具 Schema 和 Prompt Token 正确性**；视觉、超长 Context、Agent/Coding 高成本流程按需另行立项。
+- **验收**：有官方 case ID / 本地映射 / 费用 / 版本来源，不声称所有官方测试均被覆盖。
+
+### C2 轻量官方 Adapter
+
+- [ ] 支持按模型/Case 子集显式启用；不存在/不可安装时 `skipped/insufficient`，不假通过。
+- [ ] 以隔离子进程执行或安全导入官方 JSON 成绩，保留可追溯的 Commit、用例、原始判定及失败原因；避免重新写一套“看似官方”的断言。
+- [ ] 将官方专项与通用协议和模型身份**分栏展示**，不擅自混进综合分。
+- [ ] Mock 解析/路径/超时/异常 + 真实环境 E2E 后才标集成验收。
+- **验收**：官方已覆盖 Case 与未覆盖 Case 均清楚，有预算预览，原始结果可核查。
+
+## 7. D · P1：四大 OSS 适配器与产品 E2E
+
+### D1 第三方依赖兼容与安装记录
+
+- [ ] 分别验证 `lm-evaluation-harness`、`promptfoo`、`proxy-sleuth`、`llm-fingerprint-detector` 固定版本安装、CLI 启动、结果解析和失败类型。
+- [ ] 将经证实的版本、命令、操作系统和可用性写入 `docs/oss-compatibility.md`，区分 `adapter存在/已安装/可运行/可信结果`。
+- [ ] G1 中的 GLM 实测作为 lm-eval 已经跑过的基础，不能由其自动推断另外三个集成都可靠。
+
+### D2 全链路 UI/CLI 验收
+
+- [ ] Web：创建 Reference → 供应商审计 → 结果/证据 → 中文 HTML/JSON/ZIP → SQLite 历史 → 查看/删除/比对。
+- [ ] CLI：官方比较、Reference collect、audit、受控实验、离线 calibration、GLM53 专项均有 Smoke。
+- [ ] 处理 403/429、缺 Key/无公网、多个任务、失败重试、特殊模型规则、任务取消及输出路径。
+- [ ] 单用户操作清晰，不增企业功能；若确有客户验收使用需要，可再决定增加“专项 Web 一键入口”，不应阻塞 P0 修复。
+
+### D3 模型规则与报告审核
+
+- [ ] 审阅 Kimi/GLM/Qwen/DeepSeek/Claude/GPT/Gemini 官方来源和更新时间；针对硬编码模型限制进行兼容性验证。
+- [ ] 报告提供“官方要求、测试观察、质量对照、身份辅助证据、失败/未知、费用”，并附模型规则与测试套件版本；不能让异常项被综合分抹平。
+- [ ] 完善入门文档、FAQ、安装、参数限制、可复现执行与升级说明。
+- **验收**：至少在目标机器跑过真实第三方工具的 smoke，报告和 Web/CLI 全链路留存脱敏验收记录。
+
+## 8. E · 真实校准（按证据级别分阶段）
+
+### E1 官方能力基准，不把结果相似当身份真值
+
+- [ ] GLM-5.3 官方/客户能力同题对照属于**能力观察**；G0/G1 修复后完成自动重算及必要小样本复测。
+- [ ] 根据客户实际验收标准预先设定能力容忍度，固定数据集、版本、评分器、推理强度、有效输出限制和时间窗；样本不足只得出“证据不足”。
+- [ ] 如果需更高判别力，引入客观、可执行 Coding/Agent 基准并固定运行环境；**不凭 25 道简单题宣布智商相同**。
+
+### E2 Kimi K3 / GLM-5.2 官方 Reference
+
+- [ ] 官方或可证实来源分别采集至少 3～5 次匹配合同的 Reference，记录模型完整版本、采集时间、关键推理参数和 Token 用量。
+- [ ] 对同一模型官方自比先测误报，再跑已知不同模型、不同 reasoning effort、0/10/30/50% 受控路由，保留网关实际命中日志；模型 ID 的声明值不等于真实上游真值。
+- [ ] 独立 Case 与重复 run 分开做 TP/TN/FP/FN/弃权、覆盖率和 Wilson 区间，不能把重复运行当多家供应商。
+- [ ] 只在留出一部分独立对照数据后调整阈值，说明误报/漏报代价，不公布无数据的“99% 真模型概率”。
+- **验收**：可重复、真实标签可查、运行环境可追溯，明确哪些模型/渠道的结果覆盖尚不足。
+
+### E3 结果与客户签收
+
+- [ ] 将“协议符合 / 能力已观察差异 / 证据不足 / 身份辅助信号”分别表述。
+- [ ] 对已知失败、规则争议和阈值调整提供复测依据；客户认可验收范围与不覆盖内容。
+- [ ] 对无法获得真实凭据/受控环境的项目只能标“待校准”，不使整个工具假装通过。
+
+## 9. F · 发布、冻结新功能与维护规则
+
+- [ ] 整理升级/迁移、CHANGELOG、依赖版本锁定、数据路径/恢复、密钥安全说明，CI 3.11/3.12 全绿。
+- [ ] A/B/G0/G1 必须完成；C/D/E 需要达到声明的**具体子集**，不能用“测试过一点”代表全覆盖。
+- [ ] 经真实客户需求确认后发布下一版本；明确测试范围、失败/未知项、实测与模拟证据分离。
+- [ ] 发布后停止无差别增加普通 Probe，将精力转为模型规则维护、客户新问题回归、必要的数据集升级。
+
+## 10. 执行拆分与 PR/Commit 纪律
+
+### 建议开发批次（保证每次小范围可审查）
+
+| 批次 | 对应任务 | 建议提交组织 | 通过后才允许 |
+|---|---|---|---|
+| 批次 01 | G0.1 + G0.2 | 每个合同/Fixture 逻辑独立 commit；先 fixture 再修 | 准确对比已有真实 Benchmark |
+| 批次 02 | G0.3 + G0.4 + G0.5 | 评分器、协议、报告各独立 commit | 低成本协议 Smoke 复测 |
+| 批次 03 | G1.1 + G1.2 | 依赖预检、真实请求参数快照分别提交 | 新的收费 Benchmark |
+| 批次 04 | G1.3 + G1.4 + G1.5 | 失败恢复、错误分类、端点 Smoke 验收 | 正式 GLM 客户数据 |
+| 批次 05 | A1 | 原子更新、回滚及故障注入独立提交 | Reference 重新采集 |
+| 批次 06 | A2 + A3 | 失败有效性与安全边界分开提交 | 常规审计可信用 |
+| 批次 07 | B1 | 统一 UsageRecord 和单元测试 | 分请求实际计量 |
+| 批次 08 | B2 + B3 | 报告费用、预算保护分别提交 | 可靠成本报告 |
+| 批次 09 | C1 + C2 | 官方差距清单、选择性 Adapter 逐步提交 | Kimi 专项可用 |
+| 批次 10 | D1～D3 | 依赖兼容、Web/CLI E2E、报告按子 PR 拆 | 产品集成验收 |
+| 批次 11 | E1～E3 | 真实校准数据不入公开仓库；提交脱敏结果及复现说明 | 对外准入结论 |
+| 批次 12 | F | 文档/版本发布 | 稳定维护 |
+
+**建议一个小任务一个 commit，每批最多 2～4 个紧密相关任务；必要时再拆 PR。** 变更必须写：修改动机、影响范围、原始失败、修复证据、回归测试、Token/付费风险、与旧版兼容性。只修文档时 PR 也必须通过 CI；重要测试用真实脱敏 fixture 回放，不能仅靠造一个 Fake 结果说明问题解决。
+
+### 每个任务的统一验收模板
+
+1. 输入、前置依赖及权威依据明确；引用固定的代码和测试套件版本。
+2. 正常、异常、边界、未知四类结果有清楚定义；用例里至少包含失败反例。
+3. 正确记录 Evidence、失败原因、可比性与费用数据的已知/未知状态。
+4. 本地关键单测 + Python 3.11/3.12 CI 通过，PR Review 后合并 main。
+5. **没有真实 API 数据的模块只标“代码完成”，不能标“实证验收完成”。**
+
+## 11. 版本/工作量预估与停止条件
+
+- G0：2～4 人日；G1：2～4 人日；A：2～4 人日；B：3～5 人日；C：2～4 人日；D：2～4 人日；E：2～5 人日起（受 API/网关/样本依赖）；F：1～2 人日。**这是粗估、不是已完成承诺**。
+- 若只有时间完成核心：**最小可信版本 = G0 全部 + G1.1～G1.4 + A1/A2 + B1/B3 + 必要 E1 在线复核**；Kimi C、完整 D/E 可以单独标 Beta 后续，不得将其挂在强制准入上。
+- 如果 G0/G1 修完实测依然出现不可比或评分器不稳定，不进入新的付费大样本/模型扩展；先缩小问题并修。
+- **不做**：TTFT/ITL/TPS/RPM/TPM/429 压测、量化位宽/Serving 引擎猜测、SaaS/RBAC/调度、重型 Agent Harness 自研、所有官方 Benchmark 的“成绩复刻”。
+- 当核心结果正确、预算可控、可复核且用户已通过真实受控实验确认满足范围时，停止主动开发通用功能，改为模型规则与测试集维护。
+
+## 12. 文档关系（消除重复计划）
+
+| 文档 | 用途 | 优先级 |
+|---|---|---|
+| **本文件 17** | **唯一总开发主表：先后、依赖、验收、PR** | **最高** |
+| [20：GLM-5.3 实测复盘](20-glm53-live-evidence-triage.md) | 真实数据、具体 Bug 复现与 P0/P1 证据 | 支撑 G0/G1 |
+| [18：GLM-5.3 临时专项](18-glm53-customer-qualification.md) | 初版需求边界、协议/能力 CLI 设计 | 历史/专项 |
+| [19：GLM-5.3 验收边界](19-glm53-qualification-verification.md) | 协议规则、源码依据、标准评测与成本 | 专项技术说明 |
+| [14/15/16：对比/实验/校准设计](14-comparison-integrity-and-strong-benchmark-plan.md) | 已完成阶段设计与实验指导 | 作为复用技术资产 |
+| [开发总计划](../03-development-plan.md) | 历史实施批次索引，**不得另起冲突清单** | 历史索引 |
+
+**后续收到“按文档继续开发”时，从本文件第 10 节第一个未完成小任务执行，而不是重新规划或直接跳到新增 Probe。**

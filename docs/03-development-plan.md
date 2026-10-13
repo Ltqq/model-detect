@@ -19,7 +19,17 @@
 | Moonshot 官方 Kimi-Vendor-Verifier | **待评估/接入 P1** | 官方专用完整测试未接入；先做差距清单和必要子集 |
 | 完整真实验收与发布 | **待执行** | Mock CI 不是外部工具/付费 API E2E |
 
-**新任务依序**：A Reference 安全覆盖/失败语义 → B Token Meter/预算 → C 官方 Kimi 专项验证 → D OSS/Web/CLI 集成验收 → E Kimi/GLM 真实数据校准 → F 发布评审。阶段 A～D 可先用本地 Mock 测代码，但不能凭此勾选 E。
+**统一最新顺序（取代旧 A→F 先后口径）**：G0 真实数据判定正确性 → G1 实测评测器可靠性 → A Reference/错误语义 → B Token Meter/预算 → C Kimi 官方专项 → D OSS/Web/CLI E2E → E 已知真值校准 → F 发布。各阶段具体前置和验收只查 [17 号总计划](design/17-engineering-closure-roadmap.md)。本文件其余旧批次保留为历史。
+
+### 2026-10-13 真实 GLM-5.3 客户测试后的优先级覆盖
+
+当前唯一主路线为已整合全部修复任务的 [17 号总开发计划](design/17-engineering-closure-roadmap.md)。真实测试触发的 G0/G1 已归入总计划且排在常规 A1 之前，详情见 [20 号 GLM-5.3 实测复盘](design/20-glm53-live-evidence-triage.md)。
+
+- **G0 / P0**：修 Benchmark 稳定比较键（base_url/函数 repr 不能进入 task hash）、用真实原始报告回归、修 Capability 正则/判分和中文 thinking.disabled，报告不得夸大证据。
+- **G1 / P1**：补全 lm-eval[api]/[math]、IFEval/NLTK 离线依赖预检与 venv PATH，核实推理强度参数及原始结果保留。
+- **之后恢复 A1/A2/B**：Reference 安全替换、失败语义和 Token Meter 仍是全项目 P0；Kimi Vendor Verifier 和其他 OSS E2E 继续按 17 号文档执行。
+
+本次提供的是**官方与客户受控同题对照样本**，不是 Kimi / GLM-5.2 的已知真值模型替换实验；相关校准不应提前勾选完成。
 
 ## 1. 已完成主链
 
