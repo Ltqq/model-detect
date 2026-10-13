@@ -1,4 +1,6 @@
-# 模型真实性与降智检测：下一阶段实施计划（2026-10）
+# 模型真实性与降智检测：Phase 1～5 历史实施计划（2026-10）
+
+> **状态更新 2026-10-13**：Phase 1/2 已作为 PR #46 合并，Phase 3 为 PR #47，Phase 4 校准分析代码为 PR #48；**真实 Kimi/GLM 实验、Token 计量、官方 Verifier 专项和完整 E2E 尚未完成**。本文是历史阶段实施说明；新的后续工作请以 [17 号工程收尾与验收路线](17-engineering-closure-roadmap.md) 为准。
 
 ## 背景与当前状态
 
@@ -19,7 +21,7 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 5. **低开销/可控**：本地单机；默认不执行大样本 Benchmark，显式选择 Profile 与样本上限；用户可提前看到执行范围和预估题目数（Token/费用需依据实测/指定假设）。
 6. 不增加性能压测、Redis、消息队列、企业 RBAC、定时任务或不可信黑盒“量化类型识别”。
 
-## Phase 1 · P0 可比性与有效性校验（本次执行）
+## Phase 1 · P0 可比性与有效性校验（代码已完成，PR #46）
 
 **1.1 Comparison Contract（对比契约）**
 - 在 Baseline 与 Supplier Report 中记录可复现的每维度输入/请求设置指纹；
@@ -36,7 +38,7 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 
 验收：`PASS` / `REGRESSION` 只能来自可比输入；不再出现“同名不同题仍然保持正常”的情况。
 
-## Phase 2 · P1 Strong Benchmark 主链路（本次执行）
+## Phase 2 · P1 Strong Benchmark 主链路（代码已完成，PR #46）
 
 **2.1 模型与任务**
 - 继续复用 `lm-evaluation-harness` Adapter，不自造“MMLU 实现”；
@@ -74,7 +76,7 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 和 [受控实验使用指南](../08-controlled-validation-guide.md)。
 真实 Kimi / GLM 官方与受控网关测量仍需 Phase 4 在有凭据的环境执行。
 
-## Phase 4 · P2 真实渠道校准（后续，需官方 API Key）
+## Phase 4 · P2 真实渠道校准（离线代码 PR #48 已完成；真实 API 实验待执行）
 
 - 先 Kimi K3、GLM-5.2，再按业务添加 Qwen/DeepSeek/GPT/Claude/Gemini；
 - 官方 Reference 3–5 次、正常/异常渠道多次测试；
@@ -82,19 +84,18 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 - 报告注明模型版本、日期、Dataset、Harness、样本量；
 - 不将 published leaderboard 分数与自建不同 harness 的成绩直接比较。
 
-## Phase 5 · P2 中文报告与产品验收（后续）
+## Phase 5 · P2 中文报告与产品验收（部分代码已完成；真实 E2E 待验收）
 
 - 清晰区分：身份匹配、质量退化、参数不兼容、渠道混路由、不可比、未执行；
 - 明确对比是否有效、成本/题量、置信区间或统计不确定性；
 - Web → Reference → Supplier → HTML/JSON/ZIP → 历史记录完整走查；
 - 达到实证验收指标后发布版本。
 
-## 提交策略
+## 当前提交与后续策略
 
-- 一个独立小改动一个 commit；
-- 本次只完成 Phase 1 和 Phase 2，不提前实现 Phase 3–5；
-- 先文档，再模型与契约，再比较保护，再 Benchmark 接入，再 Web/CLI/报告与测试；
-- 各阶段 CI 全绿后提交 PR 并合并。
+- 已完成代码：Phase 1/2 → PR #46；Phase 3 → PR #47；Phase 4 离线工具 → PR #48。
+- 后续以 [17 号收尾计划](17-engineering-closure-roadmap.md) 为准，按 A～F 逐项提交并回归。
+- **不能因阶段代码已合并，推断真实 Kimi/GLM 官方实验已经完成或具备权威认证能力。**
 
 ## 已知限制
 
