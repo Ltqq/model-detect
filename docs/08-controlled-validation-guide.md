@@ -103,3 +103,50 @@ Reference 与当前 Endpoint 使用同一底层模型。标签 `identity: same` 
 Phase 3 提供**实验机制**，不等于 Phase 4 的真实官方校准已经执行。Phase 4 需要在真实 Kimi/GLM 官方参考和已知受控上游环境里运行实验、查看错误类型，再决定是否调整模型 Fingerprint/路由/质量阈值。
 
 不可据此推断精确量化格式、GPU、Serving Engine，也不可将出自模拟测试的回归统计标为真实世界检出率。
+
+
+## 6. Phase 4：离线校准诊断（新增）
+
+完成实际受控实验后，使用同一套 YAML 对已有报告再做离线诊断：
+
+```bash
+model-detect validation calibrate \
+  --manifest examples/controlled-validation.yaml \
+  --output-dir validation-results/run-001
+```
+
+这个命令**不会请求任何模型 API 或消耗 Token**，输出：
+
+```text
+validation-results/run-001/
+  validation.json     # Phase 3 原始实验矩阵（原有）
+  validation.md       # Phase 3 逐次报告（原有）
+  calibration.json    # Phase 4 诊断结果（新增）
+  calibration.md      # Phase 4 中文诊断（新增）
+```
+
+Phase 4 进一步分析：
+
+1. **独立 Case 级混淆矩阵**：与“报告逐次统计”分离；同 Case 3 次重复不算 3 个独立模型。任意缺失、弃权或预测不一致，该 Case 的该维度弃权。
+2. **不确定度**：独立 Case 的灵敏度、误报率和覆盖率附 Wilson 95% 描述性区间。零分母显示样本不足，不输出假的 100%。
+3. **不同场景**：分别分析 `same_model`、`different_model`、`different_effort`、`mixed_routing`、`different_provider`、`different_version`。
+4. **混路由分组**：0/10/30/50% 是受控网关**目标配置比例**，不是模型请求实际被路由到其他上游的实测百分比。要核实请同时保留网关请求日志。
+5. **阈值回放**：在已有且可比的 `OfficialBaselineComparison` 维度上离线复算 `mean - max(k×stddev, task_granularity)`，其中 `k=1/2/3`。必须同时有真实标签和完整对比契约；不符合者弃权。不改变生产默认阈值。
+6. **准备情况**：低样本提示证据不足，即使 Case 数量足够也只给描述性诊断，**永远不标注“官方认证”**。
+
+### 建议真实校准顺序
+
+先选 Kimi K3：
+
+- 官方 Reference 至少 3 次 Standard（如有需要可启用同版本 Strong Benchmark）；
+- 相同官方模型回放 self-match，先确认误报；
+- 受控网关强制转发另一个确定模型，观察身份 MISMATCH；
+- 在网关侧分别强制不同 supported reasoning effort，记录实际生效参数（`truth_source`）；
+- 受控网关路由比例 0 / 10 / 30 / 50%，每个 Case 可重复 3–5 轮，保留实际命中日志；
+- 离线输出 `calibration.md`。基准明显不一致时先修 Benchmark Contract/缺证据，而不是直接调阈值。
+
+GLM-5.2 按相同流程重复。真实部署数据和 API Key 只保存在你的运行环境，本仓库不会生成或提交真实凭据与厂商推断结果。
+
+### 目前不能声称什么
+
+仅安装本次代码、或者只在 CI 跑合成测试，不能声称“模型替换检出率 95%”或“混路由 10% 必定检出”。当前默认 `2×stddev` 仍是**未经过现实世界校准的启发式阈值**；需要足够独立的真实正例/负例、较好的有效覆盖率、未用来调阈值的保留样本才能考虑修改它。更不能从黑盒结果认定具体量化精度或 Serving Engine。

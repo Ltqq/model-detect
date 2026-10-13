@@ -224,3 +224,30 @@ TP、TN、FP、FN、弃权、有效覆盖率、灵敏度与误报率，并逐次
 “真实标签 vs 工具判断”。无报告/证据不足则没有准确率；分流比例只是
 **外部受控目标值**，不会被当作已证实的实测分流率。
 测试框架不提供虚构的官方基准或其他模型真假标签。
+
+
+## Phase 4：受控渠道结果的离线校准分析
+
+已经通过 `validation run` 取得实际报告后，执行：
+
+```bash
+model-detect validation calibrate \
+  --manifest examples/controlled-validation.yaml \
+  --output-dir validation-results/run-001
+```
+
+该命令不联网、不产生 Token 成本。它重新读取原始报告，生成
+`calibration.json` 和 `calibration.md`：
+
+- 逐次审计和**独立 Case**两套 TP/TN/FP/FN，避免把同一渠道重复测五遍冒充五个独立供应商；
+- 身份、混路由、质量分别计算覆盖率、灵敏度、误报率及 Wilson 95% 描述性区间；
+- 0/10/30/50% 受控目标路由比例分组和不同实验场景诊断；
+- 在同套件/有效 Contract 的质量维度上回放 `1×/2×/3×stddev` 阈值，**仅对照，不自动更改生产阈值**；
+- 记录模型规则、评测框架、Dataset/任务版本、实际题数与采集时间；不输出 API Key 或请求正文；
+- 无数据、不足独立正/负例及弃权都会明确显示“证据不足”，从不生成凭空的检出率。
+
+[详细 Phase 4 设计](docs/design/16-phase4-calibration-analysis.md) ·
+[操作指南](docs/08-controlled-validation-guide.md)。
+
+**注意：工具代码准备好 ≠ Kimi/GLM 实测校准已完成。**
+真实模型实验仍需你自己运行官方/受控端点，并保留外部网关路由日志与原始真值依据。
