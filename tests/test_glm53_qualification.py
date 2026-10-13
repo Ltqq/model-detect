@@ -352,3 +352,63 @@ def test_glm53_first_party_reference_and_no_accidental_overwrite(tmp_path, monke
     ])
     assert denied.exit_code != 0
     assert (output / "glm53-comparison.json").read_text() == "existing report"
+
+
+
+def test_complete_sse_reader_requires_done_and_retains_usage(monkeypatch):
+    import httpx
+    from model_detect.http_client import AuditHttpClient
+    original = httpx.AsyncClient
+    wire = (
+        'data: {"choices":[{"delta":{"reasoning_content":"secret reasoning"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"READY"},"finish_reason":"stop"}]}\n\n'
+        'data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":23}}\n\n'
+        'data: [DONE]\n\n'
+    )
+    transport = httpx.MockTransport(lambda req: httpx.Response(
+        200, text=wire, headers={"content-type": "text/event-stream"}
+    ))
+    monkeypatch.setattr(
+        "model_detect.http_client.httpx.AsyncClient",
+        lambda **kw: original(transport=transport, **kw),
+    )
+    client = AuditHttpClient(
+        base_url="https://api.z.ai/api/paas/v4",
+        api_key="mock-key", model="glm-5.3",
+    )
+    response = asyncio.run(client.post_json(
+        probe_id="glm53.chat.stream", path="/chat/completions",
+        payload={"model":"glm-5.3","messages":[{"role":"user","content":"hi"}],
+                 "stream":True},
+        stream=True, stream_full=True,
+    ))
+    assert response.json_body["_sse_completed"] is True
+    assert response.json_body["_sse_finish_reason"] == "stop"
+    assert response.json_body["usage"]["prompt_tokens"] == 12
+    assert "secret reasoning" not in json.dumps(response.evidence.model_dump())
+
+
+def test_incomplete_sse_reader_does_not_claim_end_of_stream(monkeypatch):
+    import httpx
+    from model_detect.http_client import AuditHttpClient
+    original = httpx.AsyncClient
+    transport = httpx.MockTransport(lambda req: httpx.Response(
+        200,
+        text='data: {"choices":[{"delta":{"content":"a"}}]}\n\n',
+        headers={"content-type":"text/event-stream"},
+    ))
+    monkeypatch.setattr(
+        "model_detect.http_client.httpx.AsyncClient",
+        lambda **kw: original(transport=transport, **kw),
+    )
+    client = AuditHttpClient(
+        base_url="https://api.z.ai/api/paas/v4",
+        api_key="mock-key", model="glm-5.3",
+    )
+    response = asyncio.run(client.post_json(
+        probe_id="glm53.chat.stream", path="/chat/completions",
+        payload={"model":"glm-5.3","messages":[{"role":"user","content":"hi"}],
+                 "stream":True},
+        stream=True, stream_full=True,
+    ))
+    assert response.json_body["_sse_completed"] is False
