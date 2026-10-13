@@ -205,3 +205,56 @@ def test_endpoint_runner_uses_documented_parameters_without_rewriting(monkeypatc
     assert next(x[2] for x in sent if x[0] == "glm53.thinking.disabled")["thinking"]["type"] == "disabled"
     assert all(x[4] == {"thinking", "reasoning_effort"} for x in sent)
     assert "SECRET" not in json.dumps(records)
+
+
+
+def test_glm53_cli_executed_report_with_mocked_official_and_customer(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("GLM53_OFFICIAL_KEY", "sk-official-mock")
+    monkeypatch.setenv("GLM53_CUSTOMER_KEY", "sk-customer-mock")
+    seen = []
+
+    async def fake_run_endpoint(*, base_url, api_key, cases, runs, label,
+                                timeout=120):
+        seen.append((base_url, label, runs))
+        return [
+            _row(case, run, label)
+            for run in range(1, runs + 1)
+            for case in cases
+        ]
+
+    monkeypatch.setattr(
+        "model_detect.glm53_cli.run_endpoint", fake_run_endpoint
+    )
+    output = tmp_path / "glm53"
+    result = CliRunner().invoke(app, [
+        "glm53", "compare",
+        "--official-url", "https://api.z.ai/api/paas/v4",
+        "--customer-url", "https://customer.example/v1",
+        "--mode", "protocol",
+        "--official-runs", "3",
+        "--customer-runs", "1",
+        "--execute",
+        "--output-dir", str(output),
+    ])
+    assert result.exit_code == 0, result.output
+    assert seen == [
+        ("https://api.z.ai/api/paas/v4", "official", 3),
+        ("https://customer.example/v1", "customer", 1),
+    ]
+    report = json.loads(
+        (output / "glm53-comparison.json").read_text(encoding="utf-8")
+    )
+    assert report["plan"]["requests"] == 40
+    assert len(report["protocol"]) == 10
+    assert report["capability"] == []
+    assert "sk-official-mock" not in json.dumps(report)
+    assert "sk-customer-mock" not in json.dumps(report)
+
+
+def test_malformed_model_result_is_not_counted_as_success(monkeypatch):
+    from model_detect.glm53_qualification import _assistant_message
+    assert _assistant_message({"choices": "malformed"}) == {}
+    assert _assistant_message({"choices": [{"message": "wrong"}]}) == {}
+    assert _assistant_message(None) == {}
