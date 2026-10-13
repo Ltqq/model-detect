@@ -122,3 +122,5 @@ def run(
     )
     console.print(f"JSON: {output_dir / 'validation.json'}")
     console.print(f"中文实验报告: {output_dir / 'validation.md'}")
+    if errors:
+        raise typer.Exit(code=1)
