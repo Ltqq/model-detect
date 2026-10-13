@@ -322,3 +322,33 @@ def test_tool_malformed_arguments_do_not_pass():
     assert _check_protocol(case, response("{not json}"))[0] == "fail"
     assert _check_protocol(case, response('{"ticket_id":"wrong"}'))[0] == "fail"
     assert _check_protocol(case, response('{"ticket_id":"T-17"}'))[0] == "pass"
+
+
+
+def test_glm53_first_party_reference_and_no_accidental_overwrite(tmp_path, monkeypatch):
+    monkeypatch.setenv("GLM53_OFFICIAL_KEY", "off")
+    monkeypatch.setenv("GLM53_CUSTOMER_KEY", "ven")
+    from typer.testing import CliRunner
+    runner = CliRunner()
+    command = [
+        "glm53", "compare",
+        "--official-url", "https://fake-vendor.example/v1",
+        "--customer-url", "https://customer.example/v1",
+    ]
+    rejected = runner.invoke(app, command)
+    assert rejected.exit_code != 0
+    assert "official reference" in rejected.output
+    allowed = runner.invoke(app, command + ["--allow-unverified-reference"])
+    assert allowed.exit_code == 0, allowed.output
+    # Refuse to replace an existing real report before any model API calls.
+    output = tmp_path / "data"
+    output.mkdir()
+    (output / "glm53-comparison.json").write_text("existing report")
+    denied = runner.invoke(app, [
+        "glm53", "compare",
+        "--official-url", "https://api.z.ai/api/paas/v4",
+        "--customer-url", "https://customer.example/v1",
+        "--output-dir", str(output), "--execute",
+    ])
+    assert denied.exit_code != 0
+    assert (output / "glm53-comparison.json").read_text() == "existing report"
