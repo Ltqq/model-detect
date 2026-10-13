@@ -41,6 +41,8 @@ class ValidationCase(BaseModel):
     reports: list[str] = Field(default_factory=list)
     # External controlled routing proportion is *declared*, not measured here.
     routing_fraction: float | None = Field(default=None, ge=0.0, le=1.0)
+    # External gateway/model configuration identifier; descriptive only.
+    variant_label: str | None = Field(default=None, max_length=100)
     base_url: str | None = None
     model: str | None = None
     api_key_env: str = "OPENAI_API_KEY"
@@ -275,6 +277,7 @@ def evaluate_suite(
                 "run": index,
                 "truth_source": case.truth_source,
                 "routing_fraction": case.routing_fraction,
+                "variant_label": case.variant_label,
                 "report_path": str(path),
                 "expected": expected,
                 "predicted": {
@@ -292,6 +295,7 @@ def evaluate_suite(
             "scenario": case.scenario,
             "truth_source": case.truth_source,
             "routing_fraction": case.routing_fraction,
+            "variant_label": case.variant_label,
             "runs_expected": case.runs,
             "runs_found": found,
         })
