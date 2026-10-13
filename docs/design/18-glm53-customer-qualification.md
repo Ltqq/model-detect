@@ -1,12 +1,12 @@
 # GLM-5.3 客户专项：官方在线基准 + 协议准入 + 能力对照
 
-> 临时业务需求；原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 原封保留。协议符合性、能力对照、模型身份是**三条不同证据**，不可相互替代。
+> 临时业务需求；原工程产品范围不变；GLM 实测问题现已合并进 [17 号统一总计划](17-engineering-closure-roadmap.md)。协议符合性、能力对照、模型身份是**三条不同证据**，不可相互替代。
 
 ## 真实测试后优先级更新（2026-10-13）
 
 已取得 GLM-5.3 官方与客户真实对照：01/02/03 原生协议和轻量能力、04 Benchmark Smoke、05 原始 Standard Benchmark（双方各 75 个样本）。**代码测试通过不能替代真实数据；现在已定位影响结论的确定性缺陷。**
 
-**正式执行清单以 [20 号实测复盘 / P0-P1](20-glm53-live-evidence-triage.md) 为准**，不再继续盲目扩题、重复付费或把轻量题判分当权威依据。
+**统一任务顺序以 [17 号总计划](17-engineering-closure-roadmap.md) 为准，具体真实证据与 G0/G1 复现以 [20 号实测复盘](20-glm53-live-evidence-triage.md) 为准**，不再继续盲目扩题、重复付费或把轻量题判分当权威依据。
 
 - **P0（先修，复用现有数据无需 Token）**：跨官方/客户稳定任务 hash（排除 endpoint 和函数内存地址、保留真正影响评分的配置）→ 原始成绩 Fixture 回放 → YAML 正则错误与答案格式规范化 → GLM 官方中文禁止关闭思考的 400 判定 → 报告结论降级。
 - **P1（再修）**：lm-eval / IFEval / Math 依赖安装与离线预检、venv PATH；确保 thinking/reasoning 档位同条件且真实生效；失败时保存已付费成功的中间结果。
@@ -71,14 +71,14 @@ API 格式：Z.ai OpenAI-compatible 路径形如 `https://api.z.ai/api/paas/v4/c
 
 ## 与常规计划的关系
 
-本文只针对 GLM-5.3 业务急单。原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 不修改；本业务完成后继续 A1 Reference 安全覆盖、A2 错误语义、Token Meter、官方 Kimi 验证。
+本文只针对 GLM-5.3 业务急单。原 [17 号总计划](17-engineering-closure-roadmap.md) 现已按用户要求统一排入 G0/G1 → A/B → C/D/E/F；本文件仅保留专项初期范围与技术设计。
 
 ## 准入加强复核（2026-10-13）
 
 后续专项审查修正了 SSE 仅读取前 30 行的假阳性风险、401/429 被当成禁用思考正确拒绝的风险、错误工具参数被当成合格、官方参考来源未经检查、付费结果被覆写等。新增可选的标准生成式 `lm-eval` 能力对照（GSM8K、IFEval、MATH-500 生成式），并且强制一致的 Dataset/Task/Metric/样本量才能比较。详细测试矩阵、成本预估和缺口以 [19 号专项验收说明](19-glm53-qualification-verification.md) 为准。
 
-**本次代码全绿不等于已做官方 GLM-5.3 真实付费测试。** 当前仅涵盖 OpenAI Chat Completions；Responses、Anthropic、百万上下文、真实 Agent Coding Benchmark、模型权重身份与实证显著性校准均不在已经验收的范围。原 [17 号工程收尾计划](17-engineering-closure-roadmap.md) 不变。
+**本次代码全绿不等于已做官方 GLM-5.3 真实付费测试。** 当前仅涵盖 OpenAI Chat Completions；Responses、Anthropic、百万上下文、真实 Agent Coding Benchmark、模型权重身份与实证显著性校准均不在已经验收的范围。统一后续任务见 [17 号总计划](17-engineering-closure-roadmap.md)，历史专项设计保留。
 
 ## 实施状态（2026-10-13）
 
-新增 `model-detect glm53 compare` 仅 CLI（Web 入口未新增）。支持离线预算预览（不需 API Key）、显式 `--execute` 的两端点串行调用、协议与轻量能力抽检、中文 JSON/Markdown/HTML。默认 10 个协议用例 + 每轮 25 道低难客观能力题，3 次官方 + 1 次客户合计 140 次 API 请求；所配置的最大输出预算之和为 245,760 Token，不等于真实使用量。**并未接入 GLM-5.3 官方高难 Coding/Agent Benchmark 的完整运行；请勿将轻量题集结果称为“满血”认证。** 原 17 号工程收尾路线不变。真实 API 付费实验尚未进行。
+新增 `model-detect glm53 compare` 仅 CLI（Web 入口未新增）。支持离线预算预览（不需 API Key）、显式 `--execute` 的两端点串行调用、协议与轻量能力抽检、中文 JSON/Markdown/HTML。默认 10 个协议用例 + 每轮 25 道低难客观能力题，3 次官方 + 1 次客户合计 140 次 API 请求；所配置的最大输出预算之和为 245,760 Token，不等于真实使用量。**并未接入 GLM-5.3 官方高难 Coding/Agent Benchmark 的完整运行；请勿将轻量题集结果称为“满血”认证。** 原本的常规工程范围未取消；新顺序由 17 号总计划统一管理。真实付费实验及其问题现已在 20 号文档记录（但能力等价性仍未验证）。
