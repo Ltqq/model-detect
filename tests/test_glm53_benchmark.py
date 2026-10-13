@@ -1,0 +1,129 @@
+import json
+
+import pytest
+from typer.testing import CliRunner
+
+from model_detect.cli import app
+from model_detect.glm53_benchmark import (
+    benchmark_plan, compare_benchmark_runs, run_standard_benchmark,
+)
+from model_detect.glm53_qualification import selected_cases
+
+
+def row(task, *, score=.8, sha="a" * 64, samples=5,
+        version=2, metric="acc"):
+    return {
+        "task": task, "score": score, "metric": metric,
+        "dataset_version": version, "sample_count": samples,
+        "config_sha256": sha, "valid": True,
+    }
+
+
+def test_benchmark_profiles_only_use_chat_generation_tasks():
+    expected = ["gsm8k", "ifeval", "minerva_math500"]
+    plan = benchmark_plan(
+        "standard", official_runs=3, customer_runs=1, max_gen_toks=8192
+    )
+    assert plan["tasks"] == expected
+    assert plan["nominal_samples"] == 3 * 25 * 4
+    assert plan["nominal_max_output_tokens"] == 3 * 25 * 4 * 8192
+    assert "mmlu_pro" not in plan["tasks"]
+    with pytest.raises(ValueError):
+        benchmark_plan("other", official_runs=3, customer_runs=1)
+
+
+def test_benchmark_does_not_compare_changed_datasets_or_configs():
+    plan = benchmark_plan("smoke", official_runs=1, customer_runs=1)
+    tasks = plan["tasks"]
+    official = [[row(task) for task in tasks]]
+    customer = [[row(task, score=.5) for task in tasks]]
+    result = compare_benchmark_runs(
+        official, customer, plan=plan, harness_version="0.4.9"
+    )
+    assert result["result"] == "measured"
+    assert all(r["delta"] == pytest.approx(-.3) for r in result["tasks"])
+    customer[0][0]["config_sha256"] = "b" * 64
+    result = compare_benchmark_runs(
+        official, customer, plan=plan, harness_version="0.4.9"
+    )
+    assert result["result"] == "partial_or_incomparable"
+    assert result["tasks"][0]["status"] == "incomparable"
+    customer[0][0]["config_sha256"] = "a" * 64
+    customer[0][0]["sample_count"] = 4
+    assert compare_benchmark_runs(
+        official, customer, plan=plan, harness_version="0.4.9"
+    )["tasks"][0]["status"] == "incomparable"
+
+
+def test_benchmark_missing_data_does_not_look_like_good_quality():
+    plan = benchmark_plan("smoke", official_runs=1, customer_runs=1)
+    result = compare_benchmark_runs(
+        [[]], [[]], plan=plan, harness_version="0.4.9"
+    )
+    assert result["result"] == "partial_or_incomparable"
+    assert all(item["delta"] is None for item in result["tasks"])
+
+
+def test_benchmark_run_uses_same_tasks_limits_and_never_logs_api_keys(
+    monkeypatch,
+):
+    from model_detect import glm53_benchmark as module
+    monkeypatch.setattr(
+        module.lm_eval, "availability", lambda: {"available": True}
+    )
+    monkeypatch.setattr(module, "version", lambda name: "test-v1")
+    requests = []
+
+    def fake_run_endpoint(**kwargs):
+        requests.append(kwargs)
+        path = kwargs["output_path"]
+        path.mkdir(parents=True)
+        payload = {
+            "results": {
+                task: {"acc": .9} for task in kwargs["tasks"]
+            },
+            "versions": {task: 2 for task in kwargs["tasks"]},
+            "n-samples": {
+                task: {"effective": kwargs["limit"]}
+                for task in kwargs["tasks"]
+            },
+            "configs": {
+                task: {"output_type": "generate_until", "task": task}
+                for task in kwargs["tasks"]
+            },
+        }
+        (path / "result.json").write_text(json.dumps(payload))
+        return {"returncode": 0}
+
+    monkeypatch.setattr(module.lm_eval, "run_endpoint", fake_run_endpoint)
+    report = run_standard_benchmark(
+        level="smoke",
+        official_url="https://api.z.ai/api/paas/v4",
+        customer_url="https://relay.example/v1",
+        official_key="secret-official", customer_key="secret-vendor",
+        official_runs=1, customer_runs=1,
+    )
+    assert report["result"] == "measured"
+    assert len(requests) == 2
+    assert requests[0]["tasks"] == requests[1]["tasks"]
+    assert requests[0]["max_gen_toks"] == requests[1]["max_gen_toks"]
+    assert requests[0]["max_retries"] == 0
+    assert "secret-" not in json.dumps(report)
+
+
+def test_benchmark_cli_dry_run_previews_additional_cost_without_keys(
+    monkeypatch,
+):
+    monkeypatch.delenv("GLM53_OFFICIAL_KEY", raising=False)
+    monkeypatch.delenv("GLM53_CUSTOMER_KEY", raising=False)
+    result = CliRunner().invoke(app, [
+        "glm53", "compare",
+        "--official-url", "https://api.z.ai/api/paas/v4",
+        "--customer-url", "https://relay.example/v1",
+        "--mode", "capability",
+        "--capability-profile", "smoke",
+        "--benchmark", "smoke", "--max-requests", "60",
+    ])
+    assert result.exit_code == 0, result.output
+    assert "Benchmark" in result.output
+    assert "预览完成" in result.output
