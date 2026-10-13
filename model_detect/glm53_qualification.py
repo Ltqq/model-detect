@@ -285,8 +285,14 @@ def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
         # model-specific thinking restriction.
         if status in {400, 422}:
             detail = json.dumps(response, ensure_ascii=False).lower() if response else ""
-            if any(token in detail for token in ("thinking", "disabled", "reasoning")):
-                return "pass", f"HTTP {status}：错误明确指向思考参数"
+            if (
+                "disabled" in detail
+                or "thinking.type" in detail
+                or ("thinking" in detail and "not support" in detail)
+                or ("thinking" in detail and "not allowed" in detail)
+                or ("thinking" in detail and "不能" in detail)
+            ):
+                return "pass", f"HTTP {status}：错误明确指向禁止关闭思考"
             return "insufficient", f"HTTP {status}：拒绝原因未知，不能认定思考限制生效"
         if status in {401, 403, 408, 409, 425, 429} or status >= 500:
             return "insufficient", f"HTTP {status}：鉴权、限流或服务错误，无法验证思考限制"
@@ -308,8 +314,8 @@ def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
         reason = response.get("_sse_finish_reason")
         if reason == "length":
             return "insufficient", "SSE 完成但 token 预算耗尽"
-        if not reason:
-            return "insufficient", "收到 [DONE] 但缺少 choices.finish_reason"
+        if reason not in {"stop", "tool_calls", "function_call"}:
+            return "insufficient", "收到 [DONE] 但没有正常结束原因"
         return "pass", "SSE 已完整结束，包含终止原因及 [DONE] 标记"
     if not isinstance(response, dict):
         return "insufficient", "非 JSON 或响应体结构不符合 Chat Completions"
