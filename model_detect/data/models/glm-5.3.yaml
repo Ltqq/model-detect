@@ -1,0 +1,65 @@
+schema_version: 3
+
+id: glm-5.3
+family: glm
+model_version: "5.3"
+patterns:
+  - "glm-5.3"
+aliases:
+  - "GLM-5.3"
+updated_at: "2026-10-13"
+declared_context_tokens: 1000000
+
+sources:
+  - id: zai-glm-5.3-guide
+    type: official_doc
+    title: "Z.ai GLM-5.3 model guide: reasoning & capability"
+    url: "https://docs.z.ai/guides/llm/glm-5.3"
+    collected_at: "2026-10-13"
+    confidence: high
+  - id: zai-chat-completions-api
+    type: official_doc
+    title: "Z.ai Chat Completion API reference"
+    url: "https://docs.z.ai/api-reference/llm/chat-completion"
+    collected_at: "2026-10-13"
+    confidence: high
+  - id: zai-glm-5-series
+    type: official_doc
+    title: "GLM-5 series official repository / chat template"
+    url: "https://github.com/zai-org/GLM-5"
+    collected_at: "2026-10-13"
+    confidence: high
+
+strict: false
+
+features:
+  reasoning_effort:
+    expected: true
+    source_refs: [zai-glm-5.3-guide]
+  disable_thinking:
+    expected: false
+    source_refs: [zai-glm-5.3-guide]
+  tools:
+    expected: true
+    source_refs: [zai-glm-5.3-guide]
+  json_schema:
+    expected: null
+
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [low, high, max]
+      default: max
+      native_parameter: reasoning_effort
+      source_refs: [zai-glm-5.3-guide]
+    thinking:
+      values: [enabled]
+      native_parameter: thinking.type
+      source_refs: [zai-glm-5.3-guide]
+
+notes:
+  - "GLM-5.3 always reasons. The first-party API documents enabled thinking and low/high/max effort (default max)."
+  - "API docs say thinking.type=disabled fails; open-weight chat-template fallback behavior does not override first-party API contract."
+  - "Z.ai official Chat Completions Base URL may use /api/paas/v4 or Coding Plan /api/coding/paas/v4; do not append /v1 blindly."
+  - "The API documentation describes JSON output and function calling, not necessarily strict json_schema or forced tool_choice=required."
+  - "Vendor gateways should be tested against the declared compatible contract; feature mismatches are not cryptographic model identity proof."

@@ -15,6 +15,7 @@ from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig, lo
 from .models import AuditTarget
 from .reference_cli import reference_app
 from .validation_cli import validation_app
+from .glm53_cli import glm53_app
 from .reporting import safe_name, write_report
 from .drift import compare_reports
 
@@ -25,6 +26,7 @@ app = typer.Typer(
 )
 app.add_typer(reference_app, name="reference")
 app.add_typer(validation_app, name="validation")
+app.add_typer(glm53_app, name="glm53")
 console = Console()
 
 

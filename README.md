@@ -265,3 +265,45 @@ model-detect validation calibrate \
 
 **注意：工具代码准备好 ≠ Kimi/GLM 实测校准已完成。**
 真实模型实验仍需你自己运行官方/受控端点，并保留外部网关路由日志与原始真值依据。
+
+
+## GLM-5.3 客户专项对照（临时需求；不覆盖 17 号计划）
+
+这项工作是一次**官方端点在线实测 → 客户端点同测试 → 中文对照报告**，用于快速准入核查。独立设计：[GLM-5.3 客户专项计划](docs/design/18-glm53-customer-qualification.md)。
+
+目前新增独立 CLI：`model-detect glm53 compare`；默认 **只预览**，不会发出模型请求。将官方和客户 Key 放在各自环境变量后，再显式传入 `--execute`：
+
+```bash
+# 测试前：只看预算，官方 API 可能是 /api/paas/v4 或文档列出的 Coding Plan 前缀
+model-detect glm53 compare \
+  --official-url https://api.z.ai/api/paas/v4 \
+  --customer-url https://customer.example/v1 \
+  --official-runs 3 --customer-runs 1 \
+  --capability-profile smoke --mode all
+
+# 正式运行：绝不在命令行直接写 API Key，先设置 GLM53_OFFICIAL_KEY / GLM53_CUSTOMER_KEY
+model-detect glm53 compare \
+  --official-url https://api.z.ai/api/paas/v4 \
+  --customer-url https://customer.example/v1 \
+  --official-key-env GLM53_OFFICIAL_KEY \
+  --customer-key-env GLM53_CUSTOMER_KEY \
+  --official-runs 3 --customer-runs 1 \
+  --capability-profile standard --mode all \
+  --max-requests 160 --execute \
+  --output-dir glm53-output
+```
+
+| 选项 | 每端点每轮 |
+|---|---:|
+| `--mode protocol` | 10 个 GLM-5.3 专项协议用例 |
+| `--mode capability --capability-profile smoke` | 10 道固定客观能力小题 |
+| `--mode capability --capability-profile standard` | 25 道固定客观能力小题 |
+| `--mode all --capability-profile standard` | 10 个协议 Case + 25 道能力题 |
+
+默认 3 轮官方 + 1 轮客户、`all + standard`，理论共 **140 个 API 请求**；每轮名义最大生成 Token 预算为 `10 × 1024 + 25 × 2048 = 61,440`，四轮合计 **245,760**。这是给请求配置的生成上限之和，**不是实际必然消耗量**；真实输入 Token 的执行前估算基于 UTF-8 字节长度启发式，不是模型 Tokenizer 的准确结果，思考 Token 与缓存计费也依赖上游。
+
+可以通过 `--input-price`、`--output-price` 输入每百万 Token 单价（同一种货币）以预览粗略费用情景；正式报告汇总接口实际返回的 `usage`，缺失的 usage 会标为**未计量**而不是当作零成本。流式请求只取 SSE 初段检测协议，usage 可能拿不到，必须在报告明确记为未知。
+
+结果保存在 `glm53-comparison.json`、`glm53-comparison.md` 和 `glm53-comparison.html`，协议与能力分开展示。注意：`Standard` 能力档仍是轻量**客观小题抽检**（不是高难 Coding/Agent 官方成绩）；默认输出预算可能仍不足以让个别持续思考请求完成，截断记为证据不足。正式高难能力评测可在固定环境下追加现有 lm-eval/可执行 Coding 评测，不允许将此小题抽检称为“GLM-5.3 满血官方认证”。
+
+用户自行提供官方地址与凭据；本项目不内置 Key、官方分数或虚构的真实验收结果。

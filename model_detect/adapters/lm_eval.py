@@ -30,7 +30,9 @@ def normalize_chat_endpoint(base_url: str) -> str:
         raise ValueError("base_url is required")
     if value.endswith("/chat/completions"):
         return value
-    if value.endswith("/v1"):
+    # Z.ai OpenAI-compatible endpoints use /api/paas/v4 (or Coding
+    # Plan /api/coding/paas/v4), NOT /v1. Preserve documented API prefixes.
+    if value.endswith(("/v1", "/api/paas/v4", "/api/coding/paas/v4")):
         return value + "/chat/completions"
     return value + "/v1/chat/completions"
 

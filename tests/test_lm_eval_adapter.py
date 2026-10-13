@@ -22,6 +22,19 @@ def test_normalize_chat_endpoint():
     )
 
 
+def test_normalize_zai_glm53_api_prefixes():
+    for prefix in (
+        "https://api.z.ai/api/paas/v4",
+        "https://api.z.ai/api/coding/paas/v4",
+    ):
+        assert lm_eval.normalize_chat_endpoint(prefix) == (
+            prefix + "/chat/completions"
+        )
+        assert lm_eval.normalize_chat_endpoint(
+            prefix + "/chat/completions"
+        ) == prefix + "/chat/completions"
+
+
 def test_build_command_for_openai_compatible_chat(tmp_path):
     cmd = lm_eval.build_command(
         base_url="https://relay.example/v1",
