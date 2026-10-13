@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .glm53_benchmark import benchmark_plan, run_standard_benchmark
 from .glm53_qualification import (
     build_comparison, normalize_base_url, plan_comparison,
     run_endpoint, selected_cases, write_comparison,
@@ -42,6 +43,17 @@ def compare(
     output_price: Optional[float] = typer.Option(
         None, "--output-price", min=0, help="Price per 1 million output tokens",
     ),
+    benchmark_level: str = typer.Option(
+        "none", "--benchmark",
+        help="none (default) / smoke / standard / deep (lm-eval generative tasks)",
+    ),
+    benchmark_runs: int = typer.Option(
+        1, "--benchmark-runs", min=1, max=3,
+        help="Runs per endpoint for optional external benchmark",
+    ),
+    benchmark_max_gen_toks: int = typer.Option(
+        8192, "--benchmark-max-gen-toks", min=256, max=32768,
+    ),
     max_requests: int = typer.Option(160, "--max-requests", min=1),
     execute: bool = typer.Option(
         False, "--execute", help="Allow actual potentially billable calls to both APIs"
@@ -52,6 +64,14 @@ def compare(
     try:
         official_base = normalize_base_url(official_url)
         customer_base = normalize_base_url(customer_url)
+        benchmark = (
+            benchmark_plan(
+                benchmark_level, official_runs=benchmark_runs,
+                customer_runs=benchmark_runs,
+                max_gen_toks=benchmark_max_gen_toks,
+            )
+            if benchmark_level != "none" else None
+        )
         plan = plan_comparison(
             mode=mode,
             profile=capability_profile,
@@ -70,6 +90,20 @@ def compare(
     summary.add_row("总 API 请求计划", str(plan["requests"]))
     summary.add_row("粗略输入 Token 估算", str(plan["estimated_input_tokens"]))
     summary.add_row("名义输出预算 max_tokens 合计", str(plan["nominal_output_token_cap"]))
+    if benchmark:
+        summary.add_row(
+            "附加标准 Benchmark", 
+            f"{benchmark['tasks']} × 最多 {benchmark['limit']} 题"
+        )
+        summary.add_row("Benchmark 样本调用（名义）", str(benchmark["nominal_samples"]))
+        summary.add_row(
+            "Benchmark 额外输出上限合计",
+            str(benchmark["nominal_max_output_tokens"]),
+        )
+        console.print(
+            "[yellow]标准 Benchmark 使用独立 lm-eval 子进程；Token usage "
+            "暂时无法计量，费用预估不包含这部分输入。[/yellow]"
+        )
     if plan["scenario_max_cost"] is not None:
         summary.add_row(
             "粗略费用情景（使用输入估算+输出满额）",
@@ -80,9 +114,13 @@ def compare(
     console.print(
         "能力部分是客观小题 Smoke/Standard，非 GLM-5.3 官方高难 Coding/Agent Benchmark。"
     )
-    if plan["requests"] > max_requests:
+    total_planned = plan["requests"] + (
+        benchmark["nominal_samples"] if benchmark else 0
+    )
+    if total_planned > max_requests:
         raise typer.BadParameter(
-            f"request plan {plan['requests']} exceeds --max-requests {max_requests}"
+            f"planned native requests + benchmark samples {total_planned} "
+            f"exceed --max-requests {max_requests}"
         )
     if not execute:
         console.print(
@@ -103,6 +141,12 @@ def compare(
             "a self-match is not a supplier comparison"
         )
 
+    if benchmark:
+        from .adapters import lm_eval
+        if not lm_eval.availability()["available"]:
+            raise typer.BadParameter(
+                "selected benchmark needs installed lm_eval[api] and lm_eval on PATH"
+            )
     cases = selected_cases(mode, capability_profile)
 
     async def collect():
@@ -124,6 +168,33 @@ def compare(
         input_price_per_million=input_price,
         output_price_per_million=output_price,
     )
+    if benchmark:
+        console.print(
+            "[cyan]执行附加标准 Benchmark；数据集会下载/缓存，"
+            "官方和客户各运行指定轮次...[/cyan]"
+        )
+        try:
+            result["standard_benchmark"] = run_standard_benchmark(
+                level=benchmark_level,
+                official_url=official_base,
+                customer_url=customer_base,
+                official_key=official_key,
+                customer_key=customer_key,
+                official_runs=benchmark_runs,
+                customer_runs=benchmark_runs,
+                max_gen_toks=benchmark_max_gen_toks,
+            )
+        except Exception as exc:
+            result["standard_benchmark"] = {
+                "result": "error",
+                "error_type": type(exc).__name__,
+                "warning": (
+                    "Standard Benchmark did not finish; there is no "
+                    "claim of comparable capability for the benchmark."
+                ),
+            }
+            write_comparison(result, output_dir)
+            raise typer.Exit(code=1)
     outputs = write_comparison(result, output_dir)
     console.print("[green]已生成 GLM-5.3 官方对照报告。[/green]")
     for kind, path in outputs.items():
