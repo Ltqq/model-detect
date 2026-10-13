@@ -217,6 +217,9 @@ def test_confusion_matrix_counts_real_reports_and_abstentions(tmp_path):
     assert saved["metrics"]["identity"]["abstained"] == 1
     assert "受控鉴别实验" in text
     assert "30%（仅配置目标）" in text
+    assert "route30 #1" in text
+    assert "异常 → 异常" in text
+    assert "未标注 → 弃权" in text
 
 
 def test_missing_reports_produce_no_fabricated_accuracy(tmp_path):
