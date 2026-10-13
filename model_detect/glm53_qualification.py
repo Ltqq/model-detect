@@ -638,6 +638,37 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
                 f"| {label} #{item['run']} | {item['kind']} "
                 f"| {item['id']} | {item['status']} | {detail} |"
             )
+    benchmark = data.get("standard_benchmark")
+    if isinstance(benchmark, dict):
+        lines.extend([
+            "", "## 标准 Benchmark（lm-evaluation-harness）", "",
+        ])
+        if benchmark.get("result") == "error":
+            lines.append(
+                "**未完成：外部标准评测执行失败，不能从缺失成绩得出官方一致结论。**"
+            )
+            lines.append("失败类型：" + str(benchmark.get("error_type") or "unknown"))
+        else:
+            lines.extend([
+                f"评测框架版本：{benchmark.get('harness_version') or '未知'}；"
+                f"配置 SHA256：{benchmark.get('suite_sha256') or '未记录'}",
+                "",
+                "| 任务 | 数据集版本 | 实际题量 | 官方 | 客户 | 差值 | 可比性 |",
+                "|---|---|---:|---:|---:|---:|---|",
+            ])
+            for item in benchmark.get("tasks") or []:
+                def as_pct(value):
+                    return "不可比" if value is None else f"{value:.1%}"
+                lines.append(
+                    f"| {item['task']} | {item.get('dataset_version')} "
+                    f"| {item.get('sample_count') or '未知'} "
+                    f"| {as_pct(item.get('official_mean'))} "
+                    f"| {as_pct(item.get('customer_mean'))} "
+                    f"| {as_pct(item.get('delta'))} | {item['status']} |"
+                )
+            lines.extend(["", "此处是独立标准任务成绩，不是厂商发布的 GLM-5.3 官方榜单复现。"])
+            for warning in benchmark.get("limitations") or []:
+                lines.append("- " + warning)
     lines.extend(["", "## 证据边界", ""])
     lines.extend(f"- {warning}" for warning in data["warnings"])
     text = "\n".join(lines) + "\n"
