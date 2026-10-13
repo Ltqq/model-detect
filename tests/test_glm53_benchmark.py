@@ -127,3 +127,61 @@ def test_benchmark_cli_dry_run_previews_additional_cost_without_keys(
     assert result.exit_code == 0, result.output
     assert "Benchmark" in result.output
     assert "预览完成" in result.output
+
+
+
+def test_optional_benchmark_results_appear_in_same_customer_report(
+    monkeypatch, tmp_path
+):
+    from model_detect import glm53_cli as module
+    monkeypatch.setenv("GLM53_OFFICIAL_KEY", "mock-off")
+    monkeypatch.setenv("GLM53_CUSTOMER_KEY", "mock-ven")
+    from model_detect.glm53_qualification import selected_cases
+
+    async def fake_native(**kwargs):
+        return [
+            {
+                "endpoint": kwargs["label"], "run": run,
+                "id": case["id"], "kind": "protocol", "category": "protocol",
+                "status": "pass", "usage": None,
+            }
+            for run in range(1, kwargs["runs"] + 1)
+            for case in kwargs["cases"]
+        ]
+
+    monkeypatch.setattr(module, "run_endpoint", fake_native)
+    monkeypatch.setattr(
+        "model_detect.adapters.lm_eval.availability",
+        lambda: {"available": True},
+    )
+    mock_bench = {
+        "suite": "glm53-lm-eval-generative-v1",
+        "suite_sha256": "x" * 64, "harness_version": "test",
+        "result": "measured",
+        "tasks": [{
+            "task": "gsm8k", "dataset_version": 3, "sample_count": 5,
+            "official_mean": .9, "customer_mean": .7, "delta": -.2,
+            "status": "measured_difference",
+        }],
+        "limitations": ["not model identity proof"],
+    }
+    monkeypatch.setattr(
+        module, "run_standard_benchmark",
+        lambda **kwargs: mock_bench,
+    )
+    root = tmp_path / "run"
+    result = CliRunner().invoke(app, [
+        "glm53", "compare",
+        "--official-url", "https://api.z.ai/api/paas/v4",
+        "--customer-url", "https://relay.example/v1",
+        "--official-runs", "1", "--customer-runs", "1",
+        "--mode", "protocol", "--capability-profile", "smoke",
+        "--benchmark", "smoke", "--benchmark-runs", "1",
+        "--max-requests", "60", "--execute",
+        "--output-dir", str(root),
+    ])
+    assert result.exit_code == 0, result.output
+    saved = json.loads((root / "glm53-comparison.json").read_text(encoding="utf-8"))
+    assert saved["standard_benchmark"]["result"] == "measured"
+    assert saved["reference_provenance"]["official_host_verified"] is True
+    assert "gsm8k" in (root / "glm53-comparison.md").read_text(encoding="utf-8")
