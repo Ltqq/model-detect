@@ -374,6 +374,32 @@ def write_validation(result: dict[str, Any], output_dir: str | Path) -> tuple[Pa
             f"| {case['runs_found']}/{case['runs_expected']} "
             f"| {fraction} | {str(case['truth_source']).replace('|', '/')} |"
         )
+    lines.extend([
+        "",
+        "## 每一次实验的标签与判断",
+        "",
+        "| Case / Run | 模型身份（真实 → 预测） | 混合路由（真实 → 预测） | 质量退化（真实 → 预测） | 报告文件 |",
+        "|---|---|---|---|---|",
+    ])
+    def readable(value: bool | None) -> str:
+        if value is None:
+            return "未标注/弃权"
+        return "异常" if value else "正常"
+
+    for run in result["runs"]:
+        fields = []
+        for signal in ("identity", "routing", "quality"):
+            actual = run["expected"][signal]
+            predicted = run["predicted"][signal]
+            truth_text = "未标注" if actual is None else readable(actual)
+            prediction_text = "弃权" if predicted is None else readable(predicted)
+            fields.append(f"{truth_text} → {prediction_text}")
+        local_path = str(run["report_path"]).replace("|", "/")
+        lines.append(
+            f"| {run['case_id']} #{run['run']} | {fields[0]} | {fields[1]} "
+            f"| {fields[2]} | \`{local_path}\` |"
+        )
+
     lines.extend(["", "## 证据边界", ""])
     for warning in result["warnings"]:
         lines.append("- " + warning)
