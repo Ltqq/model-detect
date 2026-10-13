@@ -1,5 +1,13 @@
 # GLM-5.3 专项准入：官方依据、检测能力与证据验收（2026-10-13）
 
+## 实测后的有效性修正（2026-10-13）
+
+> 本文的“可比性严格核对”描述的是设计意图。**实测验证证明当前实现存在缺陷：任务配置哈希错误混入官方/客户不同的 Endpoint URL，MATH-500 还混入函数内存地址，导致 04/05 得分虽存在却被全数标为 `incomparable`。** 不能继续宣称强 Benchmark 已经在真实渠道完整验收通过。
+>
+> 同批次发现 capability 正则与答案格式假阴性、GLM 中文 disabled 400 被错判 insufficient、IFEval/Math 可选依赖与离线 NLTK 预热问题。完整实测数字、证据边界和下一步验收见 [20 号实测复盘](20-glm53-live-evidence-triage.md)。**修复 G0/G1 后必须先回放真实原始数据，再小规模实测**。
+>
+> 本次 25 样本/任务未证明模型身份、统计等价、复杂 Coding/Agent 能力或“满血”。
+
 ## 定位
 
 本专项只声明 **GLM-5.3 的 OpenAI-compatible Chat Completions API 行为** 与 **官方/供应商同一评测套件的能力差异**。它不验证 OpenAI Responses 协议、Anthropic Messages、百万 Token 真正满窗支持、视觉（官方当前只支持文本）、量化位宽或模型权重身份。
