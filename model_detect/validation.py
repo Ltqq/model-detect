@@ -169,6 +169,44 @@ def _quality_signal(report: AuditReport) -> bool | None:
     return None
 
 
+def report_provenance(report: AuditReport) -> dict[str, Any]:
+    """Report lineage only: no URLs, Authorization, prompts, or API keys."""
+    rule = report.adapters.get("model_rule")
+    rule = rule if isinstance(rule, dict) else {}
+    reference = report.adapters.get("reference")
+    reference = reference if isinstance(reference, dict) else {}
+    benchmark = []
+    for item in report.results:
+        if item.metadata.get("engine") != "lm-evaluation-harness":
+            continue
+        benchmark.append({
+            "task": item.metadata.get("task"),
+            "harness_version": item.metadata.get("benchmark_harness_version"),
+            "dataset_version": (
+                item.observed.get("version")
+                if isinstance(item.observed, dict) else None
+            ),
+            "effective_samples": (
+                item.observed.get("effective_samples")
+                if isinstance(item.observed, dict) else None
+            ),
+            "task_config_sha256": (
+                item.observed.get("task_config_hash")
+                if isinstance(item.observed, dict) else None
+            ),
+        })
+    return {
+        "model": report.target.get("model"),
+        "profile": report.profile,
+        "started_at": report.started_at,
+        "finished_at": report.finished_at,
+        "model_rule_id": rule.get("id"),
+        "model_rule_updated_at": rule.get("updated_at"),
+        "reference_id": reference.get("id"),
+        "benchmark_tasks": benchmark,
+    }
+
+
 def classify_report(report: AuditReport) -> dict[str, Any]:
     return {
         "identity": _identity_signal(report),
@@ -289,6 +327,7 @@ def evaluate_suite(
                     "quality": predicted["quality"],
                 },
                 "raw_verdicts": predicted,
+                "provenance": report_provenance(report),
             })
         cases.append({
             "id": case.id,
