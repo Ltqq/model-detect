@@ -58,7 +58,7 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 
 验收：官方和供应商可在同一显式 Benchmark Profile 下形成同套件结果并展示中文差异，不要求立刻上线真实付费测试。
 
-## Phase 3 · P1 受控鉴别实验（后续）
+## Phase 3 · P1 受控鉴别实验（代码完成；真实实验数据待 Phase 4）
 
 - Known Positive：官方 Endpoint 对自己；
 - Known Negative：明确不同模型及明显更弱模型；
@@ -68,6 +68,11 @@ model-detect 主流程已具备 Web/CLI、官方 Model Rule、协议/参数/Cont
 - 记录真实标签、报告结论和 Evidence，统计检出率、误报率、漏检率。
 
 验收：对照实验可重复运行，明确支持边界，不公布无数据的“准确率”。
+
+现已实现实验 YAML、`model-detect validation run/evaluate`、真实标签/强证据对比、
+逐轮中文报告与混淆矩阵。操作详见 [15 号实验设计](15-controlled-validation-experiments.md)
+和 [受控实验使用指南](../08-controlled-validation-guide.md)。
+真实 Kimi / GLM 官方与受控网关测量仍需 Phase 4 在有凭据的环境执行。
 
 ## Phase 4 · P2 真实渠道校准（后续，需官方 API Key）
 
