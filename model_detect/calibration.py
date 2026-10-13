@@ -266,6 +266,14 @@ def calibrate_validation(validation: dict[str, Any]) -> dict[str, Any]:
         "quality_threshold_replay": _quality_sweep(validation),
         "readiness": readiness,
         "cases": cases,
+        "report_provenance": [
+            {
+                "case_id": row["case_id"],
+                "run": row["run"],
+                "provenance": row.get("provenance") or {},
+            }
+            for row in validation.get("runs") or []
+        ],
         "warnings": [
             "Ground truth is asserted by the manifest author; not independently verified.",
             "Case-level aggregation requires all expected runs, with identical predictions.",
@@ -380,6 +388,29 @@ def write_calibration(
         lines.append(
             f"- {name}：{item['status']}；独立正例 {item['independent_positive_cases']}，"
             f"独立负例 {item['independent_negative_cases']}。未认证。"
+        )
+    lines.extend([
+        "",
+        "## 报告可追溯性（不保存密钥与请求正文）",
+        "",
+        "| Case/Run | 模型 | Profile | 模型规则版本 | Benchmark（任务/实际样本/Harness） | 采集时间 |",
+        "|---|---|---|---|---|---|",
+    ])
+    for item in calibration["report_provenance"]:
+        source = item["provenance"]
+        benchmark = ", ".join(
+            f"{task.get('task')}: {task.get('effective_samples') or '?'}题/"
+            f"{task.get('harness_version') or '版本未知'}"
+            for task in source.get("benchmark_tasks") or []
+        ) or "无"
+        lines.append(
+            f"| {item['case_id']} #{item['run']} "
+            f"| {source.get('model') or '未知'} "
+            f"| {source.get('profile') or '未知'} "
+            f"| {source.get('model_rule_id') or '未记录'}/"
+            f"{source.get('model_rule_updated_at') or '未知'} "
+            f"| {benchmark} "
+            f"| {source.get('started_at') or '未知'} |"
         )
     lines.extend(["", "## 实验边界", ""])
     lines.extend("- " + str(w) for w in calibration["warnings"])
