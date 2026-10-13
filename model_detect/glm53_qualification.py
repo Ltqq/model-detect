@@ -279,28 +279,62 @@ def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
     if status is None:
         return "error", "未收到有效 HTTP 响应"
     check = case["check"]
+    response = call.json_body
     if check == "reject":
-        if 400 <= status < 500:
-            return "pass", f"HTTP {status}：如文档预期，拒绝关闭思考"
-        return ("fail", f"HTTP {status}：与官方应拒绝 disabled 的文档不符")
+        # A 401/403/429 can be auth/quota/routing failure, not proof of a
+        # model-specific thinking restriction.
+        if status in {400, 422}:
+            detail = json.dumps(response, ensure_ascii=False).lower() if response else ""
+            if any(token in detail for token in ("thinking", "disabled", "reasoning")):
+                return "pass", f"HTTP {status}：错误明确指向思考参数"
+            return "insufficient", f"HTTP {status}：拒绝原因未知，不能认定思考限制生效"
+        if status in {401, 403, 408, 409, 425, 429} or status >= 500:
+            return "insufficient", f"HTTP {status}：鉴权、限流或服务错误，无法验证思考限制"
+        return "fail", f"HTTP {status}：未按官方协议拒绝 disabled"
+    if status in {401, 403, 408, 409, 425, 429} or status >= 500:
+        return "insufficient", f"HTTP {status}：服务不可用或权限/限流，不能判定协议不支持"
     if status != 200:
-        return "fail", f"HTTP {status}：有效参数请求失败"
+        return "fail", f"HTTP {status}：有效请求被拒绝"
     if check == "stream":
-        headers = call.evidence.response_headers or {}
-        kind = str(headers.get("content-type") or "").lower()
-        if "text/event-stream" in kind and isinstance(call.json_body, list):
-            return "pass", "SSE 数据格式可解析（截取首段，非整条流完成性验证）"
-        return "fail", "未观察到可解析的 SSE 响应"
-    text = _content(call.json_body)
-    if _finish_reason(call.json_body) == "length":
+        kind = str((call.evidence.response_headers or {}).get("content-type") or "").lower()
+        if "text/event-stream" not in kind:
+            return "fail", "返回类型不是 text/event-stream"
+        if not isinstance(response, dict):
+            return "insufficient", "未获取完整 SSE 证据"
+        if response.get("_sse_truncated"):
+            return "insufficient", "SSE 超过安全读取上限，不能判完整流"
+        if not response.get("_sse_completed"):
+            return "insufficient", "未收到 [DONE] 结束标记"
+        reason = response.get("_sse_finish_reason")
+        if reason == "length":
+            return "insufficient", "SSE 完成但 token 预算耗尽"
+        if not reason:
+            return "insufficient", "收到 [DONE] 但缺少 choices.finish_reason"
+        return "pass", "SSE 已完整结束，包含终止原因及 [DONE] 标记"
+    if not isinstance(response, dict):
+        return "insufficient", "非 JSON 或响应体结构不符合 Chat Completions"
+    if _finish_reason(response) == "length":
         return "insufficient", "输出达到 max_tokens 截断，不能判断能力"
+    text = _content(response)
     if check == "tools":
-        msg = _assistant_message(call.json_body)
-        calls = msg.get("tool_calls")
-        return (
-            ("pass", "生成了 tool_calls") if isinstance(calls, list) and calls
-            else ("insufficient", "接受了 tools，但 tool_choice=auto 未触发工具；不等于不支持")
-        )
+        calls = _assistant_message(response).get("tool_calls")
+        if not isinstance(calls, list) or not calls:
+            return "insufficient", "tool_choice=auto 未触发工具，无法判定工具能力"
+        for item in calls:
+            if not isinstance(item, dict) or not isinstance(item.get("function"), dict):
+                return "fail", "tool_calls 结构不合法"
+            function = item["function"]
+            if function.get("name") != "lookup_ticket":
+                return "fail", "工具名不符合请求提供的工具定义"
+            arguments = function.get("arguments")
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except (TypeError, ValueError):
+                    return "fail", "工具参数并非合法 JSON"
+            if not isinstance(arguments, dict) or arguments.get("ticket_id") != "T-17":
+                return "fail", "工具参数 ticket_id 不正确"
+        return "pass", "工具名与 JSON 参数正确"
     if check == "json":
         try:
             parsed = json.loads(text)
@@ -315,9 +349,9 @@ def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
             ("pass", "多轮记忆正确") if text == "阿林"
             else ("fail", "多轮问题没有按要求回忆代号")
         )
-    if text or _assistant_message(call.json_body).get("reasoning_content"):
-        return "pass", "请求成功并收到模型内容（不证明推理强度实际生效）"
-    return "insufficient", "HTTP 200 但没有可判定模型内容"
+    if text:
+        return "pass", "请求成功并收到模型答案（不证明推理等级实际生效）"
+    return "insufficient", "HTTP 200 但无完整可判定的答案"
 
 
 async def run_endpoint(
@@ -344,6 +378,7 @@ async def run_endpoint(
                 path="/chat/completions",
                 payload=case["payload"],
                 stream=protocol and case["check"] == "stream",
+                stream_full=protocol and case["check"] == "stream",
                 # Keep intentionally invalid thinking.disabled unchanged.
                 constraint_exempt_fields={"thinking", "reasoning_effort"},
             )
