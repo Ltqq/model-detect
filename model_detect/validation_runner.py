@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Callable
 
@@ -115,6 +116,9 @@ async def run_suite(
                     "report": str(target_dir / "report.json"),
                 })
             except Exception as exc:
+                # Never let a partially written report become a counted sample.
+                if target_dir.exists():
+                    shutil.rmtree(target_dir, ignore_errors=True)
                 # Do not persist exception messages that may contain provider
                 # request headers, tokens, URLs or account details.
                 outcomes.append({
