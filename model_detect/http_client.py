@@ -51,6 +51,7 @@ class AuditHttpClient:
         path: str,
         payload: dict[str, Any],
         stream: bool = False,
+        stream_full: bool = False,
         constraint_exempt_fields: set[str] | frozenset[str] | None = None,
     ) -> CallResult:
         url = self._url(path)
@@ -76,6 +77,11 @@ class AuditHttpClient:
                     lines: list[str] = []
                     response_headers: dict[str, str] = {}
                     status_code: int | None = None
+                    bytes_seen = 0
+                    truncated = False
+                    event_done = False
+                    line_limit = 20000 if stream_full else 30
+                    byte_limit = 4_000_000 if stream_full else 65536
                     async with client.stream(
                         "POST", url, headers=self.headers, json=actual_payload
                     ) as response:
@@ -84,12 +90,41 @@ class AuditHttpClient:
                         async for line in response.aiter_lines():
                             if line:
                                 lines.append(line)
-                            if len(lines) >= 30 or sum(len(x) for x in lines) >= 65536:
+                                bytes_seen += len(line.encode("utf-8"))
+                                if line.strip() == "data: [DONE]":
+                                    event_done = True
+                            if len(lines) >= line_limit or bytes_seen >= byte_limit:
+                                truncated = True
                                 break
                     text = "\n".join(lines)
                     parsed = _parse_sse_preview(lines)
                     evidence.response_status = status_code
                     evidence.response_headers = redact_headers(response_headers)
+                    if stream_full:
+                        # Protocol conformance requires evidence of termination,
+                        # not just the first 30 SSE lines.
+                        events = parsed if isinstance(parsed, list) else []
+                        finish_reasons = [
+                            ch.get("finish_reason")
+                            for event in events if isinstance(event, dict)
+                            for ch in (event.get("choices") or [])
+                            if isinstance(ch, dict) and ch.get("finish_reason")
+                        ]
+                        usage = next(
+                            (event.get("usage") for event in reversed(events)
+                             if isinstance(event, dict)
+                             and isinstance(event.get("usage"), dict)),
+                            None,
+                        )
+                        parsed = {
+                            "_sse_completed": event_done and not truncated,
+                            "_sse_truncated": truncated,
+                            "_sse_events": len(events),
+                            "_sse_finish_reason": finish_reasons[-1] if finish_reasons else None,
+                            "usage": usage,
+                        }
+                        evidence.response_body = parsed
+                        return CallResult(evidence=evidence, json_body=parsed)
                     evidence.response_body = parsed if parsed is not None else text[:65536]
                     return CallResult(evidence=evidence, json_body=parsed, text_body=text)
 
