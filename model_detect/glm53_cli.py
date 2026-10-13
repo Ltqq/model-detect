@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Optional
 
 import typer
@@ -54,6 +55,10 @@ def compare(
     benchmark_max_gen_toks: int = typer.Option(
         8192, "--benchmark-max-gen-toks", min=256, max=32768,
     ),
+    allow_unverified_reference: bool = typer.Option(
+        False, "--allow-unverified-reference",
+        help="Permit a non-official baseline host; report is not first-party verified.",
+    ),
     max_requests: int = typer.Option(160, "--max-requests", min=1),
     execute: bool = typer.Option(
         False, "--execute", help="Allow actual potentially billable calls to both APIs"
@@ -64,6 +69,18 @@ def compare(
     try:
         official_base = normalize_base_url(official_url)
         customer_base = normalize_base_url(customer_url)
+        parsed_official = urlsplit(official_base)
+        trusted_hosts = {"api.z.ai", "open.bigmodel.cn"}
+        is_first_party_url = (
+            parsed_official.scheme == "https"
+            and parsed_official.hostname in trusted_hosts
+        )
+        if not is_first_party_url and not allow_unverified_reference:
+            raise ValueError(
+                "the official reference must use HTTPS on api.z.ai or "
+                "open.bigmodel.cn; use --allow-unverified-reference "
+                "only for a controlled trusted reference (not official certification)"
+            )
         benchmark = (
             benchmark_plan(
                 benchmark_level, official_runs=benchmark_runs,
@@ -147,6 +164,11 @@ def compare(
             raise typer.BadParameter(
                 "selected benchmark needs installed lm_eval[api] and lm_eval on PATH"
             )
+    if output_dir.joinpath("glm53-comparison.json").exists():
+        raise typer.BadParameter(
+            "comparison output already exists; choose a new --output-dir "
+            "to avoid losing costly previous measurements"
+        )
     cases = selected_cases(mode, capability_profile)
 
     async def collect():
@@ -168,6 +190,11 @@ def compare(
         input_price_per_million=input_price,
         output_price_per_million=output_price,
     )
+    result["reference_provenance"] = {
+        "official_host_verified": is_first_party_url,
+        "reference_type": "first_party_domain" if is_first_party_url
+                          else "unverified_trusted_endpoint",
+    }
     if benchmark:
         console.print(
             "[cyan]执行附加标准 Benchmark；数据集会下载/缓存，"
