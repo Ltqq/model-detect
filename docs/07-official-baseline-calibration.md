@@ -2,6 +2,8 @@
 
 本文件用于真实环境校准，不包含任何厂商 API Key 或预置“官方分数”。
 
+> 2026-10-13 状态：本流程尚无 Kimi/GLM 完整官方实测记录；详见 [Phase 4 离线工具](design/16-phase4-calibration-analysis.md) 与 [最新收尾路线](design/17-engineering-closure-roadmap.md)。**当前无需重复开发校准统计工具，但依然需要真实 API 与受控网关才能验收。**
+
 ## 1. 目标
 
 通过同一套 model-detect Suite 对官方 / 高可信 Endpoint 与当前供应商 Endpoint 进行可复现的黑盒对比。
