@@ -30,7 +30,10 @@ def record(case_id, run, expected, predicted, report_path="missing-report.json")
         "case_id": case_id,
         "run": run,
         "expected": expected,
-        "predicted": predicted,
+        "predicted": {
+            signal: predicted.get(signal)
+            for signal in ("identity", "routing", "quality")
+        },
         "report_path": str(report_path),
     }
 
@@ -200,7 +203,7 @@ def test_calibration_groups_mixed_routing_configuration_not_observed_share():
     assert result["mixed_routing_target_groups"]["10"]["metrics"]["fn"] == 1
     assert result["mixed_routing_target_groups"]["0"]["metrics"]["tn"] == 1
     assert result["mixed_routing_target_groups"]["30"]["case_count"] == 0
-    assert "configured target" in result["mixed_routing_target_groups"]["10"]["meaning"]
+    assert "gateway target" in result["mixed_routing_target_groups"]["10"]["meaning"]
 
 
 def test_calibrate_command_with_no_reports_never_requests_api(tmp_path, monkeypatch):
