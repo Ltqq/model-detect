@@ -229,3 +229,50 @@ cases:
     assert (output / "calibration.json").is_file()
     assert (output / "calibration.md").is_file()
     assert "没有真实报告" in response.output
+
+
+
+def test_report_provenance_excludes_url_api_key_and_prompt():
+    from model_detect.models import AuditReport, AuditSummary, ProbeResult, ProbeStatus
+    from model_detect.validation import report_provenance
+
+    report = AuditReport(
+        target={
+            "model": "kimi-k3",
+            "base_url": "https://private-supplier.example/v1",
+            "api_key_env": "PRIVATE_SUPPLIER_KEY",
+        },
+        profile="standard",
+        adapters={
+            "model_rule": {"id": "kimi-k3", "updated_at": "2026-10-13"},
+            "reference": {"id": "kimi-official"},
+        },
+        results=[
+            ProbeResult(
+                probe_id="capability.external.lm_eval.gsm8k",
+                category="benchmark",
+                status=ProbeStatus.PASS,
+                score=.75,
+                summary="data",
+                metadata={
+                    "engine": "lm-evaluation-harness",
+                    "task": "gsm8k",
+                    "benchmark_harness_version": "0.4.8",
+                },
+                observed={
+                    "version": 3,
+                    "effective_samples": 25,
+                    "task_config_hash": "abc123",
+                    "prompt": "private prompt data",
+                },
+            )
+        ],
+        summary=AuditSummary(),
+    )
+    lineage = report_provenance(report)
+    serialized = json.dumps(lineage)
+    assert lineage["model_rule_id"] == "kimi-k3"
+    assert lineage["benchmark_tasks"][0]["effective_samples"] == 25
+    assert "PRIVATE_SUPPLIER_KEY" not in serialized
+    assert "private-supplier.example" not in serialized
+    assert "private prompt data" not in serialized
