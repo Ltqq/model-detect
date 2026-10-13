@@ -481,6 +481,11 @@ def build_comparison(
         )
         protocol.append({
             "id": case["id"], "label": case["label"],
+            "source_url": (
+                "https://docs.z.ai/guides/llm/glm-5.3"
+                if case["id"].startswith(("thinking.", "reasoning."))
+                else "https://docs.z.ai/api-reference/llm/chat-completion"
+            ),
             "official_statuses": [x["status"] for x in first],
             "customer_statuses": [x["status"] for x in second],
             "verdict": comparison,
@@ -578,20 +583,31 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
     json_path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    protocol_summary = {
+        status: sum(item["verdict"] == status for item in data["protocol"])
+        for status in ("consistent", "deviation", "official_inconclusive")
+    }
     lines = [
         "# GLM-5.3 客户协议与能力官方对照报告",
         "",
         f"Suite：{data['suite_version']}  |  测试配置 SHA256：{data['suite_sha256']}",
         f"官方轮数：{data['plan']['official_runs']}；客户轮数：{data['plan']['customer_runs']}",
         "",
-        "## 协议符合性（官方与客户）", "",
-        "| 用例 | 官方 | 客户 | 对照结论 |",
-        "|---|---|---|---|",
+        "## 判定边界", "",
+        f"协议同表现：{protocol_summary['consistent']}；"
+        f"客户偏离官方通过用例：{protocol_summary['deviation']}；"
+        f"官方无可判定结果：{protocol_summary['official_inconclusive']}。",
+        "所有结论仅针对本次测试的 API 行为；不构成模型权重身份或 GLM-5.3 满血认证。",
+        "",
+        "## 协议符合性（官方文档要求 + 双端点实测）", "",
+        "| 用例 | 官方 | 客户 | 对照结论 | 官方依据 |",
+        "|---|---|---|---|---|",
     ]
     for row in data["protocol"]:
         lines.append(
             f"| {row['label']} | {','.join(row['official_statuses'])} "
-            f"| {','.join(row['customer_statuses'])} | {row['verdict']} |"
+            f"| {','.join(row['customer_statuses'])} | {row['verdict']} "
+            f"| {row['source_url']} |"
         )
     lines.extend([
         "", "## 能力抽检：同题官方 vs 客户", "",
@@ -674,13 +690,78 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
     text = "\n".join(lines) + "\n"
     md_path.write_text(text, encoding="utf-8")
     html_path.write_text(
-        "<!doctype html><html lang='zh-CN'><meta charset='utf-8'>"
-        "<title>GLM-5.3 官方对照</title>"
-        "<style>body{max-width:1000px;margin:2rem auto;padding:0 1rem;"
-        "font:15px/1.7 system-ui}pre{white-space:pre-wrap;"
-        "background:#f5f7fa;padding:24px;border-radius:12px}</style>"
-        "<h1>GLM-5.3 官方对照报告</h1><pre>"
-        + html.escape(text) + "</pre></html>",
-        encoding="utf-8",
+        render_qualification_html(text), encoding="utf-8"
     )
     return {"json": json_path, "markdown": md_path, "html": html_path}
+
+
+
+def render_qualification_html(markdown: str) -> str:
+    """Safe standalone HTML; no Markdown or third-party renderer required."""
+    fragments = []
+    in_table = False
+    in_list = False
+    for source in markdown.splitlines():
+        line = source.strip()
+        if not line:
+            if in_table:
+                fragments.append("</tbody></table>")
+                in_table = False
+            if in_list:
+                fragments.append("</ul>")
+                in_list = False
+            continue
+        if line.startswith("|") and line.endswith("|"):
+            cells = [x.strip() for x in line.strip("|").split("|")]
+            if all(set(x) <= {"-", ":"} for x in cells):
+                continue
+            if in_list:
+                fragments.append("</ul>")
+                in_list = False
+            if not in_table:
+                fragments.append("<table><tbody>")
+                in_table = True
+            fragments.append(
+                "<tr>" + "".join(
+                    "<td>" + html.escape(cell) + "</td>" for cell in cells
+                ) + "</tr>"
+            )
+            continue
+        if in_table:
+            fragments.append("</tbody></table>")
+            in_table = False
+        if line.startswith("- "):
+            if not in_list:
+                fragments.append("<ul>")
+                in_list = True
+            fragments.append("<li>" + html.escape(line[2:]) + "</li>")
+            continue
+        if in_list:
+            fragments.append("</ul>")
+            in_list = False
+        depth = len(line) - len(line.lstrip("#"))
+        if 1 <= depth <= 4 and line[depth:depth + 1] == " ":
+            fragments.append(
+                f"<h{depth}>" + html.escape(line[depth + 1:]) + f"</h{depth}>"
+            )
+        else:
+            fragments.append("<p>" + html.escape(line) + "</p>")
+    if in_table:
+        fragments.append("</tbody></table>")
+    if in_list:
+        fragments.append("</ul>")
+    return (
+        "<!doctype html><html lang='zh-CN'><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>GLM-5.3 客户准入对照</title>"
+        "<style>:root{color-scheme:light}body{max-width:1150px;margin:40px auto;"
+        "padding:0 28px;font:15px/1.7 system-ui;color:#273240;background:#fff}"
+        "h1{font-size:26px}h2{margin-top:38px;border-bottom:1px solid #dce2e9;"
+        "padding-bottom:8px}table{border-collapse:collapse;display:block;"
+        "overflow-x:auto;width:100%;margin:16px 0 24px}"
+        "td{border:1px solid #d8dfe8;padding:9px 11px;white-space:pre-wrap}"
+        "tr:first-child{background:#edf3f9;font-weight:650}"
+        "tr:nth-child(even){background:#f8fafc}p{overflow-wrap:anywhere}"
+        "li{overflow-wrap:anywhere}</style><main>"
+        + "\n".join(fragments) + "</main></html>"
+    )
