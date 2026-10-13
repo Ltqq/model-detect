@@ -329,6 +329,24 @@ def write_calibration(
         "| 比例 | Case 数量 | TP | TN | FP | FN | 弃权 |",
         "|---|---:|---:|---:|---:|---:|---:|",
     ])
+    lines.extend([
+        "",
+        "## 各实验场景诊断（独立 Case）",
+        "",
+        "| 场景 | Case 数 | 身份 TP/TN/FP/FN/弃权 | 路由 TP/TN/FP/FN/弃权 | 质量 TP/TN/FP/FN/弃权 |",
+        "|---|---:|---|---|---|",
+    ])
+    for scenario, item in calibration["by_scenario"].items():
+        counts = []
+        for signal in SIGNALS:
+            metric = item["case_metrics"][signal]
+            counts.append("/".join(
+                str(metric[k]) for k in ("tp", "tn", "fp", "fn", "abstained")
+            ))
+        lines.append(
+            f"| {scenario} | {item['cases']} | {counts[0]} | {counts[1]} | {counts[2]} |"
+        )
+
     for key, obj in calibration["mixed_routing_target_groups"].items():
         m = obj["metrics"]
         lines.append(
