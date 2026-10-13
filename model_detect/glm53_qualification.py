@@ -373,7 +373,13 @@ async def run_endpoint(
                 "finish_reason": _finish_reason(call.json_body),
                 "usage": _usage(call.json_body),
                 "elapsed_ms": call.evidence.elapsed_ms,
-                # Do not save the response body, hidden reasoning, API key, or URL.
+                "observed_answer_excerpt": (
+                    _content(call.json_body)[:160] if not protocol else None
+                ),
+                "expected_pattern": (
+                    case.get("pattern") if not protocol else None
+                ),
+                # Never persist raw responses, reasoning_content, credentials, or URL.
             })
     return results
 
@@ -577,6 +583,26 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
             f"| {row['prompt_tokens_observed']} | {row['completion_tokens_observed']} "
             f"| {row['unmetered_requests']} |"
         )
+    lines.extend([
+        "", "## 失败 / 证据不足的逐题记录", "",
+        "| 端点/轮次 | 类型 | Case | 状态 | 说明 / 观测答案 |",
+        "|---|---|---|---|---|",
+    ])
+    for label in ("official", "customer"):
+        for item in data["runs"][label]:
+            if item["status"] == "pass":
+                continue
+            detail = (
+                item.get("observed_answer_excerpt")
+                or item.get("explanation")
+                or "无可用响应"
+            )
+            # Quote safe for Markdown tables and stop adversarial newlines.
+            detail = str(detail).replace("|", "/").replace("\\n", " ")[:180]
+            lines.append(
+                f"| {label} #{item['run']} | {item['kind']} "
+                f"| {item['id']} | {item['status']} | {detail} |"
+            )
     lines.extend(["", "## 证据边界", ""])
     lines.extend(f"- {warning}" for warning in data["warnings"])
     text = "\n".join(lines) + "\n"
