@@ -111,6 +111,8 @@ def test_same_suite_official_three_runs_vendor_compares_and_reports(tmp_path):
     assert all(path.is_file() for path in outputs.values())
     assert "协议符合性" in outputs["markdown"].read_text(encoding="utf-8")
     assert "reasoning" in outputs["markdown"].read_text(encoding="utf-8")
+    assert "<table>" in outputs["html"].read_text(encoding="utf-8")
+    assert "api-reference/llm/chat-completion" in outputs["html"].read_text(encoding="utf-8")
     assert "sk-" not in outputs["json"].read_text(encoding="utf-8")
 
 
@@ -412,3 +414,15 @@ def test_incomplete_sse_reader_does_not_claim_end_of_stream(monkeypatch):
         stream=True, stream_full=True,
     ))
     assert response.json_body["_sse_completed"] is False
+
+
+
+def test_html_report_sanitizes_response_excerpts():
+    from model_detect.glm53_qualification import render_qualification_html
+    generated = render_qualification_html(
+        "# 测试报告\n\n| Case | 恶意响应 |\n|---|---|\n"
+        "| evidence | <script>alert(1)</script> |\n"
+    )
+    assert "<table>" in generated
+    assert "<script>" not in generated
+    assert "&lt;script&gt;" in generated
