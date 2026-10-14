@@ -60,3 +60,16 @@ def test_empty_and_invalid_evidence_never_pass():
     assert verify_wire_requests([{"model": "glm-5.3"}], [None])["status"] == "incomparable"
     with pytest.raises(ValueError):
         verify_wire_requests([body()], [body()], expected_effort="medium")
+
+
+def test_provider_specific_thinking_and_unknown_generation_options_must_match():
+    official = body()
+    vendor = body()
+    official["thinking"] = {"type": "enabled"}
+    vendor["thinking"] = {"type": "disabled"}
+    assert verify_wire_requests([official], [vendor])["status"] == "incomparable"
+    vendor["thinking"] = {"type": "enabled"}
+    official["vendor_sampling_extension"] = {"mode": "strict"}
+    assert verify_wire_requests([official], [vendor])["status"] == "incomparable"
+    vendor["vendor_sampling_extension"] = {"mode": "strict"}
+    assert verify_wire_requests([official], [vendor])["status"] == "request_payload_matched"
