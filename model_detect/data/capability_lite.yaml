@@ -139,7 +139,7 @@ tasks:
       pattern: "^2$"
     - id: complexity
       prompt: "What is the time complexity of binary search on a sorted array? Answer only in Big-O notation."
-      pattern: '^O\(log\s*n\)
+      pattern: "^O\\(log\\s*n\\)$"
 
   chinese:
     - id: idiom-1
