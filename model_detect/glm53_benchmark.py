@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 from importlib.metadata import PackageNotFoundError, version
@@ -214,6 +215,38 @@ def compare_benchmark_runs(
     }
 
 
+
+def _save_checkpoint(root: Path, *, plan: dict[str, Any],
+                     harness_version: str, runs: dict[str, Any],
+                     failures: list[dict[str, Any]]) -> None:
+    """Atomic sanitized checkpoint; no API keys, URLs, prompts or completions."""
+    root.mkdir(parents=True, exist_ok=True)
+    destination = root / "benchmark-checkpoint.json"
+    payload = {
+        "schema": "glm53-benchmark-checkpoint-v1",
+        "suite_sha256": plan["suite_sha256"],
+        "harness_version": harness_version,
+        "requested_reasoning_effort": plan["reasoning_effort"],
+        "runs": runs,
+        "failures": failures,
+        "resume_supported": False,
+        "note": "Partial results only; do not automatically rerun paid tasks.",
+    }
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=root, prefix=".benchmark-", suffix=".tmp",
+        delete=False,
+    ) as handle:
+        temp = Path(handle.name)
+        try:
+            json.dump(payload, handle, ensure_ascii=False, sort_keys=True, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        except BaseException:
+            temp.unlink(missing_ok=True)
+            raise
+    os.replace(temp, destination)
+
+
 def run_standard_benchmark(
     *,
     level: str,
@@ -225,6 +258,7 @@ def run_standard_benchmark(
     customer_runs: int,
     max_gen_toks: int = 8192,
     reasoning_effort: str = "max",
+    checkpoint_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Explicit paid workflow. Keep all raw benchmark artifacts ephemeral."""
     plan = benchmark_plan(
@@ -247,35 +281,68 @@ def run_standard_benchmark(
     except PackageNotFoundError:
         raise RuntimeError("cannot determine installed lm-eval version") from None
 
-    all_runs: dict[str, list[list[dict[str, Any]]]] = {}
+    if checkpoint_dir is not None:
+        checkpoint_dir = Path(checkpoint_dir)
+        if (checkpoint_dir / "benchmark-checkpoint.json").exists():
+            raise RuntimeError(
+                "benchmark checkpoint already exists; refusing to repeat billable runs"
+            )
+    all_runs: dict[str, list[list[dict[str, Any]]]] = {
+        "official": [], "customer": [],
+    }
+    failures: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="model-detect-glm53-benchmark-") as tmp:
         for label, url, key, count in (
             ("official", official_url, official_key, official_runs),
             ("customer", customer_url, customer_key, customer_runs),
         ):
-            collected = []
             for index in range(1, count + 1):
                 output = Path(tmp) / label / str(index)
-                result = lm_eval.run_endpoint(
-                    base_url=url, model="glm-5.3", api_key=key,
-                    tasks=plan["tasks"], output_path=output,
-                    limit=plan["limit"], num_concurrent=1, max_retries=0,
-                    max_gen_toks=plan["max_gen_toks"],
-                    reasoning_effort=plan["reasoning_effort"],
-                    timeout_seconds=3600,
-                )
-                if result["returncode"] != 0:
-                    raise RuntimeError(
-                        f"{label} benchmark failed in run {index}: "
-                        "check local lm_eval installation and endpoint logs"
+                try:
+                    result = lm_eval.run_endpoint(
+                        base_url=url, model="glm-5.3", api_key=key,
+                        tasks=plan["tasks"], output_path=output,
+                        limit=plan["limit"], num_concurrent=1, max_retries=0,
+                        max_gen_toks=plan["max_gen_toks"],
+                        reasoning_effort=plan["reasoning_effort"],
+                        timeout_seconds=3600,
                     )
-                parsed = lm_eval.parse_result_file(lm_eval.discover_result_file(output))
-                collected.append([
-                    _check_task(
-                        row, expected_reasoning_effort=plan["reasoning_effort"]
-                    ) for row in parsed
-                ])
-            all_runs[label] = collected
+                    if result["returncode"] != 0:
+                        raise RuntimeError("benchmark subprocess nonzero exit")
+                    parsed = lm_eval.parse_result_file(
+                        lm_eval.discover_result_file(output)
+                    )
+                    checked = [
+                        _check_task(
+                            row, expected_reasoning_effort=plan["reasoning_effort"]
+                        ) for row in parsed
+                    ]
+                    if not checked or any(not row["valid"] for row in checked):
+                        raise ValueError("benchmark result incomplete or invalid")
+                    all_runs[label].append(checked)
+                except Exception as exc:
+                    failures.append({
+                        "endpoint": label, "run": index,
+                        "error_type": type(exc).__name__,
+                        "status": "framework_or_endpoint_error",
+                    })
+                    if checkpoint_dir is not None:
+                        _save_checkpoint(
+                            checkpoint_dir, plan=plan,
+                            harness_version=harness_version,
+                            runs=all_runs, failures=failures,
+                        )
+                    raise RuntimeError(
+                        f"{label} benchmark run {index} failed "
+                        f"({type(exc).__name__}); partial evidence saved when "
+                        "checkpoint directory was configured"
+                    ) from None
+                if checkpoint_dir is not None:
+                    _save_checkpoint(
+                        checkpoint_dir, plan=plan,
+                        harness_version=harness_version,
+                        runs=all_runs, failures=failures,
+                    )
     compared = compare_benchmark_runs(
         all_runs["official"], all_runs["customer"],
         plan=plan, harness_version=harness_version,
