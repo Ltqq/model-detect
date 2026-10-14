@@ -115,6 +115,20 @@ def fixture_zip(path):
     with zipfile.ZipFile(path, "w") as z:
         for stage in ("glm53-01-protocol", "glm53-02-smoke", "glm53-03-standard"):
             z.writestr(f"{stage}/glm53-comparison.json", json.dumps(_test_history(stage)))
+        for stage, state in (
+            ("glm53-04-attempt1-FAILED-ifeval-dep", "error"),
+            ("glm53-04-benchmark-smoke", "partial_or_incomparable"),
+        ):
+            z.writestr(
+                f"{stage}/glm53-comparison.json",
+                json.dumps({"standard_benchmark": {
+                    "result": state,
+                    "tasks": [{"task": "gsm8k", "status": "incomparable",
+                               "official_scores": [1.0],
+                               "customer_scores": [1.0],
+                               "sample_count": 5}] if state != "error" else [],
+                }}),
+            )
         for label in ("official", "customer"):
             z.writestr(
                 f"glm53-05-benchmark-standard-raw/{label}/glm-5.3/results_mock.json",
@@ -130,6 +144,9 @@ def test_replay_01_05_regrades_without_writing_or_leaking_raw_source(tmp_path):
     assert source.read_bytes() == initial
     assert report["replay_version"] == "glm53-evidence-replay-v1"
     assert report["standard_benchmark"]["result"] == "measured"
+    assert len(report["historical_smoke"]) == 2
+    assert all(x["verdict"] == "not_regraded_no_raw_lm_eval_config"
+               for x in report["historical_smoke"].values())
     tasks = {row["task"]: row for row in report["standard_benchmark"]["tasks"]}
     assert len(tasks["ifeval"]["metrics"]) == 4
     assert len(tasks["minerva_math500"]["metrics"]) == 2
@@ -190,3 +207,27 @@ def test_replay_command_requires_no_keys_and_never_overwrites(tmp_path, monkeypa
     assert "没有调用模型 API" in first.output
     second = runner.invoke(app, args)
     assert second.exit_code != 0
+
+
+
+def test_unknown_customer_protocol_evidence_is_not_labeled_a_deviation():
+    from model_detect.glm53_qualification import build_comparison
+    plan = plan_comparison(
+        mode="protocol", profile="smoke", official_runs=1, customer_runs=1
+    )
+    cases = selected_cases(plan["mode"], plan["profile"])
+    official = [{
+        "endpoint": "official", "run": 1, "id": case["id"],
+        "kind": "protocol", "status": "pass", "usage": None
+    } for case in cases]
+    customer = [dict(row, endpoint="customer") for row in official]
+    customer[0]["status"] = "insufficient"
+    result = build_comparison(official, customer, plan=plan)
+    first = next(x for x in result["protocol"]
+                 if x["id"] == official[0]["id"])
+    assert first["verdict"] == "customer_inconclusive"
+    assert result["assessment"]["protocol_observed"] == "evidence_incomplete"
+    customer[0]["status"] = "fail"
+    second = build_comparison(official, customer, plan=plan)
+    assert next(x for x in second["protocol"]
+                if x["id"] == official[0]["id"])["verdict"] == "deviation"
