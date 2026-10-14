@@ -30,6 +30,16 @@ def test_benchmark_profiles_only_use_chat_generation_tasks():
     assert plan["nominal_samples"] == 3 * 25 * 4
     assert plan["nominal_max_output_tokens"] == 3 * 25 * 4 * 8192
     assert "mmlu_pro" not in plan["tasks"]
+    assert plan["reasoning_effort"] == "max"
+    assert benchmark_plan(
+        "standard", official_runs=3, customer_runs=1,
+        reasoning_effort="low",
+    )["suite_sha256"] != plan["suite_sha256"]
+    with pytest.raises(ValueError):
+        benchmark_plan(
+            "standard", official_runs=1, customer_runs=1,
+            reasoning_effort="medium",
+        )
     with pytest.raises(ValueError):
         benchmark_plan("other", official_runs=3, customer_runs=1)
 
@@ -94,7 +104,12 @@ def test_benchmark_run_uses_same_tasks_limits_and_never_logs_api_keys(
                 for task in kwargs["tasks"]
             },
             "configs": {
-                task: {"output_type": "generate_until", "task": task}
+                task: {
+                    "output_type": "generate_until", "task": task,
+                    "generation_kwargs": {
+                        "reasoning_effort": kwargs["reasoning_effort"]
+                    },
+                }
                 for task in kwargs["tasks"]
             },
         }
@@ -114,6 +129,10 @@ def test_benchmark_run_uses_same_tasks_limits_and_never_logs_api_keys(
     assert requests[0]["tasks"] == requests[1]["tasks"]
     assert requests[0]["max_gen_toks"] == requests[1]["max_gen_toks"]
     assert requests[0]["max_retries"] == 0
+    assert requests[0]["reasoning_effort"] == "max"
+    assert requests[1]["reasoning_effort"] == "max"
+    assert report["requested_reasoning_effort"] == "max"
+    assert "unverified" in report["generation_parameter_provenance"]
     assert "secret-" not in json.dumps(report)
 
 
@@ -195,3 +214,27 @@ def test_optional_benchmark_results_appear_in_same_customer_report(
     assert saved["standard_benchmark"]["result"] == "measured"
     assert saved["reference_provenance"]["official_host_verified"] is True
     assert "gsm8k" in (root / "glm53-comparison.md").read_text(encoding="utf-8")
+
+
+
+def test_benchmark_task_disallows_unrecorded_reasoning_effort():
+    from model_detect.glm53_benchmark import _check_task
+    from model_detect.adapters.lm_eval import parse_result_payload
+    result = {
+        "results": {"gsm8k": {"exact_match,flexible-extract": .9}},
+        "versions": {"gsm8k": 3},
+        "n-samples": {"gsm8k": {"effective": 10}},
+        "configs": {
+            "gsm8k": {
+                "task": "gsm8k",
+                "output_type": "generate_until",
+                "generation_kwargs": {"temperature": 0},
+            },
+        },
+    }
+    task = parse_result_payload(result)[0]
+    assert _check_task(task, expected_reasoning_effort="max")["valid"] is False
+    result["configs"]["gsm8k"]["generation_kwargs"]["reasoning_effort"] = "max"
+    task2 = parse_result_payload(result)[0]
+    assert _check_task(task2, expected_reasoning_effort="max")["valid"] is True
+    assert _check_task(task2, expected_reasoning_effort="low")["valid"] is False
