@@ -123,18 +123,23 @@ def compare_benchmark_runs(
                 for r in entries if r
             )
         )
+        def metric_values(row):
+            # Existing integrations may still supply only a primary metric;
+            # newer adapters preserve every numeric scored metric.
+            metrics = row.get("metrics") or {}
+            return metrics if metrics else {row["metric"]: row["score"]}
         if validity:
-            keys = set(first.get("metrics") or {})
+            keys = set(metric_values(first))
             validity = (
                 bool(keys)
                 and first["metric"] in keys
-                and all(set(r.get("metrics") or {}) == keys for r in entries)
+                and all(set(metric_values(r)) == keys for r in entries)
             )
         metric_rows = []
         if validity:
             for metric in sorted(keys, key=lambda k: (k != first["metric"], k)):
-                om = [r["metrics"][metric] for r in off]
-                cm = [r["metrics"][metric] for r in ven]
+                om = [metric_values(r)[metric] for r in off]
+                cm = [metric_values(r)[metric] for r in ven]
                 official_mean = sum(om) / len(om)
                 customer_mean = sum(cm) / len(cm)
                 metric_rows.append({
