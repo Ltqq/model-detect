@@ -313,6 +313,18 @@ model-detect glm53 compare \
 
 **[完整修复 + 开发 + 真实验收统一总计划：docs/design/17](docs/design/17-engineering-closure-roadmap.md)**。本文件列明 G0/G1 实测缺陷 → A/B 工程可靠性和 Token → C Kimi 官方专项 → D 集成 → E 真值校准 → F 发布，包含执行依赖、估算、验收门槛与建议提交批次。真实 GLM-5.3 的数据与修复复现详见 [20 号证据复盘](docs/design/20-glm53-live-evidence-triage.md)。原 03/18/19 号文档仅作历史与专项技术说明，避免重复管理任务。
 
+## GLM-5.3 历史测试离线重算（G0 收尾，2026-10-14）
+
+新版本提供只读、**完全离线**的 `model-detect glm53 replay`，用于修正之前 GLM-5.3 01～03 轻量能力答案格式误判，并从 05 双端原始 lm-eval JSON 重新计算全部 GSM8K、IFEval、MATH-500 子指标。**04 因缺少完整原始评测配置，只保留历史诊断，不强行认定可比。**
+
+```powershell
+model-detect glm53 replay `
+  --evidence-zip ./glm53-evidence.zip `
+  --output-dir ./glm53-replayed-20261014
+```
+
+运行不需要 Key，不向任何模型发送请求，也不会覆盖旧文件。新目录输出 `glm53-replay.json/.md/.html`；保存来源 SHA256，只输出脱敏聚合及 Case 判定变化，不复制原始供应商地址和回答。详见 [21 号 G0 离线重算验收](docs/design/21-glm53-offline-replay-acceptance.md)。**请不要把旧报告的 9/10、66/75、23/25 原始分数继续当作修复后的官方/客户水平结论。**
+
 ## GLM-5.3 真实测试复盘：先修评测可信度（2026-10-13）
 
 已经在真实官方和客户 GLM-5.3 端点上运行了 10 项协议和轻量能力、lm-eval 0.4.13 的 GSM8K / IFEval / MATH-500（每端点各 25 样本/任务）。结果文件说明**代码 CI 全绿仍可能出现真实误判**：
