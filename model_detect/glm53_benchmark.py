@@ -216,6 +216,21 @@ def compare_benchmark_runs(
 
 
 
+def _classify_benchmark_failure(exc: Exception) -> str:
+    """Classify local execution failures without trusting unredacted stderr."""
+    if isinstance(exc, (FileNotFoundError, ImportError, ModuleNotFoundError)):
+        return "framework_dependency_missing"
+    if isinstance(exc, (json.JSONDecodeError, UnicodeError)):
+        return "result_parse_error"
+    if isinstance(exc, TimeoutError):
+        return "execution_timeout"
+    if isinstance(exc, ValueError):
+        return "result_incomplete_or_invalid"
+    if isinstance(exc, RuntimeError):
+        return "subprocess_nonzero_or_execution_error"
+    return "unexpected_framework_error"
+
+
 def _save_checkpoint(root: Path, *, plan: dict[str, Any],
                      harness_version: str, runs: dict[str, Any],
                      failures: list[dict[str, Any]]) -> None:
@@ -324,7 +339,7 @@ def run_standard_benchmark(
                     failures.append({
                         "endpoint": label, "run": index,
                         "error_type": type(exc).__name__,
-                        "status": "framework_or_endpoint_error",
+                        "status": _classify_benchmark_failure(exc),
                     })
                     if checkpoint_dir is not None:
                         _save_checkpoint(
