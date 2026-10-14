@@ -62,6 +62,15 @@ def _check_task(row: Any) -> dict[str, Any]:
     obs = row.observed if isinstance(row.observed, dict) else {}
     meta = row.metadata
     score = row.score
+    # Only scored metrics, never sample_len / stderr / bookkeeping numbers.
+    metrics = {
+        str(key): float(value)
+        for key, value in (obs.get("metrics") or {}).items()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+        and 0 <= value <= 1
+    }
+    if not metrics and score is not None and meta.get("primary_metric"):
+        metrics = {meta["primary_metric"]: float(score)}
     good = bool(
         score is not None
         and meta.get("primary_metric")
@@ -76,6 +85,7 @@ def _check_task(row: Any) -> dict[str, Any]:
         "task": meta.get("task"),
         "score": score if good else None,
         "metric": meta.get("primary_metric"),
+        "metrics": metrics,
         "dataset_version": obs.get("version"),
         "sample_count": obs.get("effective_samples"),
         "config_sha256": obs.get("task_config_hash"),
@@ -91,44 +101,77 @@ def compare_benchmark_runs(
     plan: dict[str, Any],
     harness_version: str,
 ) -> dict[str, Any]:
+    """Compare complete scored metrics; no averaging dissimilar metrics.
+
+    Result describes paired observed sample means, not significance/equivalence
+    or the authenticity of either model.
+    """
     tasks: list[dict[str, Any]] = []
     for name in plan["tasks"]:
         off = [next((r for r in run if r["task"] == name), None) for run in official]
         ven = [next((r for r in run if r["task"] == name), None) for run in customer]
         entries = off + ven
+        first = entries[0] if entries else None
         validity = (
-            bool(entries)
+            bool(first)
             and all(r and r.get("valid") and r.get("score") is not None for r in entries)
             and all(
                 (r["dataset_version"], r["sample_count"], r["config_sha256"],
-                 r["contract_version"], r["metric"])
-                == (entries[0]["dataset_version"], entries[0]["sample_count"],
-                    entries[0]["config_sha256"], entries[0]["contract_version"],
-                    entries[0]["metric"])
+                 r.get("contract_version"), r["metric"])
+                == (first["dataset_version"], first["sample_count"],
+                    first["config_sha256"], first.get("contract_version"), first["metric"])
                 for r in entries if r
             )
         )
+        def metric_values(row):
+            # Existing integrations may still supply only a primary metric;
+            # newer adapters preserve every numeric scored metric.
+            metrics = row.get("metrics") or {}
+            return metrics if metrics else {row["metric"]: row["score"]}
         if validity:
-            official_mean = sum(r["score"] for r in off) / len(off)
-            customer_mean = sum(r["score"] for r in ven) / len(ven)
-            delta = customer_mean - official_mean
-            status = "measured_difference"
-            reason = "分数是同配置客观任务的观测差异，未验证统计显著性或身份"
-        else:
-            official_mean = customer_mean = delta = None
-            status = "incomparable"
-            reason = "任务缺失、评分指标、样本量、任务配置或数据集版本不一致"
+            keys = set(metric_values(first))
+            validity = (
+                bool(keys)
+                and first["metric"] in keys
+                and all(set(metric_values(r)) == keys for r in entries)
+            )
+        metric_rows = []
+        if validity:
+            for metric in sorted(keys, key=lambda k: (k != first["metric"], k)):
+                om = [metric_values(r)[metric] for r in off]
+                cm = [metric_values(r)[metric] for r in ven]
+                official_mean = sum(om) / len(om)
+                customer_mean = sum(cm) / len(cm)
+                metric_rows.append({
+                    "metric": metric,
+                    "primary": metric == first["metric"],
+                    "official_scores": om,
+                    "customer_scores": cm,
+                    "official_mean": official_mean,
+                    "customer_mean": customer_mean,
+                    "delta": customer_mean - official_mean,
+                    "status": "measured_difference",
+                })
+        primary = next((row for row in metric_rows if row["primary"]), None)
         tasks.append({
-            "task": name, "status": status, "reason": reason,
-            "official_mean": official_mean,
-            "customer_mean": customer_mean, "delta": delta,
+            "task": name,
+            "status": "measured_difference" if validity else "incomparable",
+            "reason": (
+                "同配置任务的观测差值，不构成统计显著性或等价证明"
+                if validity else
+                "任务/评分指标/有效样本/版本/参数契约缺失或不一致"
+            ),
+            "official_mean": primary["official_mean"] if primary else None,
+            "customer_mean": primary["customer_mean"] if primary else None,
+            "delta": primary["delta"] if primary else None,
             "official_scores": [r["score"] if r else None for r in off],
             "customer_scores": [r["score"] if r else None for r in ven],
-            "sample_count": entries[0].get("sample_count") if entries[0] else None,
-            "metric": entries[0].get("metric") if entries[0] else None,
-            "dataset_version": entries[0].get("dataset_version") if entries[0] else None,
-            "task_config_sha256": entries[0].get("config_sha256") if entries[0] else None,
-            "task_contract_version": entries[0].get("contract_version") if entries[0] else None,
+            "metrics": metric_rows,
+            "sample_count": first.get("sample_count") if first else None,
+            "metric": first.get("metric") if first else None,
+            "dataset_version": first.get("dataset_version") if first else None,
+            "task_config_sha256": first.get("config_sha256") if first else None,
+            "task_contract_version": first.get("contract_version") if first else None,
         })
     return {
         "suite": BENCHMARK_SUITE,
@@ -147,8 +190,8 @@ def compare_benchmark_runs(
             "The SDK sends its own task-default messages and generation config; "
             "reasoning_effort equivalence across providers remains unverified.",
             "lm-eval network usage is not captured by native request accounting.",
-            "No model authenticity or statistically significant regression claim "
-            "is derived from a small benchmark sample.",
+            "No model authenticity, statistical equivalence or significant "
+            "regression is inferred from small samples.",
         ],
     }
 

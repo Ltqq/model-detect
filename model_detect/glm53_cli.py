@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .glm53_benchmark import benchmark_plan, run_standard_benchmark
+from .glm53_replay import replay_archive, write_replay
 from .glm53_qualification import (
     build_comparison, normalize_base_url, plan_comparison,
     run_endpoint, selected_cases, write_comparison,
@@ -225,4 +226,39 @@ def compare(
     outputs = write_comparison(result, output_dir)
     console.print("[green]已生成 GLM-5.3 官方对照报告。[/green]")
     for kind, path in outputs.items():
+        console.print(f"{kind}: {path}")
+
+
+
+@glm53_app.command("replay")
+def replay(
+    evidence_zip: Path = typer.Option(
+        ..., "--evidence-zip", exists=True, dir_okay=False,
+        help="Historical GLM-5.3 ZIP containing 01-03 reports and original 05 lm-eval JSON"
+    ),
+    output_dir: Path = typer.Option(
+        ..., "--output-dir", "-o",
+        help="New, distinct output directory; originals are never overwritten"
+    ),
+) -> None:
+    """Recalculate saved historical evidence locally; no API keys or Token."""
+    outputs = [
+        output_dir / "glm53-replay.json",
+        output_dir / "glm53-replay.md",
+        output_dir / "glm53-replay.html",
+    ]
+    if any(x.exists() for x in outputs):
+        raise typer.BadParameter("offline replay outputs exist; use a fresh directory")
+    if evidence_zip.resolve().parent == output_dir.resolve():
+        raise typer.BadParameter("output directory must be separate from the evidence ZIP")
+    try:
+        result = replay_archive(evidence_zip)
+        paths = write_replay(result, output_dir)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        # Errors may contain user file paths: do not echo potentially private paths.
+        raise typer.BadParameter(
+            f"offline replay failed ({type(exc).__name__}); check archive schema"
+        ) from None
+    console.print("[green]离线重算完成；没有调用模型 API，也未覆盖旧报告。[/green]")
+    for kind, path in paths.items():
         console.print(f"{kind}: {path}")

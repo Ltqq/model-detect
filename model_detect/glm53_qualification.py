@@ -536,9 +536,12 @@ def build_comparison(
         official_pass = all(x["status"] == "pass" for x in first)
         customer_pass = all(x["status"] == "pass" for x in second)
         comparison = (
-            "deviation" if official_pass and not customer_pass
-            else "consistent" if official_pass and customer_pass
-            else "official_inconclusive"
+            "official_inconclusive" if not official_pass
+            else "consistent" if customer_pass
+            else "customer_inconclusive" if any(
+                x["status"] not in {"pass", "fail"} for x in second
+            )
+            else "deviation"
         )
         protocol.append({
             "id": case["id"], "label": case["label"],
@@ -615,7 +618,20 @@ def build_comparison(
                 value["prompt_tokens_observed"] * input_price_per_million
                 + value["completion_tokens_observed"] * output_price_per_million
             ) / 1_000_000, 6)
+    status = (
+        "observed_deviation" if any(x["verdict"] == "deviation" for x in protocol)
+        else "evidence_incomplete" if any(
+            x["verdict"] in {"official_inconclusive", "customer_inconclusive"}
+            for x in protocol
+        ) else "observed_consistent"
+    )
     return {
+        "assessment": {
+            "protocol_observed": status,
+            "capability": "lightweight_observation_only",
+            "identity": "not_assessed",
+            "supplier_accreditation": "not_determined",
+        },
         "suite_version": SUITE_VERSION,
         "suite_sha256": plan["suite_sha256"],
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -646,7 +662,7 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
     )
     protocol_summary = {
         status: sum(item["verdict"] == status for item in data["protocol"])
-        for status in ("consistent", "deviation", "official_inconclusive")
+        for status in ("consistent", "deviation", "official_inconclusive", "customer_inconclusive")
     }
     lines = [
         "# GLM-5.3 客户协议与能力官方对照报告",
@@ -657,7 +673,10 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
         "## 判定边界", "",
         f"协议同表现：{protocol_summary['consistent']}；"
         f"客户偏离官方通过用例：{protocol_summary['deviation']}；"
-        f"官方无可判定结果：{protocol_summary['official_inconclusive']}。",
+        f"官方无可判定结果：{protocol_summary['official_inconclusive']}；"
+        f"客户证据不足：{protocol_summary['customer_inconclusive']}。",
+        "协议判定属于本次调用的有限观察；能力抽检是启发式筛查；"
+        "模型身份和正式供应商准入结论均未评定。",
         "所有结论仅针对本次测试的 API 行为；不构成模型权重身份或 GLM-5.3 满血认证。",
         "",
         "## 协议符合性（官方文档要求 + 双端点实测）", "",
@@ -730,19 +749,27 @@ def write_comparison(data: dict[str, Any], root: str | Path) -> dict[str, Path]:
                 f"评测框架版本：{benchmark.get('harness_version') or '未知'}；"
                 f"配置 SHA256：{benchmark.get('suite_sha256') or '未记录'}",
                 "",
-                "| 任务 | 数据集版本 | 实际题量 | 官方 | 客户 | 差值 | 可比性 |",
-                "|---|---|---:|---:|---:|---:|---|",
+                "| 任务 | 评分指标 | 主指标 | 有效题数 | 官方 | 客户 | 差值 | 可比性 |",
+                "|---|---|---|---:|---:|---:|---:|---|",
             ])
             for item in benchmark.get("tasks") or []:
                 def as_pct(value):
-                    return "不可比" if value is None else f"{value:.1%}"
-                lines.append(
-                    f"| {item['task']} | {item.get('dataset_version')} "
-                    f"| {item.get('sample_count') or '未知'} "
-                    f"| {as_pct(item.get('official_mean'))} "
-                    f"| {as_pct(item.get('customer_mean'))} "
-                    f"| {as_pct(item.get('delta'))} | {item['status']} |"
-                )
+                    return "不可比" if value is None else f"{value:.2%}"
+                metrics = item.get("metrics") or [{
+                    "metric": item.get("metric"), "primary": True,
+                    "official_mean": item.get("official_mean"),
+                    "customer_mean": item.get("customer_mean"),
+                    "delta": item.get("delta"),
+                }]
+                for metric in metrics:
+                    lines.append(
+                        f"| {item['task']} | {metric.get('metric') or '未知'} "
+                        f"| {'是' if metric.get('primary') else '否'} "
+                        f"| {item.get('sample_count') or '未知'} "
+                        f"| {as_pct(metric.get('official_mean'))} "
+                        f"| {as_pct(metric.get('customer_mean'))} "
+                        f"| {as_pct(metric.get('delta'))} | {item['status']} |"
+                    )
             lines.extend(["", "此处是独立标准任务成绩，不是厂商发布的 GLM-5.3 官方榜单复现。"])
             for warning in benchmark.get("limitations") or []:
                 lines.append("- " + warning)
