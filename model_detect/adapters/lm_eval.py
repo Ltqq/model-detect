@@ -124,18 +124,11 @@ def _safe_process_tail(value: str | bytes | None, *, api_key: str, base_url: str
     result = result.replace(base_url, "[ENDPOINT]")
     if api_key:
         result = result.replace(api_key, "[REDACTED]")
+    result = re.sub(r"(?i)\bbearer\s+\S+", "Bearer [REDACTED]", result)
+    result = re.sub(r"(?i)\bsk-[a-z0-9_-]{8,}\b", "[REDACTED]", result)
     result = re.sub(
-        r"(?i)\\b(bearer\\s+)[^\\s\\\"']+",
-        r"\\1[REDACTED]", result,
-    )
-    result = re.sub(
-        r"(?i)\\b(sk-[a-z0-9_-]{8,})\\b",
-        "[REDACTED]", result,
-    )
-    result = re.sub(
-        r"(?i)((?:api[_-]?key|authorization|access[_-]?token|token)"
-        r"\\s*[:=]\\s*[\\\"']?)[^\\s,;\\\"'}]+",
-        r"\\1[REDACTED]", result,
+        r"(?i)\b(api[_-]?key|authorization|access[_-]?token|token)\s*[:=]\s*\S+",
+        r"\1=[REDACTED]", result,
     )
     return result[-4000:]
 
