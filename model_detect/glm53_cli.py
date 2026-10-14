@@ -93,7 +93,6 @@ def compare(
                 customer_runs=benchmark_runs,
                 max_gen_toks=benchmark_max_gen_toks,
                 reasoning_effort=benchmark_reasoning_effort,
-                checkpoint_dir=output_dir / "benchmark-evidence",
             )
             if benchmark_level != "none" else None
         )
@@ -238,6 +237,7 @@ def compare(
                 customer_runs=benchmark_runs,
                 max_gen_toks=benchmark_max_gen_toks,
                 reasoning_effort=benchmark_reasoning_effort,
+                checkpoint_dir=output_dir / "benchmark-evidence",
             )
         except Exception as exc:
             result["standard_benchmark"] = {
