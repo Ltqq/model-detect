@@ -58,6 +58,12 @@
 
 ## 2. G0 · 第一批 P0：纠正实测错误（全部先用离线数据）
 
+### G0.1 实施进度（2026-10-14）
+
+- **已提交代码，待合并**：新增 `benchmark_contract.py`，将 lm-eval 的稳定 Task Config + Run Options 统一计算版本化 `lm-eval-task-v2` hash；剔除 Endpoint URL 和已知非评分传输字段，将内存地址型函数 repr 规范化为函数名并保留 harness/task 版本约束。无法安全识别的对象 repr 不生成比较键。旧版/未知版本比较结果不再直接认作可比。
+- **已添加脱敏真实场景回归**：复现 GLM-5.3 05 中官方与客户路径/函数地址不同、各 25 样本、lm-eval 0.4.13、主要指标匹配的配置形态，以及修改数据集、样本数/任务版本、fewshot、生成参数/随机种子等负例。
+- **剩余边界（不得误标全部完成）**：已知 Python callable 名称本身无法密码学证明函数实现一致，必须综合评测框架版本/Task 版本，真正依赖源码差异的情况仍应保守不可比；G0.2 还需继续做**完整原始结果的离线脱敏回放**，以及所有次级指标和旧报告重算。现有代码仅修复可比合同，不会自动重写历史报告。
+
 ### G0.1 稳定、可审计的 Benchmark 比较契约
 
 - [ ] 审核 `model_detect/adapters/lm_eval.py` 的 `task_config_hash`、`glm53_benchmark.py` 的对比逻辑，编写结构化 Canonical Benchmark Contract。
