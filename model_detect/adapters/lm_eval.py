@@ -544,6 +544,14 @@ def parse_result_payload(
                     "task_config_hash": task_config_hash,
                     "task_contract_version": CONTRACT_VERSION if task_config_hash else None,
                     "task_contract_error": task_contract_error,
+                    "task_generation_settings": {
+                        key: task_config["generation_kwargs"][key]
+                        for key in ("reasoning_effort", "max_gen_toks",
+                                    "max_tokens", "temperature")
+                        if isinstance(task_config, dict)
+                        and isinstance(task_config.get("generation_kwargs"), dict)
+                        and key in task_config["generation_kwargs"]
+                    },
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",
