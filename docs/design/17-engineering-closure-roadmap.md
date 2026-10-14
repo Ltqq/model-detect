@@ -340,3 +340,9 @@
 | [开发总计划](../03-development-plan.md) | 历史实施批次索引，**不得另起冲突清单** | 历史索引 |
 
 **后续收到“按文档继续开发”时，从本文件第 10 节第一个未完成小任务执行，而不是重新规划或直接跳到新增 Probe。**
+
+### 2026-10-14 G1 新增实现（待 CI/真实验收）
+
+- G1.3：`glm53 compare --execute --benchmark smoke|standard|deep` 将每轮 Benchmark **脱敏评分摘要**写入 `<output-dir>/benchmark-evidence/benchmark-checkpoint.json`；包含 suite SHA256、评测版本、端点标签、成功轮次、错误类别。写入采用同目录临时文件 + fsync + os.replace。不会持久化原始请求、响应、Key 或端点 URL。
+- 客户轮次异常时已完成的官方轮次保留；**不提供自动恢复/跳过成功轮次**，同目录已有 checkpoint 时拒绝重复运行，避免静默二次计费。需要继续测试须人工审计已完成证据及收费情况，选择新的目录重新执行；此前成绩不能直接跨不同 suite 合并。
+- 此次仅增加 Mock 故障注入测试。**不能标记整个 G1 完成**：G1.1 数据集缓存/任务版本验证、G1.2 真正 HTTP request body、G1.4 端点异常定位及 G1.5 真实双端 Smoke 仍是待验收事项。独立的日志脱敏修复见 PR #60，合并前不能视为 main 已有防护。
