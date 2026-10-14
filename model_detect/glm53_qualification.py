@@ -618,7 +618,20 @@ def build_comparison(
                 value["prompt_tokens_observed"] * input_price_per_million
                 + value["completion_tokens_observed"] * output_price_per_million
             ) / 1_000_000, 6)
+    status = (
+        "observed_deviation" if any(x["verdict"] == "deviation" for x in protocol)
+        else "evidence_incomplete" if any(
+            x["verdict"] in {"official_inconclusive", "customer_inconclusive"}
+            for x in protocol
+        ) else "observed_consistent"
+    )
     return {
+        "assessment": {
+            "protocol_observed": status,
+            "capability": "lightweight_observation_only",
+            "identity": "not_assessed",
+            "supplier_accreditation": "not_determined",
+        },
         "suite_version": SUITE_VERSION,
         "suite_sha256": plan["suite_sha256"],
         "generated_at": datetime.now(timezone.utc).isoformat(),
