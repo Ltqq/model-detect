@@ -289,6 +289,47 @@ def test_official_protocol_rejection_must_relate_to_thinking():
     assert _check_protocol(disabled, response(200, {}))[0] == "fail"
 
 
+def test_chinese_official_thinking_disabled_error_and_negative_cases():
+    from model_detect.glm53_qualification import _check_protocol
+    case = next(c for c in protocol_cases() if c["id"] == "thinking.disabled")
+
+    def result(status, body):
+        return CallResult(
+            evidence=Evidence(
+                id="mock", probe_id="glm53.thinking.disabled",
+                url="https://example.test", response_status=status,
+            ),
+            json_body=body,
+        )
+
+    official = {"error": {
+        "code": "1210",
+        "message": "该模型始终思考，不支持关闭思考；请使用 low、high 或 max。",
+    }}
+    vendor = {"error": {
+        "message": "thinking must be enabled for glm-5.3.",
+        "type": "invalid_request_error",
+        "param": "thinking.type",
+        "code": "invalid_request_error",
+    }}
+    assert _check_protocol(case, result(400, official))[0] == "pass"
+    assert _check_protocol(case, result(400, vendor))[0] == "pass"
+    for body in [
+        {"error": {"code": "1210", "message": "当前账户额度不足"}},
+        {"error": {"message": "account disabled due to billing"}},
+        {"error": {"message": "thinking temporarily disabled due to quota"}},
+        {"error": {"message": "thinking invalid due to unrelated field"}},
+        {"error": {"message": "invalid reasoning parameter"}},
+        {"error": {"message": "thinking.type required"}},
+        {"error": {"code": "1210"}},
+        {"error": "disabled"},
+        {},
+    ]:
+        assert _check_protocol(case, result(400, body))[0] == "insufficient"
+    assert _check_protocol(case, result(429, official))[0] == "insufficient"
+    assert _check_protocol(case, result(401, official))[0] == "insufficient"
+
+
 def test_sse_must_be_complete_not_just_initial_chunks():
     from model_detect.glm53_qualification import _check_protocol
     from model_detect.http_client import CallResult
