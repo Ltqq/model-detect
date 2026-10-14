@@ -63,10 +63,18 @@ def benchmark_plan(level: str, *, official_runs: int, customer_runs: int,
     }
 
 
-def _check_task(row: Any) -> dict[str, Any]:
+def _check_task(
+    row: Any, *, expected_reasoning_effort: str | None = None
+) -> dict[str, Any]:
     obs = row.observed if isinstance(row.observed, dict) else {}
     meta = row.metadata
     score = row.score
+    task_generation = obs.get("task_generation_settings") or {}
+    effort_recorded = task_generation.get("reasoning_effort")
+    effort_valid = (
+        expected_reasoning_effort is None
+        or effort_recorded == expected_reasoning_effort
+    )
     # Only scored metrics, never sample_len / stderr / bookkeeping numbers.
     metrics = {
         str(key): float(value)
@@ -77,7 +85,8 @@ def _check_task(row: Any) -> dict[str, Any]:
     if not metrics and score is not None and meta.get("primary_metric"):
         metrics = {meta["primary_metric"]: float(score)}
     good = bool(
-        score is not None
+        effort_valid
+        and score is not None
         and meta.get("primary_metric")
         and obs.get("version") is not None
         and isinstance(obs.get("effective_samples"), int)
@@ -96,6 +105,9 @@ def _check_task(row: Any) -> dict[str, Any]:
         "config_sha256": obs.get("task_config_hash"),
         "contract_version": obs.get("task_contract_version"),
         "valid": good,
+        "requested_reasoning_effort": expected_reasoning_effort,
+        "task_reasoning_effort": effort_recorded,
+        "reasoning_config_verified": effort_valid if expected_reasoning_effort else None,
     }
 
 
@@ -193,7 +205,8 @@ def compare_benchmark_runs(
             "Only generate_until tasks are selected for Chat Completions; "
             "this is not GLM-5.3's official published evaluation configuration.",
             "The SDK sends its own task-default messages and generation config; "
-            "reasoning_effort equivalence across providers remains unverified.",
+            "Reasoning effort is checked in the emitted task config, but "
+            "on-wire payload and server-side adherence remain unverified.",
             "lm-eval network usage is not captured by native request accounting.",
             "No model authenticity, statistical equivalence or significant "
             "regression is inferred from small samples.",
@@ -257,7 +270,11 @@ def run_standard_benchmark(
                         "check local lm_eval installation and endpoint logs"
                     )
                 parsed = lm_eval.parse_result_file(lm_eval.discover_result_file(output))
-                collected.append([_check_task(row) for row in parsed])
+                collected.append([
+                    _check_task(
+                        row, expected_reasoning_effort=plan["reasoning_effort"]
+                    ) for row in parsed
+                ])
             all_runs[label] = collected
     compared = compare_benchmark_runs(
         all_runs["official"], all_runs["customer"],
