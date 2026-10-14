@@ -397,9 +397,16 @@ _PRIMARY_METRICS: dict[str, list[str]] = {
         "exact_match",
     ],
     "ifeval": [
+        "prompt_level_strict_acc,none",
         "prompt_level_strict_acc",
+        "inst_level_strict_acc,none",
         "inst_level_strict_acc",
+        "prompt_level_loose_acc,none",
         "prompt_level_loose_acc",
+    ],
+    "minerva_math500": [
+        "exact_match,none",
+        "math_verify,none",
     ],
     "truthfulqa_gen": [
         "bleu_acc",
@@ -412,7 +419,7 @@ _PRIMARY_METRICS: dict[str, list[str]] = {
 def _numeric_metrics(values: dict[str, Any]) -> dict[str, float]:
     metrics: dict[str, float] = {}
     for key, value in values.items():
-        if "stderr" in key.lower() or key == "alias":
+        if "stderr" in key.lower() or key in {"alias", "sample_len"}:
             continue
         if isinstance(value, bool):
             continue
