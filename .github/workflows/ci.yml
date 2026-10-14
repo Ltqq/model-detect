@@ -42,6 +42,7 @@ jobs:
           model-detect reference --help
           model-detect glm53 compare --help
           model-detect glm53 replay --help
+          model-detect glm53 doctor --help
           model-detect web --help
           model-detect compare --help
           python -m model_detect version

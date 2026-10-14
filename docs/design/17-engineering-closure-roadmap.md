@@ -124,6 +124,12 @@
 
 ## 3. G1 · 第二批：真实评测链路可靠性
 
+### G1 开发进度（2026-10-14）
+
+- **G1.1 第一批工程实现**：新增只读 `model-detect glm53 doctor --benchmark smoke|standard|deep`，检查本机经实测的 `lm-eval==0.4.13`、当前 venv 入口、IFEval 和数学可选 Python 模块、NLTK `punkt`/`punkt_tab` 数据。选择 Benchmark 的 `glm53 compare --execute` 在任何原生官方/供应商调用前做同一预检；直接调用 Benchmark Runner 亦不可绕过。Mock 回归验证缺依赖时不会发起任何收费请求。
+- **尚待完成（不能标 G1.1 全部验收）**：特定任务注册/数据集 revision 和本地缓存尚无法由静态 Python 包检查证明；doctor 显示 `dataset-cache=unverified`，不会自动下载题集。须按 G1.1 补独立预热与真正离线数据集验证，再推进 G1.2 的实际请求参数快照和端点一致性。
+- **G1.2～G1.5**：仍未开始。CI 只覆盖模拟缺依赖与命令行为，**本批次没有付费模型调用，也未取得生产环境真实预检通过证据**。
+
 ### G1.1 可复现安装 + 付费前 Preflight
 
 - [ ] 固定已实测的 `lm-eval 0.4.13` 为支持目标或写出验证过的兼容范围；检查 `lm_eval[api]`、IFEval `langdetect/immutabledict`、NLTK `punkt/punkt_tab`、Math `lm_eval[math]` 所需 math_verify/ANTLR 环境。

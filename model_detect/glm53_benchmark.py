@@ -10,6 +10,7 @@ from typing import Any
 
 from .adapters import lm_eval
 from .benchmark_contract import CONTRACT_VERSION
+from .glm53_preflight import benchmark_preflight
 
 # Only generation-based suites; local-chat-completions does not implement
 # multiple-choice loglikelihood (so default MMLU-Pro cannot run here).
@@ -212,9 +213,15 @@ def run_standard_benchmark(
         level, official_runs=official_runs,
         customer_runs=customer_runs, max_gen_toks=max_gen_toks,
     )
-    if not lm_eval.availability()["available"]:
+    local_check = benchmark_preflight(level)
+    if not local_check["ready"]:
+        failures = ", ".join(
+            item["name"] for item in local_check["checks"]
+            if item["status"] == "fail"
+        )
         raise RuntimeError(
-            "lm-eval is unavailable; install pip install 'lm_eval[api]'"
+            "local Benchmark preflight failed: " + failures
+            + "; run model-detect glm53 doctor before executing"
         )
     try:
         harness_version = version("lm-eval")

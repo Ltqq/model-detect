@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import sysconfig
 from importlib.metadata import PackageNotFoundError, version
 import subprocess
 
@@ -15,8 +16,19 @@ from ..models import ProbeResult, ProbeStatus
 from ..benchmark_contract import CONTRACT_VERSION, task_contract_sha256
 
 
+def resolve_lm_eval_executable() -> str | None:
+    """Use this Python environment's console script before system PATH."""
+    scripts_dir = Path(sysconfig.get_path("scripts"))
+    for candidate in (
+        scripts_dir / "lm_eval", scripts_dir / "lm_eval.exe",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return shutil.which("lm_eval")
+
+
 def availability() -> dict[str, Any]:
-    binary = shutil.which("lm_eval")
+    binary = resolve_lm_eval_executable()
     return {
         "available": bool(binary),
         "binary": binary,
@@ -55,7 +67,7 @@ def build_command(
     clean_tasks = [task.strip() for task in tasks if task.strip()]
     if not clean_tasks:
         raise ValueError("at least one lm-eval task is required")
-    executable = binary or shutil.which("lm_eval")
+    executable = binary or resolve_lm_eval_executable()
     if not executable:
         raise RuntimeError(
             "lm-evaluation-harness is unavailable; install it so the lm_eval CLI is on PATH"

@@ -12,6 +12,7 @@ from rich.table import Table
 
 from .glm53_benchmark import benchmark_plan, run_standard_benchmark
 from .glm53_replay import replay_archive, write_replay
+from .glm53_preflight import benchmark_preflight
 from .glm53_qualification import (
     build_comparison, normalize_base_url, plan_comparison,
     run_endpoint, selected_cases, write_comparison,
@@ -160,11 +161,21 @@ def compare(
         )
 
     if benchmark:
-        from .adapters import lm_eval
-        if not lm_eval.availability()["available"]:
-            raise typer.BadParameter(
-                "selected benchmark needs installed lm_eval[api] and lm_eval on PATH"
+        diagnostics = benchmark_preflight(benchmark_level)
+        if not diagnostics["ready"]:
+            failed = ", ".join(
+                item["name"] for item in diagnostics["checks"]
+                if item["status"] == "fail"
             )
+            raise typer.BadParameter(
+                f"local Benchmark preflight failed: {failed}. "
+                "Run 'model-detect glm53 doctor --benchmark "
+                f"{benchmark_level}' before any paid requests."
+            )
+        console.print(
+            "[yellow]本地依赖已检查，但数据集缓存和真正生效的"
+            "推理参数尚未验证；不要将此当作 Benchmark 正式准入。[/yellow]"
+        )
     if output_dir.joinpath("glm53-comparison.json").exists():
         raise typer.BadParameter(
             "comparison output already exists; choose a new --output-dir "
@@ -262,3 +273,29 @@ def replay(
     console.print("[green]离线重算完成；没有调用模型 API，也未覆盖旧报告。[/green]")
     for kind, path in paths.items():
         console.print(f"{kind}: {path}")
+
+
+
+@glm53_app.command("doctor")
+def doctor(
+    benchmark_level: str = typer.Option(
+        "standard", "--benchmark",
+        help="smoke / standard / deep; checks local prerequisites, no API calls",
+    ),
+) -> None:
+    """Inspect local Benchmark dependencies without sending model API calls."""
+    try:
+        diagnostics = benchmark_preflight(benchmark_level)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    table = Table("本地预检项目", "状态", "解释")
+    for item in diagnostics["checks"]:
+        table.add_row(item["name"], item["status"], item["explanation"])
+    console.print(table)
+    console.print("[yellow]" + diagnostics["warning"] + "[/yellow]")
+    if not diagnostics["ready"]:
+        console.print("[red]预检未通过：不会建议启动付费 Benchmark。[/red]")
+        raise typer.Exit(code=1)
+    console.print(
+        "[green]本地依赖预检通过（未访问数据集、未使用 Key、未调用模型）。[/green]"
+    )
