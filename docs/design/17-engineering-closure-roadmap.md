@@ -138,7 +138,7 @@
 - [ ] 对首次 NLTK/数据集缓存缺失，**在付费前**提供独立准备步骤，失败立即退出而不启动官方/客户调用。
 - **验收**：全新 Python 3.11/3.12 虚拟环境按文档装完能预检成功；故意删包/缓存时给出可操作错误；不消费 API Token。
 
-### G1.2 实施进度（2026-10-14，代码已提交，待 CI）
+### G1.2 本批次实施范围（2026-10-14）
 
 - **已经实现的部分**：对 `lm-eval==0.4.13` 增加显式 `--benchmark-reasoning-effort low|high|max`（默认 max）。使用官方 `--gen_kwargs reasoning_effort=...` 路径让所有 `generate_until` 任务更新生成配置，`local-chat-completions` 后端经 `**gen_kwargs` 发送字段；官方和客户调用同一 CLI 参数。设置写进新的 `glm53-lm-eval-generative-v2` 套件 hash，重新运行时从输出 `configs[task].generation_kwargs` 读取并校验该设置，若缺失或不一致则 **incomparable**。
 - **不声称完成的部分**：当前还没有在网络层捕获实际 JSON 请求，也不能证明供应商真正应用推理等级；任务 YAML 的 `max_gen_toks` 优先级、采样题目 ID、异常截断率仍需完整验收。旧 2026-10-13 历史证据的推理等级未记录，离线重算**绝不继承新的 max 默认值**。
