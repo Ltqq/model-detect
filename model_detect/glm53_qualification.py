@@ -207,20 +207,7 @@ def plan_comparison(
             (input_guess * input_price_per_million +
              output_cap * output_price_per_million) / 1_000_000, 6
         )
-    report_status = (
-        "observed_deviation" if any(x["verdict"] == "deviation" for x in protocol)
-        else "evidence_incomplete" if any(
-            x["verdict"] in {"official_inconclusive", "customer_inconclusive"}
-            for x in protocol
-        ) else "observed_consistent"
-    )
     return {
-        "assessment": {
-            "protocol_observed": report_status,
-            "capability": "lightweight_observation_only",
-            "identity": "not_assessed",
-            "supplier_accreditation": "not_determined",
-        },
         "suite_version": SUITE_VERSION,
         "mode": mode, "profile": profile,
         "official_runs": official_runs,
