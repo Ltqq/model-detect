@@ -125,6 +125,8 @@ def _sanitized_stage(source: dict[str, Any], *, source_sha256: str) -> dict[str,
 def replay_archive(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise ValueError("evidence ZIP file does not exist")
+    if path.stat().st_size > 100_000_000:
+        raise ValueError("evidence ZIP exceeds compressed size limit")
     archive_sha = _sha(path.read_bytes())  # original entire file, never changed
     with zipfile.ZipFile(path) as z:
         members = z.infolist()
@@ -143,6 +145,27 @@ def replay_archive(path: Path) -> dict[str, Any]:
             original, sha = _read_json(z, name)
             stages[stage] = _sanitized_stage(original, source_sha256=sha)
 
+        historical_smoke = {}
+        for stage in ("glm53-04-attempt1-FAILED-ifeval-dep",
+                      "glm53-04-benchmark-smoke"):
+            name = f"{stage}/glm53-comparison.json"
+            if name in names:
+                old, sha = _read_json(z, name)
+                info = old.get("standard_benchmark") or {}
+                historical_smoke[stage] = {
+                    "original_report_sha256": sha,
+                    "original_state": info.get("result", "unknown"),
+                    "historical_scores_only": [
+                        {
+                            "task": x.get("task"),
+                            "official_scores": x.get("official_scores"),
+                            "customer_scores": x.get("customer_scores"),
+                            "sample_count": x.get("sample_count"),
+                        }
+                        for x in info.get("tasks", [])
+                    ],
+                    "verdict": "not_regraded_no_raw_lm_eval_config",
+                }
         benchmark_sources = {}
         benchmark_rows = {}
         for label in ("official", "customer"):
@@ -187,6 +210,7 @@ def replay_archive(path: Path) -> dict[str, Any]:
         "archive_sha256": archive_sha,
         "input_origin": "local user-provided historical archive; authenticity not independently verified",
         "stages": stages,
+        "historical_smoke": historical_smoke,
         "standard_benchmark": benchmark,
         "assessment": {
             "protocol": "observed_but_some_historical_cases_remain_inconclusive",
@@ -196,6 +220,7 @@ def replay_archive(path: Path) -> dict[str, Any]:
         },
         "limitations": [
             "Offline regrading is not a new official API measurement.",
+            "04 historical Smoke scores remain unverified without its original lm-eval configs; 05 full raw reports were reprocessed.",
             "Only the saved 160-character excerpts can be rescored; truncated/missing evidence is insufficient.",
             "Historical thinking.disabled 400 bodies were not saved in report JSON; manual notes do not silently overwrite status.",
             "Standard benchmark task parity is not proof that the real reasoning settings were applied by either endpoint.",
@@ -230,6 +255,17 @@ def write_replay(result: dict[str, Any], destination: Path) -> dict[str, Path]:
             f"| {statuses.count('official_inconclusive')} "
             f"| {statuses.count('customer_inconclusive')} "
             f"| {statuses.count('deviation')} | {len(stage['changes'])} |"
+        )
+    lines.extend([
+        "", "## 04 历史 Smoke / 首次安装失败", "",
+        "04 仅保存旧汇总，缺原始评测配置，不能重算为可比或通过；"
+        "其旧分数仅作为诊断记录。",
+        "",
+    ])
+    for name, evidence in result.get("historical_smoke", {}).items():
+        lines.append(
+            f"- {name}：{evidence['original_state']}；"
+            "原始评测配置缺失，仍未验证。"
         )
     lines.extend([
         "", "## 标准 Benchmark 全部评分指标（05 原始 lm-eval）", "",
