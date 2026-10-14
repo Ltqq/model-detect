@@ -4,7 +4,6 @@ import hashlib
 import html
 import json
 import math
-import re
 import statistics
 from datetime import datetime, timezone
 from importlib.resources import files
@@ -14,6 +13,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from .capability_scoring import SCORER_VERSION, grade_answer
 from .http_client import AuditHttpClient
 
 
@@ -397,11 +397,13 @@ async def run_endpoint(
                     verdict, explanation = "insufficient", "输出预算耗尽，答案不完整"
                 else:
                     answer = _content(call.json_body)
-                    try:
-                        matched = bool(re.fullmatch(case["pattern"], answer, flags=re.I))
-                    except re.error:
-                        matched = False
-                    verdict = "pass" if matched else "fail"
+                    grade = grade_answer(
+                        category=case["category"],
+                        task_id=case["id"].split(".", 1)[1],
+                        pattern=case["pattern"],
+                        answer=answer,
+                    )
+                    verdict = "pass" if grade.matched else "fail"
                     explanation = "答案符合客观规则" if matched else "答案与客观评分规则不一致"
             results.append({
                 "endpoint": label, "run": number,
@@ -417,6 +419,19 @@ async def run_endpoint(
                 "observed_answer_excerpt": (
                     _content(call.json_body)[:160] if not protocol else None
                 ),
+                "normalized_answer_excerpt": (
+                    grade.normalized_answer[:160] if not protocol and
+                    call.evidence.response_status == 200 and
+                    _finish_reason(call.json_body) != "length"
+                    else None
+                ),
+                "answer_normalization": (
+                    grade.normalization if not protocol and
+                    call.evidence.response_status == 200 and
+                    _finish_reason(call.json_body) != "length"
+                    else None
+                ),
+                "scorer_version": SCORER_VERSION if not protocol else None,
                 "expected_pattern": (
                     case.get("pattern") if not protocol else None
                 ),
