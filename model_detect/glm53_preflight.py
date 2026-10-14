@@ -8,30 +8,13 @@ dataset cache availability cannot be inferred reliably from a Python import.
 from __future__ import annotations
 
 import importlib.util
-import os
-import shutil
-import sys
-import sysconfig
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 from typing import Any
+
+from .adapters.lm_eval import resolve_lm_eval_executable
 
 VALID_LEVELS = {"smoke", "standard", "deep"}
 VERIFIED_HARNESS = "0.4.13"
-
-
-def resolve_lm_eval_executable() -> str | None:
-    """Prefer console script from THIS Python environment over global PATH."""
-    script_dir = Path(sysconfig.get_path("scripts"))
-    candidates = (
-        script_dir / ("lm_eval.exe" if os.name == "nt" else "lm_eval"),
-        script_dir / "lm_eval",
-        script_dir / "lm_eval.exe",
-    )
-    for item in candidates:
-        if item.is_file():
-            return str(item)
-    return shutil.which("lm_eval")
 
 
 def _installed(name: str) -> bool:
@@ -97,15 +80,17 @@ def benchmark_preflight(level: str) -> dict[str, Any]:
     if level in {"standard", "deep"}:
         required += ("math_verify", "antlr4")
     for package in required:
+        installed = _installed(package)
         add(
-            f"python:{package}", "pass" if _installed(package) else "fail",
-            f"{package} 已安装" if _installed(package) else
+            f"python:{package}", "pass" if installed else "fail",
+            f"{package} 已安装" if installed else
             f"缺少 {package}；先安装/修复 lm-eval 及对应 task 的可选依赖",
         )
     for name in ("punkt", "punkt_tab"):
+        found = _nltk_resource(name)
         add(
-            f"nltk:{name}", "pass" if _nltk_resource(name) else "fail",
-            f"本机存在 NLTK {name}" if _nltk_resource(name) else
+            f"nltk:{name}", "pass" if found else "fail",
+            f"本机存在 NLTK {name}" if found else
             f"缺少 NLTK {name}；在预热步骤执行 "
             f"python -c \"import nltk; nltk.download('{name}')\"",
         )
