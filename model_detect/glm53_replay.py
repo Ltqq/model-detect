@@ -62,9 +62,12 @@ def _task_answers(
         case = case_by_id.get(row.get("id"))
         if case is None or "pattern" not in case:
             row["status"] = "insufficient"
-        elif row.get("http_status") != 200 or row.get("finish_reason") == "length":
-            # HTTP errors and truncated completions are not recoverable from
-            # a historical short answer excerpt.
+        elif row.get("http_status") != 200:
+            # Preserve real old errors: replay must not recast transport failure
+            # into a model answer or silently turn it into a correct response.
+            if old not in {"error", "insufficient"}:
+                row["status"] = "insufficient"
+        elif row.get("finish_reason") == "length":
             row["status"] = "insufficient"
         else:
             answer = row.get("observed_answer_excerpt")
@@ -137,6 +140,8 @@ def replay_archive(path: Path) -> dict[str, Any]:
         ):
             raise ValueError("evidence archive exceeds offline safety limits")
         names = {x.filename for x in members}
+        if len(names) != len(members):
+            raise ValueError("evidence archive has duplicate filenames")
         stages = {}
         for stage in _STAGES:
             name = f"{stage}/glm53-comparison.json"
