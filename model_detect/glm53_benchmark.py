@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .adapters import lm_eval
+from .benchmark_contract import CONTRACT_VERSION
 
 # Only generation-based suites; local-chat-completions does not implement
 # multiple-choice loglikelihood (so default MMLU-Pro cannot run here).
@@ -69,6 +70,7 @@ def _check_task(row: Any) -> dict[str, Any]:
         and obs["effective_samples"] > 0
         and isinstance(obs.get("task_config_hash"), str)
         and len(obs["task_config_hash"]) == 64
+        and obs.get("task_contract_version") == CONTRACT_VERSION
     )
     return {
         "task": meta.get("task"),
@@ -77,6 +79,7 @@ def _check_task(row: Any) -> dict[str, Any]:
         "dataset_version": obs.get("version"),
         "sample_count": obs.get("effective_samples"),
         "config_sha256": obs.get("task_config_hash"),
+        "contract_version": obs.get("task_contract_version"),
         "valid": good,
     }
 
@@ -97,9 +100,11 @@ def compare_benchmark_runs(
             bool(entries)
             and all(r and r.get("valid") and r.get("score") is not None for r in entries)
             and all(
-                (r["dataset_version"], r["sample_count"], r["config_sha256"], r["metric"])
+                (r["dataset_version"], r["sample_count"], r["config_sha256"],
+                 r["contract_version"], r["metric"])
                 == (entries[0]["dataset_version"], entries[0]["sample_count"],
-                    entries[0]["config_sha256"], entries[0]["metric"])
+                    entries[0]["config_sha256"], entries[0]["contract_version"],
+                    entries[0]["metric"])
                 for r in entries if r
             )
         )
@@ -123,6 +128,7 @@ def compare_benchmark_runs(
             "metric": entries[0].get("metric") if entries[0] else None,
             "dataset_version": entries[0].get("dataset_version") if entries[0] else None,
             "task_config_sha256": entries[0].get("config_sha256") if entries[0] else None,
+            "task_contract_version": entries[0].get("contract_version") if entries[0] else None,
         })
     return {
         "suite": BENCHMARK_SUITE,

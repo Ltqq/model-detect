@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import ProbeResult, ProbeStatus
+from ..benchmark_contract import CONTRACT_VERSION, task_contract_sha256
 
 
 def availability() -> dict[str, Any]:
@@ -464,16 +465,14 @@ def parse_result_payload(
             continue
         metrics = _numeric_metrics(raw_metrics)
         task_config = task_configs.get(task)
-        task_config_hash = (
-            hashlib.sha256(
-                json.dumps(
-                    task_config, ensure_ascii=False, sort_keys=True,
-                    separators=(",", ":"), default=str
-                ).encode("utf-8")
-            ).hexdigest()
-            if isinstance(task_config, dict)
-            else None
-        )
+        task_config_hash = None
+        task_contract_error = None
+        if isinstance(task_config, dict):
+            try:
+                task_config_hash = task_contract_sha256(str(task), task_config, data)
+            except (ValueError, TypeError, OverflowError):
+                # Unknown object or malformed run options: no comparable key.
+                task_contract_error = "unverifiable task or run configuration"
         count_info = sample_counts.get(task)
         effective_samples = (
             count_info.get("effective")
@@ -514,6 +513,8 @@ def parse_result_payload(
                     "version": versions.get(task),
                     "effective_samples": effective_samples,
                     "task_config_hash": task_config_hash,
+                    "task_contract_version": CONTRACT_VERSION if task_config_hash else None,
+                    "task_contract_error": task_contract_error,
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",
@@ -522,6 +523,7 @@ def parse_result_payload(
                     "benchmark_score_only": True,
                     "benchmark_effective_samples": effective_samples,
                     "benchmark_task_config_sha256": task_config_hash,
+                    "benchmark_task_contract_version": CONTRACT_VERSION if task_config_hash else None,
                     "threshold_interpretation": False,
                     "source_path": source_path,
                 },

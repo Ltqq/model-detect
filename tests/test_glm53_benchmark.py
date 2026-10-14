@@ -8,6 +8,7 @@ from model_detect.glm53_benchmark import (
     benchmark_plan, compare_benchmark_runs, run_standard_benchmark,
 )
 from model_detect.glm53_qualification import selected_cases
+from model_detect.benchmark_contract import CONTRACT_VERSION
 
 
 def row(task, *, score=.8, sha="a" * 64, samples=5,
@@ -15,7 +16,8 @@ def row(task, *, score=.8, sha="a" * 64, samples=5,
     return {
         "task": task, "score": score, "metric": metric,
         "dataset_version": version, "sample_count": samples,
-        "config_sha256": sha, "valid": True,
+        "config_sha256": sha, "contract_version": CONTRACT_VERSION,
+        "valid": True,
     }
 
 
