@@ -11,7 +11,7 @@ from collections import Counter
 from typing import Any
 
 
-_FIELDS = ("model", "reasoning_effort", "max_tokens", "temperature", "stop")
+_FIELDS = ("model", "reasoning_effort", "thinking", "max_tokens", "temperature", "top_p", "stop", "seed", "response_format", "tools", "tool_choice", "stream")
 
 
 def _digest(value: Any) -> str:
@@ -38,11 +38,11 @@ def _normalize(body: Any, *, expected_model: str, expected_effort: str) -> tuple
         if field not in body:
             problems.append(field + "_unobserved")
     # Never preserve raw prompts. A digest still detects changed task content.
-    settings = {name: body.get(name) for name in _FIELDS if name in body}
+    # Hash every non-message generation option, including provider extensions.\n    # This prevents unrecognized parameters from escaping comparison.\n    settings = {name: value for name, value in body.items()\n                if name not in {"messages", "authorization", "api_key", "user"}\n                and not name.startswith("_")}
     safe = {
         "message_sha256": _digest(body.get("messages")),
         "settings_sha256": _digest(settings),
-        "present_fields": sorted(settings),
+        "present_fields": sorted(name for name in settings if name in _FIELDS),
         "max_tokens": body.get("max_tokens") if isinstance(body.get("max_tokens"), int)
                       and not isinstance(body.get("max_tokens"), bool) else None,
     }
