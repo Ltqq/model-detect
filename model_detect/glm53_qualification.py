@@ -404,7 +404,10 @@ async def run_endpoint(
                         answer=answer,
                     )
                     verdict = "pass" if grade.matched else "fail"
-                    explanation = "答案符合客观规则" if matched else "答案与客观评分规则不一致"
+                    explanation = (
+                        "答案符合客观规则" if grade.matched
+                        else "答案与客观评分规则不一致"
+                    )
             results.append({
                 "endpoint": label, "run": number,
                 "id": case["id"],
