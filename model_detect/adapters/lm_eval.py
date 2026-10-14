@@ -60,6 +60,7 @@ def build_command(
     max_retries: int = 3,
     limit: int | None = None,
     max_gen_toks: int | None = None,
+    reasoning_effort: str | None = None,
     binary: str | None = None,
 ) -> list[str]:
     if not model.strip():
@@ -98,6 +99,13 @@ def build_command(
         "--output_path",
         str(output_path),
     ]
+    if reasoning_effort is not None:
+        if reasoning_effort not in {"low", "high", "max"}:
+            raise ValueError("reasoning_effort must be low, high or max")
+        # lm-eval 0.4.13's evaluator applies --gen_kwargs to each
+        # generate_until task; local-chat-completions forwards it to the
+        # Chat Completions JSON payload.
+        cmd.extend(["--gen_kwargs", f"reasoning_effort={reasoning_effort}"])
     if limit is not None:
         if limit <= 0:
             raise ValueError("limit must be greater than zero")
@@ -117,6 +125,7 @@ def run_endpoint(
     limit: int | None = None,
     timeout_seconds: float = 1800,
     max_gen_toks: int | None = None,
+    reasoning_effort: str | None = None,
     binary: str | None = None,
 ) -> dict[str, Any]:
     output = Path(output_path)
@@ -130,6 +139,7 @@ def run_endpoint(
         max_retries=max_retries,
         limit=limit,
         max_gen_toks=max_gen_toks,
+        reasoning_effort=reasoning_effort,
         binary=binary,
     )
     env = dict(os.environ)
@@ -534,6 +544,14 @@ def parse_result_payload(
                     "task_config_hash": task_config_hash,
                     "task_contract_version": CONTRACT_VERSION if task_config_hash else None,
                     "task_contract_error": task_contract_error,
+                    "task_generation_settings": {
+                        key: task_config["generation_kwargs"][key]
+                        for key in ("reasoning_effort", "max_gen_toks",
+                                    "max_tokens", "temperature")
+                        if isinstance(task_config, dict)
+                        and isinstance(task_config.get("generation_kwargs"), dict)
+                        and key in task_config["generation_kwargs"]
+                    },
                 },
                 metadata={
                     "engine": "lm-evaluation-harness",

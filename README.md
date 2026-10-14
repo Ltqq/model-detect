@@ -313,6 +313,25 @@ model-detect glm53 compare \
 
 **[完整修复 + 开发 + 真实验收统一总计划：docs/design/17](docs/design/17-engineering-closure-roadmap.md)**。本文件列明 G0/G1 实测缺陷 → A/B 工程可靠性和 Token → C Kimi 官方专项 → D 集成 → E 真值校准 → F 发布，包含执行依赖、估算、验收门槛与建议提交批次。真实 GLM-5.3 的数据与修复复现详见 [20 号证据复盘](docs/design/20-glm53-live-evidence-triage.md)。原 03/18/19 号文档仅作历史与专项技术说明，避免重复管理任务。
 
+## GLM-5.3 Benchmark 付费前检查与推理档位（G1 开发中）
+
+```powershell
+# 固定 2026-10-13 已实测版本；额外依赖及 NLTK 数据请按 doctor 输出安装
+python -m pip install "lm-eval[api,math]==0.4.13"
+model-detect glm53 doctor --benchmark standard
+
+# 预览时就确定推理档位（以下不会发起模型请求）
+model-detect glm53 compare `
+  --official-url https://api.z.ai/api/paas/v4 `
+  --customer-url https://supplier.example/v1 `
+  --benchmark standard --benchmark-reasoning-effort max `
+  --max-requests 300
+```
+
+G1.1 先检查 lm-eval 当前虚拟环境入口、IFEval/math optional dependencies、NLTK `punkt`/`punkt_tab`。仅在本地依赖已知项通过后，`--execute` 才会继续到原生收费请求；**数据集缓存和任务实际能运行尚未自动验证**。缺依赖请先处理，不要反复重跑付费测试。
+
+G1.2 将 `--benchmark-reasoning-effort low|high|max`（默认 max）通过已核查的 **lm-eval 0.4.13 `--gen_kwargs`** 传给官方与客户的 generate_until 任务，记录到新版本化 Benchmark 配置；结果 Task 配置没有对应字段或字段不一致即不可比。此项只能证明**设置已被送入评测配置**，尚未在网络层抓取请求体，也不能证明模型服务器确实应用了等级。旧证据不套用新的 max 默认值。详见 [统一总计划 G1](docs/design/17-engineering-closure-roadmap.md)。
+
 ## GLM-5.3 历史测试离线重算（G0 收尾，2026-10-14）
 
 新版本提供只读、**完全离线**的 `model-detect glm53 replay`，用于修正之前 GLM-5.3 01～03 轻量能力答案格式误判，并从 05 双端原始 lm-eval JSON 重新计算全部 GSM8K、IFEval、MATH-500 子指标。**04 因缺少完整原始评测配置，只保留历史诊断，不强行认定可比。**

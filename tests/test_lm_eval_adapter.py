@@ -95,3 +95,24 @@ def test_run_endpoint_passes_key_only_via_environment(monkeypatch, tmp_path):
     assert result["returncode"] == 0
     assert seen["env"]["OPENAI_API_KEY"] == "sk-secret"
     assert all("sk-secret" not in arg for arg in seen["cmd"])
+
+
+
+def test_explicit_reasoning_effort_is_generation_kwarg_not_model_constructor(tmp_path):
+    command = lm_eval.build_command(
+        base_url="https://api.z.ai/api/paas/v4",
+        model="glm-5.3",
+        tasks=["gsm8k", "ifeval"],
+        output_path=tmp_path,
+        reasoning_effort="max",
+        max_gen_toks=8192,
+        binary="/fake/venv/lm_eval",
+    )
+    assert command[command.index("--gen_kwargs") + 1] == "reasoning_effort=max"
+    assert "reasoning_effort" not in command[command.index("--model_args") + 1]
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        lm_eval.build_command(
+            base_url="https://example.test/v1", model="glm-5.3",
+            tasks=["gsm8k"], output_path=tmp_path,
+            reasoning_effort="unknown", binary="/fake/venv/lm_eval",
+        )

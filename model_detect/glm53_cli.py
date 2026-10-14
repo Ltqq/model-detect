@@ -57,6 +57,10 @@ def compare(
     benchmark_max_gen_toks: int = typer.Option(
         8192, "--benchmark-max-gen-toks", min=256, max=32768,
     ),
+    benchmark_reasoning_effort: str = typer.Option(
+        "max", "--benchmark-reasoning-effort",
+        help="Reasoning effort sent by lm-eval to BOTH official and customer: low/high/max",
+    ),
     allow_unverified_reference: bool = typer.Option(
         False, "--allow-unverified-reference",
         help="Permit a non-official baseline host; report is not first-party verified.",
@@ -88,6 +92,7 @@ def compare(
                 benchmark_level, official_runs=benchmark_runs,
                 customer_runs=benchmark_runs,
                 max_gen_toks=benchmark_max_gen_toks,
+                reasoning_effort=benchmark_reasoning_effort,
             )
             if benchmark_level != "none" else None
         )
@@ -115,6 +120,9 @@ def compare(
             f"{benchmark['tasks']} × 最多 {benchmark['limit']} 题"
         )
         summary.add_row("Benchmark 样本调用（名义）", str(benchmark["nominal_samples"]))
+        summary.add_row(
+            "Benchmark 双端推理等级", benchmark["reasoning_effort"],
+        )
         summary.add_row(
             "Benchmark 额外输出上限合计",
             str(benchmark["nominal_max_output_tokens"]),
@@ -222,6 +230,7 @@ def compare(
                 official_runs=benchmark_runs,
                 customer_runs=benchmark_runs,
                 max_gen_toks=benchmark_max_gen_toks,
+                reasoning_effort=benchmark_reasoning_effort,
             )
         except Exception as exc:
             result["standard_benchmark"] = {
