@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
 import yaml
 
+from ..capability_scoring import SCORER_VERSION, grade_answer
 from ..http_client import AuditHttpClient
 from ..models import Evidence, ProbeResult, ProbeStatus
 
@@ -56,14 +56,18 @@ async def run_capability_suite(
             )
             evidences.append(call.evidence)
             answer = _text(call.json_body)
-            try:
-                matched = bool(re.fullmatch(task["pattern"], answer, flags=re.I))
-            except re.error:
-                matched = False
+            grade = grade_answer(
+                category=category, task_id=task["id"],
+                pattern=task["pattern"], answer=answer,
+            )
+            matched = grade.matched
             rows.append(
                 {
                     "id": task["id"],
                     "answer": answer[:500],
+                    "normalized_answer": grade.normalized_answer[:500],
+                    "normalization": grade.normalization,
+                    "scorer_version": SCORER_VERSION,
                     "pattern": task["pattern"],
                     "matched": matched,
                     "http_status": call.evidence.response_status,
@@ -91,7 +95,8 @@ async def run_capability_suite(
                 summary=f"{category}: {passed}/{len(rows)} deterministic tasks passed",
                 observed={"tasks": rows},
                 evidence_ids=[x["evidence_id"] for x in rows],
-                metadata={"capability_dimension": category},
+                metadata={"capability_dimension": category,
+                          "scorer_version": SCORER_VERSION},
             )
         )
 
