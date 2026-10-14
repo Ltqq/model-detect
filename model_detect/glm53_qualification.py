@@ -274,6 +274,47 @@ def _usage(body: Any) -> dict[str, int] | None:
     return result or None
 
 
+def _rejects_disabled_thinking(response: Any) -> bool:
+    """Accept only an explicit GLM-5.3 thinking restriction, not any 400.
+
+    The vendor's documented first-party error can be Chinese (code 1210).
+    A code without a relevant message is not proof of correct model behavior.
+    """
+    if not isinstance(response, dict):
+        return False
+    error = response.get("error")
+    if not isinstance(error, dict):
+        return False
+    text = str(error.get("message") or "").casefold()
+    if not text:
+        return False
+    zh = (
+        "始终思考" in text
+        or ("思考" in text and any(
+            marker in text for marker in (
+                "不支持关闭", "不能关闭", "无法关闭", "不可关闭", "禁止关闭",
+            )
+        ))
+    )
+    en = (
+        ("thinking" in text or "reasoning" in text)
+        and (
+            "must be enabled" in text
+            or "cannot be disabled" in text
+            or "can't be disabled" in text
+            or "does not support disabling" in text
+            or "not support disabling" in text
+            or ("disabled" in text and any(
+                marker in text for marker in (
+                    "not supported", "unsupported", "not allowed",
+                    "forbidden", "invalid_request",
+                )
+            ))
+        )
+    )
+    return zh or en
+
+
 def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
     status = call.evidence.response_status
     if status is None:
@@ -284,14 +325,7 @@ def _check_protocol(case: dict[str, Any], call) -> tuple[str, str]:
         # A 401/403/429 can be auth/quota/routing failure, not proof of a
         # model-specific thinking restriction.
         if status in {400, 422}:
-            detail = json.dumps(response, ensure_ascii=False).lower() if response else ""
-            if (
-                "disabled" in detail
-                or "thinking.type" in detail
-                or ("thinking" in detail and "not support" in detail)
-                or ("thinking" in detail and "not allowed" in detail)
-                or ("thinking" in detail and "不能" in detail)
-            ):
+            if _rejects_disabled_thinking(response):
                 return "pass", f"HTTP {status}：错误明确指向禁止关闭思考"
             return "insufficient", f"HTTP {status}：拒绝原因未知，不能认定思考限制生效"
         if status in {401, 403, 408, 409, 425, 429} or status >= 500:
