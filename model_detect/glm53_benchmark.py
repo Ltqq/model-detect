@@ -19,17 +19,20 @@ BENCHMARK_PROFILES = {
     "standard": {"tasks": ["gsm8k", "ifeval", "minerva_math500"], "limit": 25},
     "deep": {"tasks": ["gsm8k", "ifeval", "minerva_math500"], "limit": 100},
 }
-BENCHMARK_SUITE = "glm53-lm-eval-generative-v1"
+BENCHMARK_SUITE = "glm53-lm-eval-generative-v2"
 
 
 def benchmark_plan(level: str, *, official_runs: int, customer_runs: int,
-                   max_gen_toks: int = 8192) -> dict[str, Any]:
+                   max_gen_toks: int = 8192,
+                   reasoning_effort: str = "max") -> dict[str, Any]:
     if level not in BENCHMARK_PROFILES:
         raise ValueError("unknown benchmark level")
     if not (1 <= official_runs <= 5 and 1 <= customer_runs <= 5):
         raise ValueError("benchmark runs must be between 1 and 5")
     if not (256 <= max_gen_toks <= 32768):
         raise ValueError("benchmark max generation tokens must be 256..32768")
+    if reasoning_effort not in {"low", "high", "max"}:
+        raise ValueError("reasoning_effort must be low, high or max")
     profile = BENCHMARK_PROFILES[level]
     count = len(profile["tasks"]) * profile["limit"] * (
         official_runs + customer_runs
@@ -40,6 +43,7 @@ def benchmark_plan(level: str, *, official_runs: int, customer_runs: int,
         "tasks": profile["tasks"],
         "limit": profile["limit"],
         "max_gen_toks": max_gen_toks,
+        "reasoning_effort": reasoning_effort,
         "apply_chat_template": True,
         "num_concurrent": 1,
         "max_retries": 0,
@@ -207,11 +211,13 @@ def run_standard_benchmark(
     official_runs: int,
     customer_runs: int,
     max_gen_toks: int = 8192,
+    reasoning_effort: str = "max",
 ) -> dict[str, Any]:
     """Explicit paid workflow. Keep all raw benchmark artifacts ephemeral."""
     plan = benchmark_plan(
         level, official_runs=official_runs,
         customer_runs=customer_runs, max_gen_toks=max_gen_toks,
+        reasoning_effort=reasoning_effort,
     )
     local_check = benchmark_preflight(level)
     if not local_check["ready"]:
@@ -242,6 +248,7 @@ def run_standard_benchmark(
                     tasks=plan["tasks"], output_path=output,
                     limit=plan["limit"], num_concurrent=1, max_retries=0,
                     max_gen_toks=plan["max_gen_toks"],
+                    reasoning_effort=plan["reasoning_effort"],
                     timeout_seconds=3600,
                 )
                 if result["returncode"] != 0:
@@ -252,7 +259,13 @@ def run_standard_benchmark(
                 parsed = lm_eval.parse_result_file(lm_eval.discover_result_file(output))
                 collected.append([_check_task(row) for row in parsed])
             all_runs[label] = collected
-    return compare_benchmark_runs(
+    compared = compare_benchmark_runs(
         all_runs["official"], all_runs["customer"],
         plan=plan, harness_version=harness_version,
     )
+    compared["requested_reasoning_effort"] = plan["reasoning_effort"]
+    compared["generation_parameter_provenance"] = (
+        "requested via lm-eval 0.4.13 --gen_kwargs; no captured wire "
+        "request or server-side reasoning-setting verification"
+    )
+    return compared
