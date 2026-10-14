@@ -74,6 +74,10 @@ def test_benchmark_run_uses_same_tasks_limits_and_never_logs_api_keys(
         module.lm_eval, "availability", lambda: {"available": True}
     )
     monkeypatch.setattr(module, "version", lambda name: "test-v1")
+    monkeypatch.setattr(
+        module, "benchmark_preflight",
+        lambda level: {"ready": True, "checks": []},
+    )
     requests = []
 
     def fake_run_endpoint(**kwargs):
@@ -170,6 +174,10 @@ def test_optional_benchmark_results_appear_in_same_customer_report(
     monkeypatch.setattr(
         module, "run_standard_benchmark",
         lambda **kwargs: mock_bench,
+    )
+    monkeypatch.setattr(
+        module, "benchmark_preflight",
+        lambda level: {"ready": True, "checks": [], "warning": "mocked"},
     )
     root = tmp_path / "run"
     result = CliRunner().invoke(app, [
