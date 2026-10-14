@@ -38,7 +38,11 @@ def _normalize(body: Any, *, expected_model: str, expected_effort: str) -> tuple
         if field not in body:
             problems.append(field + "_unobserved")
     # Never preserve raw prompts. A digest still detects changed task content.
-    # Hash every non-message generation option, including provider extensions.\n    # This prevents unrecognized parameters from escaping comparison.\n    settings = {name: value for name, value in body.items()\n                if name not in {"messages", "authorization", "api_key", "user"}\n                and not name.startswith("_")}
+    # Hash every non-message generation option, including provider extensions.
+    # This prevents unrecognized parameters from escaping comparison.
+    settings = {name: value for name, value in body.items()
+                if name not in {"messages", "authorization", "api_key", "user"}
+                and not name.startswith("_")}
     safe = {
         "message_sha256": _digest(body.get("messages")),
         "settings_sha256": _digest(settings),
