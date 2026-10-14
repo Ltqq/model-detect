@@ -132,7 +132,7 @@ def test_benchmark_run_uses_same_tasks_limits_and_never_logs_api_keys(
     assert requests[0]["reasoning_effort"] == "max"
     assert requests[1]["reasoning_effort"] == "max"
     assert report["requested_reasoning_effort"] == "max"
-    assert "unverified" in report["generation_parameter_provenance"]
+    assert "no captured wire request" in report["generation_parameter_provenance"]
     assert "secret-" not in json.dumps(report)
 
 
