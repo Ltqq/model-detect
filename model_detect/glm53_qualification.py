@@ -283,9 +283,12 @@ def _rejects_disabled_thinking(response: Any) -> bool:
     if not isinstance(response, dict):
         return False
     error = response.get("error")
-    if not isinstance(error, dict):
+    if isinstance(error, dict):
+        text = str(error.get("message") or "").casefold()
+    elif isinstance(error, str):
+        text = error.casefold()
+    else:
         return False
-    text = str(error.get("message") or "").casefold()
     if not text:
         return False
     zh = (
