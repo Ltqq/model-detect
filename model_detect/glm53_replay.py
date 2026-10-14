@@ -191,6 +191,15 @@ def replay_archive(path: Path) -> dict[str, Any]:
             plan=profile,
             harness_version="from-source",  # check source versions separately below
         )
+        # These 2026-10-13 captures predate explicit reasoning-effort
+        # injection. Do not stamp their data with the current v2 plan/effort.
+        benchmark["suite"] = "historical-lm-eval-generative-unversioned"
+        benchmark["suite_sha256"] = None
+        benchmark["requested_reasoning_effort"] = "not_recorded"
+        benchmark["generation_parameter_provenance"] = (
+            "Historical task configs are replayed as observed. The current "
+            "v2 runner settings MUST NOT be attributed to these old calls."
+        )
         # Report authoritative version from each JSON, not a synthetic label.
         versions = {}
         for label in ("official", "customer"):
