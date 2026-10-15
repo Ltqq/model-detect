@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -10,6 +11,7 @@ import httpx
 
 from .models import Evidence
 from .usage_meter import UsageRecord, usage_from_response
+from .native_budget import NativeTokenBudget
 from .redaction import redact_headers, redact_payload, redact_url
 from .rules import apply_request_constraints
 
@@ -44,10 +46,13 @@ class AuditHttpClient:
         timeout_seconds: float = 30.0,
         extra_headers: dict[str, str] | None = None,
         model: str | None = None,
+        budget: NativeTokenBudget | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout_seconds
         self.model = model
+        self.budget = budget
+        self._budget_lock = asyncio.Lock()
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -60,6 +65,39 @@ class AuditHttpClient:
         return self.base_url + "/" + path.lstrip("/")
 
     async def post_json(
+        self,
+        *,
+        probe_id: str,
+        path: str,
+        payload: dict[str, Any],
+        stream: bool = False,
+        stream_full: bool = False,
+        constraint_exempt_fields: set[str] | frozenset[str] | None = None,
+    ) -> CallResult:
+        args = dict(
+            probe_id=probe_id, path=path, payload=payload,
+            stream=stream, stream_full=stream_full,
+            constraint_exempt_fields=constraint_exempt_fields,
+        )
+        if self.budget is None:
+            return await self._post_json_unmetered(**args)
+        # Serializing native calls prevents concurrent requests bypassing
+        # the soft-limit check; provider charges may still overshoot.
+        async with self._budget_lock:
+            if self.budget.exhausted:
+                self.budget.reject()
+                evidence = Evidence(
+                    id="ev_" + uuid.uuid4().hex[:16],
+                    probe_id=probe_id, method="POST",
+                    url=redact_url(self._url(path)),
+                    error="NativeTokenBudgetExceeded: request not sent",
+                )
+                return CallResult(evidence=evidence)
+            result = await self._post_json_unmetered(**args)
+            self.budget.observe(result.usage_record(stage="native"))
+            return result
+
+    async def _post_json_unmetered(
         self,
         *,
         probe_id: str,
