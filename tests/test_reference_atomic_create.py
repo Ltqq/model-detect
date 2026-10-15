@@ -79,3 +79,14 @@ def test_reference_symlink_is_rejected(tmp_path):
     (registry.root / "alias").symlink_to(external, target_is_directory=True)
     with pytest.raises(ValueError, match="symbolic link"):
         registry.path_for("alias")
+
+
+def test_reference_validation_fails_closed_on_missing_artifacts_and_wrong_model(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    manifest = create(registry)
+    assert registry.validate(manifest, expected_model="glm-5.3") == []
+    assert registry.validate(manifest, expected_model="kimi-k3") == ["model_mismatch"]
+    (registry.path_for("official") / "protocol-signature.json").unlink()
+    assert "protocol_signature_missing" in registry.validate(
+        manifest, expected_model="glm-5.3"
+    )
