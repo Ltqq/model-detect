@@ -69,6 +69,10 @@ def compare(
         help="Permit a non-official baseline host; report is not first-party verified.",
     ),
     max_requests: int = typer.Option(160, "--max-requests", min=1),
+    require_offline_task_cache: bool = typer.Option(
+        False, "--require-offline-task-cache",
+        help="Block all paid requests unless selected lm-eval tasks load from local cache",
+    ),
     execute: bool = typer.Option(
         False, "--execute", help="Allow actual potentially billable calls to both APIs"
     ),
@@ -157,6 +161,19 @@ def compare(
             "[green]预览完成，未发送付费请求。确认配置后加 --execute。[/green]"
         )
         return
+
+    if require_offline_task_cache and not benchmark:
+        raise typer.BadParameter(
+            "--require-offline-task-cache needs --benchmark smoke/standard/deep"
+        )
+    if require_offline_task_cache:
+        precheck = verify_offline_task_cache(benchmark_level)
+        if not precheck["verified"]:
+            raise typer.BadParameter(
+                "offline benchmark task-cache check did not pass; "
+                "no paid requests were started. Run glm53 doctor "
+                "--verify-task-cache to diagnose local task/data cache."
+            )
 
     # Preflight both credentials and endpoints before any potentially paid request.
     official_key = os.getenv(official_key_env)
