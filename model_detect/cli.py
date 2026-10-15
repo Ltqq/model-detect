@@ -296,21 +296,6 @@ def usage_csv(
     console.print_json(data=result)
 
 
-@app.command("release-doctor")
-def release_doctor(
-    repo_dir: Path = typer.Option(Path("."), "--repo-dir"),
-    fail_on_missing: bool = typer.Option(
-        False, "--fail-on-missing", help="Exit nonzero for absent release engineering files",
-    ),
-) -> None:
-    """Offline source-tree checks; never mark final publication approved."""
-    from .release_readiness import inspect_release_tree
-    status = inspect_release_tree(repo_dir)
-    console.print_json(data=status)
-    if fail_on_missing and status["missing_files"]:
-        raise typer.Exit(code=1)
-
-
 @app.command()
 def version() -> None:
     console.print(__version__)
