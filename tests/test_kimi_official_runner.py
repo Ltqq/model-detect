@@ -25,7 +25,7 @@ def test_runner_verifies_sha_and_keeps_secret_out_of_argv(tmp_path, monkeypatch)
     def fake_run(args, **kwargs):
         calls.append(args)
         if args[0] == "git":
-            return SimpleNamespace(returncode=0, stdout=OFFICIAL_COMMIT + "\n")
+            return SimpleNamespace(returncode=0, stdout=(OFFICIAL_COMMIT + "\n") if "rev-parse" in args else "")
         assert "secret-api-key" not in " ".join(args)
         assert kwargs["env"]["KIMI_API_KEY"] == "secret-api-key"
         xml.write_text("<testsuite><testcase classname='x' name='y'/></testsuite>")
