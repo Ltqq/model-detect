@@ -39,6 +39,7 @@ class Evidence(BaseModel):
     response_headers: dict[str, str] = Field(default_factory=dict)
     response_body: Any = None
     error: str | None = None
+    error_category: str | None = None
     elapsed_ms: float | None = None
     created_at: str = Field(default_factory=utc_now_iso)
 
