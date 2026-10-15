@@ -61,3 +61,21 @@ def test_missing_optional_fingerprint_does_not_leak_reference_directory(tmp_path
     )
     assert manifest.fingerprint_artifact is None
     assert registry.get("no-fingerprint").id == "no-fingerprint"
+
+
+@pytest.mark.parametrize("unsafe", [
+    "../outside", "..", "a/b", "a\\\\b", "a b", "🚀", "a..b", "",
+])
+def test_invalid_reference_ids_rejected(tmp_path, unsafe):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    with pytest.raises(ValueError, match="invalid reference ID"):
+        registry.path_for(unsafe)
+
+
+def test_reference_symlink_is_rejected(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    external = tmp_path / "external"
+    external.mkdir()
+    (registry.root / "alias").symlink_to(external, target_is_directory=True)
+    with pytest.raises(ValueError, match="symbolic link"):
+        registry.path_for("alias")
