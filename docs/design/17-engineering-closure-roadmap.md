@@ -451,3 +451,9 @@
 
 - 新增 `reference recover --id <ID> --reference-dir <dir>` 只读列出旧备份及 SHA256 完整性，`--backup-name <name> --restore` 才显式恢复。仅允许目标 ID 不存在且无 writer lock、备份 Manifest/附件哈希合法时同盘重命名恢复；复核后互斥锁保护。
 - 不会自动清除陈旧锁、覆盖现有 Reference 或自动选择备份。真实崩溃恢复、目录 fsync、持续竞态和平台差异仍需验收，**不称为完整 crash-atomic 替换**。
+
+
+### B-C2 CSV 使用记录导出（2026-10-15；待 CI）
+
+- 新增 `usage-csv --report <report.json> --output <usage.csv>`：离线读取、验证并导出已存 Request UsageRecord；保留 unknown 与 missing_reason，不输出原始 Prompt/Answer/Key，不覆盖现有 CSV 文件。
+- 只能导出已有报告计量；不是重新测量或真实第三方工具用量采集。CLI/Web 一致展示仍需补齐。
