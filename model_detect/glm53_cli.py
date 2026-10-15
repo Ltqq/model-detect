@@ -405,3 +405,16 @@ def verify_wire(
     )
     if verdict["status"] != "request_payload_matched":
         raise typer.Exit(code=1)
+
+
+@glm53_app.command("inspect-checkpoint")
+def inspect_checkpoint_command(
+    checkpoint: Path = typer.Option(..., "--checkpoint", exists=True, dir_okay=False),
+) -> None:
+    """Summarize an existing checkpoint offline; never resume or call models."""
+    from .glm53_checkpoint_doctor import inspect_checkpoint
+    try:
+        evidence = inspect_checkpoint(checkpoint)
+    except (OSError, ValueError, TypeError, KeyError):
+        raise typer.BadParameter("invalid checkpoint; source details withheld") from None
+    console.print_json(data=evidence)
