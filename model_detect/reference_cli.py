@@ -211,25 +211,21 @@ def import_fingerprint(
     registry = ReferenceRegistry(reference_dir)
     if registry.exists(reference_id):
         raise typer.BadParameter(f"reference already exists: {reference_id}")
-    root = registry.path_for(reference_id)
-    root.mkdir(parents=True, exist_ok=True)
-    dst = root / "fingerprint.json"
-    shutil.copy2(fingerprint_file, dst)
-    meta = fingerprint.fingerprint_metadata(dst)
+    meta = fingerprint.fingerprint_metadata(fingerprint_file)
     manifest = ReferenceManifest(
         id=reference_id,
         model=model,
         provider=provider,
         protocol="openai",
-        fingerprint_artifact=dst.name,
+        fingerprint_artifact="fingerprint.json",
         fingerprint_source="imported",
-        fingerprint_reference=dst.name,
+        fingerprint_reference="fingerprint.json",
         fingerprint_metadata=meta,
         notes=["Imported fingerprint artifact; no protocol signature was collected."],
     )
-    registry.save_manifest(manifest)
+    registry.create_imported_fingerprint(manifest, fingerprint_file)
     console.print(f"[green]Imported reference {reference_id}[/green]")
-    console.print(f"Manifest: {root / 'manifest.json'}")
+    console.print(f"Manifest: {registry.path_for(reference_id) / 'manifest.json'}")
 
 
 @reference_app.command("import-bundled")
