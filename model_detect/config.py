@@ -74,6 +74,7 @@ class AuditConfig(BaseModel):
         default_factory=UpstreamPolicyConfig
     )
     extra_headers: dict[str, str] = Field(default_factory=dict)
+    token_prices: TokenPrices | None = None
 
 
 def _resolve_relative_path(base: Path, value: str) -> str:
