@@ -476,3 +476,9 @@
 
 - YAML `native_soft_token_limit` 或 `audit --native-soft-token-limit <N>`（必须显式开启），按实际返回 Usage 的 prompt+completion 累计。达到阈值或未收到 Usage 时 fail closed，后续原生 HTTP 请求被拒绝，不执行后续审计阶段；多任务同一个 HTTP client 的请求被串行保护避免预算竞态。
 - 单次在途请求可能超出上限，外部 OSS 子进程不保证限额；**这不是实际供应商账单硬上限**。未开启时原有行为保持不变。真实供应商和 Web 端完整策略待统一验收。
+
+
+### G1-C2 HTTP 错误证据语义（2026-10-15；待 CI）
+
+- `Evidence.error_category` 新增结构化 HTTP/网络分类：timeout、connection_error、http_protocol_error、redirect_error、transport_error、authorization_rejected、rate_limited、upstream_server_error、non_json_html_success、stream_incomplete 等。
+- 异常文本、URL Query、API Key 不导出，不能用 429、HTML 200、SSE 中断算模型能力失败；后续恢复与重试必须由类别及幂等性决定，**目前不自动重试已计费请求**。

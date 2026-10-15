@@ -16,6 +16,37 @@ from .redaction import redact_headers, redact_payload, redact_url
 from .rules import apply_request_constraints
 
 
+def _classify_http_status(status: int, content_type: str = "") -> str | None:
+    if status in {401, 403}:
+        return "authorization_rejected"
+    if status == 429:
+        return "rate_limited"
+    if status in {408, 504}:
+        return "http_timeout"
+    if 500 <= status < 600:
+        return "upstream_server_error"
+    if status >= 400:
+        return "request_rejected"
+    if status == 200 and "text/html" in content_type.lower():
+        return "non_json_html_success"
+    return None
+
+
+def _classify_transport_exception(exc: Exception) -> str:
+    if isinstance(exc, (httpx.ConnectTimeout, httpx.ReadTimeout,
+                        httpx.WriteTimeout, httpx.PoolTimeout)):
+        return "timeout"
+    if isinstance(exc, httpx.ConnectError):
+        return "connection_error"
+    if isinstance(exc, (httpx.RemoteProtocolError, httpx.LocalProtocolError)):
+        return "http_protocol_error"
+    if isinstance(exc, httpx.TooManyRedirects):
+        return "redirect_error"
+    if isinstance(exc, httpx.RequestError):
+        return "transport_error"
+    return "unexpected_client_exception"
+
+
 @dataclass
 class CallResult:
     evidence: Evidence
@@ -161,6 +192,9 @@ class AuditHttpClient:
                     parsed = _parse_sse_preview(lines)
                     evidence.response_status = status_code
                     evidence.response_headers = redact_headers(response_headers)
+                    evidence.error_category = _classify_http_status(
+                        status_code or 0, response_headers.get("content-type", "")
+                    )
                     if stream_full:
                         # Protocol conformance requires evidence of termination,
                         # not just the first 30 SSE lines.
@@ -185,6 +219,8 @@ class AuditHttpClient:
                             "usage": usage,
                         }
                         evidence.response_body = parsed
+                        if not parsed["_sse_completed"]:
+                            evidence.error_category = "stream_incomplete"
                         return CallResult(evidence=evidence, json_body=parsed)
                     evidence.response_body = parsed if parsed is not None else text[:65536]
                     return CallResult(evidence=evidence, json_body=parsed, text_body=text)
@@ -197,10 +233,14 @@ class AuditHttpClient:
                     parsed = None
                 evidence.response_status = response.status_code
                 evidence.response_headers = redact_headers(dict(response.headers))
+                evidence.error_category = _classify_http_status(
+                    response.status_code, response.headers.get("content-type", "")
+                )
                 evidence.response_body = parsed if parsed is not None else text[:65536]
                 return CallResult(evidence=evidence, json_body=parsed, text_body=text)
         except Exception as exc:
             evidence.error = f"{type(exc).__name__}: request failed; raw exception hidden"
+            evidence.error_category = _classify_transport_exception(exc)
             return CallResult(evidence=evidence)
         finally:
             evidence.elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
