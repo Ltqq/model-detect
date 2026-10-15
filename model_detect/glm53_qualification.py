@@ -15,6 +15,7 @@ import yaml
 
 from .capability_scoring import SCORER_VERSION, grade_answer
 from .http_client import AuditHttpClient
+from .usage_meter import usage_from_response
 
 
 Mode = Literal["all", "protocol", "capability"]
@@ -478,6 +479,18 @@ async def run_endpoint(
                 "http_status": call.evidence.response_status,
                 "finish_reason": _finish_reason(call.json_body),
                 "usage": _usage(call.json_body),
+                "usage_record": usage_from_response(
+                    probe_id=f"glm53.{case['id']}",
+                    stage="protocol" if protocol else "capability",
+                    attempt=number,
+                    response=call.json_body,
+                    http_status=call.evidence.response_status,
+                    stream_complete=not (
+                        isinstance(call.json_body, dict)
+                        and "_sse_completed" in call.json_body
+                        and not call.json_body.get("_sse_completed")
+                    ),
+                ).model_dump(mode="json"),
                 "elapsed_ms": call.evidence.elapsed_ms,
                 "observed_answer_excerpt": (
                     _content(call.json_body)[:160] if not protocol else None
