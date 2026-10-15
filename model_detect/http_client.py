@@ -10,7 +10,7 @@ import httpx
 
 from .models import Evidence
 from .usage_meter import UsageRecord, usage_from_response
-from .redaction import redact_headers, redact_payload
+from .redaction import redact_headers, redact_payload, redact_url
 from .rules import apply_request_constraints
 
 
@@ -82,7 +82,7 @@ class AuditHttpClient:
             id="ev_" + uuid.uuid4().hex[:16],
             probe_id=probe_id,
             method="POST",
-            url=url,
+            url=redact_url(url),
             request_headers=redact_headers(self.headers),
             request_body=redact_payload(actual_payload),
         )
