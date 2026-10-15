@@ -23,6 +23,7 @@ from .references import ReferenceRegistry, compare_protocol_signature
 from .regression_promptfoo import run_regression_file
 from .rules import evaluate_rule_expectations, match_model_rule
 from .scoring import build_summary
+from .usage_meter import usage_from_response, summarize_usage
 
 
 ProgressCallback = Callable[[str, int, int], None]
@@ -589,6 +590,26 @@ async def run_audit(
             ),
         }
 
+    # Request-level metering is evidence-driven: absent usage stays unknown.
+    meter = [
+        usage_from_response(
+            probe_id=evidence.probe_id,
+            stage="native",
+            response=evidence.response_body,
+            http_status=evidence.response_status,
+            stream_complete=not (
+                isinstance(evidence.response_body, dict)
+                and "_sse_completed" in evidence.response_body
+                and not evidence.response_body.get("_sse_completed")
+            ),
+        )
+        for evidence in report.evidences if evidence.method == "POST"
+    ]
+    report.adapters["token_usage"] = {
+        "summary": summarize_usage(meter),
+        "records": [item.model_dump(mode="json") for item in meter],
+        "note": "External subprocess usage is not inferred from local HTTP evidence.",
+    }
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()
     return report
