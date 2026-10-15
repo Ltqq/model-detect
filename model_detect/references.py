@@ -185,6 +185,32 @@ class ReferenceRegistry:
                 shutil.rmtree(stage)
 
 
+    def validate(self, manifest: ReferenceManifest, *, expected_model: str | None = None) -> list[str]:
+        """Return explicit reasons a selected Reference is not fully trustworthy."""
+        reasons: list[str] = []
+        if expected_model is not None and manifest.model != expected_model:
+            reasons.append("model_mismatch")
+        if manifest.protocol_signature:
+            if self.signature(manifest) is None:
+                reasons.append("protocol_signature_missing")
+        if manifest.fingerprint_artifact and self.fingerprint_path(manifest) is None:
+            reasons.append("fingerprint_artifact_missing")
+        if manifest.baseline_artifact:
+            try:
+                baseline = self.baseline(manifest)
+                if baseline is None:
+                    reasons.append("baseline_artifact_missing")
+                elif manifest.baseline_runs < 1 or baseline.runs != manifest.baseline_runs:
+                    reasons.append("baseline_runs_mismatch")
+                elif manifest.baseline_suite_version != baseline.suite_version:
+                    reasons.append("baseline_suite_mismatch")
+            except (OSError, ValueError, TypeError):
+                reasons.append("baseline_invalid")
+        if not (manifest.protocol_signature or manifest.fingerprint_reference
+                or manifest.baseline_artifact):
+            reasons.append("reference_empty")
+        return reasons
+
     def fingerprint_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.fingerprint_artifact:
             return None
