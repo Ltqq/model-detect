@@ -396,3 +396,10 @@
 
 - 从未合并的旧 #40 中只移植 `tests/test_web_e2e.py`，覆盖 Web 提交 Audit → 异步完成 → SQLite History → JSON/HTML/Evidence/ZIP → 搜索筛选 → 删除记录及清理文件。
 - 不合并 #40 中基于旧路线宣称轻量产品全部验收完成的文档修改；此次 Mock API 测试不等于真实模型、支付资源或第三方引擎 E2E 实证。
+
+
+### 2026-10-15 E1 离线受控实验准备（代码阶段）
+
+- 新增 `validation doctor --manifest <cases.yaml> [--strict-reports]`：本地核对独立 Case 的正负标签数、重复轮数、报告文件是否存在，避免把重复 run 当成多个独立客户/供应商。
+- 真值来源仍是用户声明，工具明确标未实证核对；没有真实报告不能算出准确率、虚构 TP/FP 或宣布校准完成。
+- 后续统一真实验收阶段，需要官方端点、独立网关命中日志、Kimi/GLM Reference 与受控路由变体，之后使用现有 `validation evaluate/calibrate` 做独立实证。
