@@ -126,6 +126,32 @@ def _evidence_links(result) -> str:
     ) or "—"
 
 
+def _kimi_official_section(report: AuditReport) -> str:
+    item = report.adapters.get("kimi_official_verifier")
+    if not isinstance(item, dict):
+        return ""
+    counts = item.get("counts") or {}
+    if not isinstance(counts, dict):
+        return ""
+    rows = "".join(
+        "<tr><td>" + html.escape(label) + "</td><td>" +
+        html.escape(str(counts.get(name, "未知"))) + "</td></tr>"
+        for name, label in (
+            ("pass", "通过"), ("fail", "失败"),
+            ("error", "异常"), ("skipped", "跳过"),
+        )
+    )
+    return (
+        '<section class="card"><h2>Kimi 官方验证器专项（独立证据）</h2>'
+        '<p>本节是外部 JUnit 文件的脱敏导入，尚未核实实际执行来源。'
+        '测试通过不等于证明模型身份，不参与综合评分。</p>'
+        '<p>套件：' + html.escape(str(item.get("suite") or "")) +
+        '　来源版本：' + html.escape(str(item.get("source_commit") or "")) +
+        '　结论：' + html.escape(str(item.get("result") or "inconclusive")) +
+        '</p><table><tbody>' + rows + '</tbody></table></section>'
+    )
+
+
 def _usage_cost_section(report: AuditReport) -> str:
     meter = report.adapters.get("token_usage") or {}
     usage = meter.get("summary") if isinstance(meter, dict) else None
@@ -488,6 +514,7 @@ def _render_html(report: AuditReport) -> str:
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
     usage_cost_section = _usage_cost_section(report)
+    kimi_official_section = _kimi_official_section(report)
     quality_section = _quality_section(quality)
     regression_section = _regression_section(report)
     copy_text_json = json.dumps(
@@ -584,6 +611,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 
 {fingerprint_section}
 {usage_cost_section}
+{kimi_official_section}
 
 <section class="card">
   <div class="section-head"><div><div class="eyebrow">下一步</div><h2>建议怎么处理</h2></div></div>
