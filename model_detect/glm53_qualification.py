@@ -428,12 +428,35 @@ async def run_endpoint(
             if protocol:
                 verdict, explanation = _check_protocol(case, call)
             else:
-                if call.evidence.response_status != 200:
-                    verdict, explanation = "error", "HTTP 请求未成功"
+                status = call.evidence.response_status
+                content_type = str(
+                    (call.evidence.response_headers or {}).get("content-type", "")
+                ).lower()
+                answer = _content(call.json_body)
+                grade = None
+                if status is None:
+                    verdict, explanation = "error", "未收到有效 HTTP 响应，无法评分"
+                elif status in {401, 403, 408, 409, 425, 429} or status >= 500:
+                    verdict, explanation = "insufficient", (
+                        f"HTTP {status}：鉴权、限流或服务异常，不判模型能力"
+                    )
+                elif status != 200:
+                    verdict, explanation = "insufficient", (
+                        f"HTTP {status}：请求被拒绝，未获得可评分答案"
+                    )
+                elif "text/html" in content_type:
+                    verdict, explanation = "insufficient", (
+                        "HTTP 200 返回 HTML，非模型答案"
+                    )
+                elif not isinstance(call.json_body, dict) or not _assistant_message(call.json_body):
+                    verdict, explanation = "insufficient", (
+                        "HTTP 200 响应结构不符合 Chat Completions"
+                    )
                 elif _finish_reason(call.json_body) == "length":
                     verdict, explanation = "insufficient", "输出预算耗尽，答案不完整"
+                elif not answer:
+                    verdict, explanation = "insufficient", "模型没有可评分的文本答案"
                 else:
-                    answer = _content(call.json_body)
                     grade = grade_answer(
                         category=case["category"],
                         task_id=case["id"].split(".", 1)[1],
@@ -460,15 +483,11 @@ async def run_endpoint(
                     _content(call.json_body)[:160] if not protocol else None
                 ),
                 "normalized_answer_excerpt": (
-                    grade.normalized_answer[:160] if not protocol and
-                    call.evidence.response_status == 200 and
-                    _finish_reason(call.json_body) != "length"
+                    grade.normalized_answer[:160] if not protocol and grade is not None
                     else None
                 ),
                 "answer_normalization": (
-                    grade.normalization if not protocol and
-                    call.evidence.response_status == 200 and
-                    _finish_reason(call.json_body) != "length"
+                    grade.normalization if not protocol and grade is not None
                     else None
                 ),
                 "scorer_version": SCORER_VERSION if not protocol else None,
