@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 import shutil
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -165,12 +166,21 @@ class ReferenceRegistry:
         fingerprint_source: str | None = None,
         baseline: OfficialBaseline | None = None,
         notes: list[str] | None = None,
+        replace_existing: bool = False,
     ) -> ReferenceManifest:
         root = self.path_for(reference_id)
-        if root.exists() or root.is_symlink():
+        if root.exists() and not replace_existing:
             raise FileExistsError(f"reference already exists: {reference_id}")
-        stage = Path(tempfile.mkdtemp(prefix=".reference-stage-", dir=self.root))
+        lock_path = self.root / f".{reference_id}.write.lock"
         try:
+            lock_fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            raise RuntimeError("reference write already in progress or stale lock") from None
+        os.close(lock_fd)
+        stage: Path | None = None
+        backup_name = f".reference-backup-{reference_id}-{uuid.uuid4().hex}" if replace_existing else None
+        try:
+            stage = Path(tempfile.mkdtemp(prefix=".reference-stage-", dir=self.root))
             signature_path = stage / "protocol-signature.json"
             signature = protocol_signature_from_report(report)
             signature_path.write_text(
@@ -228,18 +238,28 @@ class ReferenceRegistry:
                 metadata={
                     "profile": report.profile,
                     "summary": report.summary.model_dump(mode="json"),
+                    **({"previous_backup_directory": backup_name} if backup_name and root.exists() else {}),
                 },
             )
             (stage / "manifest.json").write_text(
                 manifest.model_dump_json(indent=2), encoding="utf-8"
             )
-            if root.exists() or root.is_symlink():
+            if root.exists() and not replace_existing:
                 raise FileExistsError(f"reference already exists: {reference_id}")
-            os.rename(stage, root)
+            backup = self.root / backup_name if (replace_existing and root.exists()) else None
+            if backup is not None:
+                os.rename(root, backup)
+            try:
+                os.rename(stage, root)
+            except BaseException:
+                if backup is not None and not root.exists():
+                    os.rename(backup, root)
+                raise
             return manifest
         finally:
-            if stage.exists():
+            if stage is not None and stage.exists():
                 shutil.rmtree(stage)
+            lock_path.unlink(missing_ok=True)
 
 
     def validate(self, manifest: ReferenceManifest, *, expected_model: str | None = None) -> list[str]:
