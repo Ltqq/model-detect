@@ -381,5 +381,5 @@ def verify(
         data,
         returncode=int(process_meta["returncode"]),
     )
-    meta["stderr_tail"] = process_meta.get("stderr_tail", "")
+    meta["stderr_suppressed"] = process_meta.get("stderr_suppressed", False)
     return results, meta
