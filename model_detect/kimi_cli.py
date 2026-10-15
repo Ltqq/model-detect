@@ -86,3 +86,20 @@ def run(
     console.print(f"Result status: {result['status']}; sanitized summary saved.")
     if result["status"] != "finished":
         raise typer.Exit(code=1)
+
+
+@kimi_app.command("attach-report")
+def attach_report(
+    audit: Path = typer.Option(..., "--audit", exists=True, dir_okay=False),
+    summary: Path = typer.Option(..., "--summary", exists=True, dir_okay=False),
+    output_dir: Path = typer.Option(..., "--output-dir"),
+) -> None:
+    """Create a new audit report with a separate official verifier appendix."""
+    from .kimi_report import merge_official_summary
+    try:
+        destination = merge_official_summary(audit, summary, output_dir)
+    except (OSError, ValueError, TypeError):
+        raise typer.BadParameter(
+            "invalid or mismatched audit/official summary; source details withheld"
+        ) from None
+    console.print(f"Copied report with Kimi official appendix: {destination}")
