@@ -454,17 +454,31 @@ async def run_audit(
     if config.reference_id:
         registry = ReferenceRegistry(config.reference_dir)
         manifest = registry.get(config.reference_id)
-        report.adapters["reference"] = manifest.model_dump(mode="json")
-        report.results.append(
-            compare_protocol_signature(
-                report.results,
-                registry.signature(manifest),
+        issues = registry.validate(manifest, expected_model=config.target.model)
+        report.adapters["reference"] = {
+            **manifest.model_dump(mode="json"),
+            "integrity_status": "invalid" if issues else "validated",
+            "integrity_issues": issues,
+        }
+        if issues:
+            report.results.append(ProbeResult(
+                probe_id="identity.reference.integrity",
+                category="identity",
+                status=ProbeStatus.INSUFFICIENT,
+                score=None,
+                confidence=0.0,
+                summary="Reference unusable: " + ", ".join(issues),
+            ))
+            # Do not compare against a partial or mismatched trusted baseline.
+            reference_fingerprint = None
+        else:
+            report.results.append(
+                compare_protocol_signature(report.results, registry.signature(manifest))
             )
-        )
-        fp_reference = registry.fingerprint_reference_value(manifest)
-        if fp_reference:
-            reference_fingerprint = fp_reference
-        reference_baseline = registry.baseline(manifest)
+            fp_reference = registry.fingerprint_reference_value(manifest)
+            if fp_reference:
+                reference_fingerprint = fp_reference
+            reference_baseline = registry.baseline(manifest)
     else:
         report.adapters["reference"] = {"status": "not_configured"}
 
