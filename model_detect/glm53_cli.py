@@ -14,6 +14,7 @@ from rich.table import Table
 from .glm53_benchmark import benchmark_plan, run_standard_benchmark
 from .glm53_replay import replay_archive, write_replay
 from .glm53_preflight import benchmark_preflight
+from .glm53_task_cache import verify_offline_task_cache
 from .glm53_wire import verify_wire_requests
 from .glm53_qualification import (
     build_comparison, normalize_base_url, plan_comparison,
@@ -300,6 +301,10 @@ def doctor(
         "standard", "--benchmark",
         help="smoke / standard / deep; checks local prerequisites, no API calls",
     ),
+    verify_task_cache: bool = typer.Option(
+        False, "--verify-task-cache",
+        help="Also instantiate selected lm-eval tasks using offline-only Hugging Face settings",
+    ),
 ) -> None:
     """Inspect local Benchmark dependencies without sending model API calls."""
     try:
@@ -317,6 +322,11 @@ def doctor(
     console.print(
         "[green]本地依赖预检通过（未访问数据集、未使用 Key、未调用模型）。[/green]"
     )
+    if verify_task_cache:
+        evidence = verify_offline_task_cache(benchmark_level)
+        console.print_json(data=evidence)
+        if not evidence["verified"]:
+            raise typer.Exit(code=1)
 
 
 @glm53_app.command("verify-wire")
