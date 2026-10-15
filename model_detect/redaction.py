@@ -13,7 +13,7 @@ SENSITIVE_KEYS = {
 }
 
 _INLINE_SECRET = re.compile(
-    r"(?i)(?:bearer\\s+|sk-)[A-Za-z0-9_.-]{8,}"
+    r"(?i)(?:bearer\s+|sk-)[A-Za-z0-9_.-]{8,}"
 )
 
 
