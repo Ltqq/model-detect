@@ -19,6 +19,20 @@ class CallResult:
     json_body: Any = None
     text_body: str = ""
 
+    def usage_record(self, *, stage: str = "native", attempt: int = 1) -> UsageRecord:
+        """Get meter data without trusting a response that lacks usage."""
+        payload = self.json_body
+        stream_ok = not (
+            isinstance(payload, dict) and
+            ("_sse_completed" in payload or "_sse_truncated" in payload) and
+            (not payload.get("_sse_completed") or payload.get("_sse_truncated"))
+        )
+        return usage_from_response(
+            probe_id=self.evidence.probe_id, stage=stage,
+            response=payload, http_status=self.evidence.response_status,
+            attempt=attempt, stream_complete=stream_ok,
+        )
+
 
 class AuditHttpClient:
     def __init__(
