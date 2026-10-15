@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import sysconfig
 from importlib.metadata import PackageNotFoundError, version
@@ -113,6 +114,25 @@ def build_command(
     return cmd
 
 
+
+def _safe_process_tail(value: str | bytes | None, *, api_key: str, base_url: str) -> str:
+    """Minimize accidental credential leakage from third-party subprocess logs."""
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    result = value or ""
+    # Never retain a full endpoint URL: query strings may carry credentials.
+    result = result.replace(base_url, "[ENDPOINT]")
+    if api_key:
+        result = result.replace(api_key, "[REDACTED]")
+    result = re.sub(r"(?i)\bbearer\s+\S+", "Bearer [REDACTED]", result)
+    result = re.sub(r"(?i)\bsk-[a-z0-9_-]{8,}\b", "[REDACTED]", result)
+    result = re.sub(
+        r"(?i)\b(api[_-]?key|authorization|access[_-]?token|token)\s*[:=]\s*\S+",
+        r"\1=[REDACTED]", result,
+    )
+    return result[-4000:]
+
+
 def run_endpoint(
     *,
     base_url: str,
@@ -144,21 +164,25 @@ def run_endpoint(
     )
     env = dict(os.environ)
     env["OPENAI_API_KEY"] = api_key
-    proc = subprocess.run(
-        cmd,
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=timeout_seconds,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # The exception includes raw stdout/stderr: never propagate it.
+        raise RuntimeError("lm-eval subprocess timed out; diagnostics withheld") from None
     return {
         "engine": "EleutherAI/lm-evaluation-harness",
         "model_type": "local-chat-completions",
         "returncode": proc.returncode,
         "output_path": str(output),
-        "stdout_tail": (proc.stdout or "")[-4000:],
-        "stderr_tail": (proc.stderr or "")[-4000:],
+        "stdout_tail": _safe_process_tail(proc.stdout, api_key=api_key, base_url=base_url),
+        "stderr_tail": _safe_process_tail(proc.stderr, api_key=api_key, base_url=base_url),
     }
 
 
