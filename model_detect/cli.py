@@ -253,29 +253,29 @@ def compare_command(
 
 
 @app.command("oss-status")
-def oss_status() -> None:
-    """Show availability of optional open-source engines."""
-    table = Table("Engine", "Available", "Details")
-    fp = fingerprint.availability()
-    ps = proxy_sleuth.availability()
+def oss_status(
+    json_output: bool = typer.Option(False, "--json", help="Print structured readiness for all four adapters"),
+) -> None:
+    """Check four adapters locally without launching external commands or model calls."""
+    from .oss_readiness import local_oss_readiness
+    readiness = local_oss_readiness()
+    if json_output:
+        console.print_json(data=readiness)
+        return
+    table = Table("OSS engine", "Command found", "Compatibility", "Verification")
+    for name, item in readiness["checks"].items():
+        table.add_row(
+            name, "yes" if item["executable_found"] else "no",
+            "0.4.13 required" if name == "lm-evaluation-harness" and not item["version_compatible"]
+            else "unknown" if item["version_compatible"] is None else "matched",
+            "NOT live verified",
+        )
     from .sandbox import availability as sandbox_availability
     sb = sandbox_availability()
-    table.add_row(
-        "llm-fingerprint-detector",
-        "yes" if fp["available"] else "no",
-        fp.get("direct_binary") or fp.get("npx") or "install Node.js/npm or llm-fingerprint",
-    )
-    table.add_row(
-        "proxy-sleuth",
-        "yes" if ps["available"] else "no",
-        ps.get("binary") or "install Babapei/proxy-sleuth",
-    )
-    table.add_row(
-        "Docker coding sandbox",
-        "yes" if sb["available"] else "no",
-        sb.get("binary") or "install Docker; host execution fallback is intentionally disabled",
-    )
+    table.add_row("Docker coding sandbox", "yes" if sb["available"] else "no",
+                  "separate optional executable sandbox", "NOT live verified")
     console.print(table)
+    console.print("[yellow]CLI presence does not mean integrated or trusted results.[/yellow]")
 
 
 @app.command()
