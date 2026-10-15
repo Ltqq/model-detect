@@ -363,3 +363,9 @@
 - 新增 opt-in `model-detect glm53 doctor --benchmark smoke|standard|deep --verify-task-cache`：独立进程用 lm-eval 0.4.13 `TaskManager/get_task_dict` 实例化所选 Task，设置 Hugging Face 离线标志，剥离 API Key/Token 等环境变量，超时与异常仅返回安全分类，不导出 stderr/raw 数据。
 - 只有子进程确认所有任务本地加载完成才标 `verified`；默认 `doctor` 保留轻量依赖检查，不冒充数据集缓存认证。离线环境不通过时不进行自动下载。
 - **风险边界**：第三方任务自定义代码可能绕过 HF 离线环境变量；该检查不验证远端模型参数、真正发包和在线基准成绩，也不自动解锁大额付费测试。
+
+
+### 2026-10-15 G1.1 付费前缓存保护（待 CI）
+
+- `glm53 compare --benchmark smoke|standard|deep --require-offline-task-cache --execute` 可选强制检查本地任务能否离线实例化；若失败，阻断任何官方/客户端点调用。默认不改变用户的调用方式，预览 `--execute` 之外不启动检查、不产生付费请求。
+- 这不是数据集不可变哈希证明，也不是 SDK 真正发包或服务端 reasoning 参数的生效证明。G1.2/G1.4/G1.5 仍需独立验收。
