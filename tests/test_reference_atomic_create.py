@@ -108,3 +108,17 @@ def test_malicious_manifest_artifact_paths_cannot_escape_registry(tmp_path):
     assert "protocol_signature_missing" in issues
     assert "fingerprint_artifact_missing" in issues
     assert "baseline_artifact_missing" in issues
+
+
+def test_registry_listing_rejects_symlink_and_mismatched_manifest(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    create(registry, "official")
+    target = registry.path_for("official")
+    alias = registry.root / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    assert [x.id for x in registry.list()] == ["official"]
+    content = (target / "manifest.json").read_text(encoding="utf-8")
+    (target / "manifest.json").write_text(
+        content.replace('"id": "official"', '"id": "another"'), encoding="utf-8"
+    )
+    assert registry.list() == []
