@@ -106,6 +106,7 @@ def run(
                 data = None
 
     # Diagnostic output may contain credentials, prompts or provider payloads.
+    subprocess_logs_suppressed = bool(proc.stdout or proc.stderr)
     stream_text = ""
     if not isinstance(data, dict):
         return (
