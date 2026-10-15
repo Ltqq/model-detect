@@ -89,12 +89,20 @@ def collect_reference(
         None, "--benchmark-profile",
         help="Optional lm-eval benchmark: smoke/standard/deep, repeated for each run.",
     ),
+    replace_existing: bool = typer.Option(
+        False, "--replace-existing",
+        help="Explicitly replace an existing reference while keeping a versioned backup",
+    ),
 ) -> None:
     registry_guard = ReferenceRegistry(reference_dir)
-    if registry_guard.path_for(reference_id).exists():
+    if registry_guard.path_for(reference_id).exists() and not replace_existing:
         raise typer.BadParameter(
             f"reference ID already exists: {reference_id}; "
-            "choose another ID to avoid duplicate paid collection"
+            "choose another ID or use --replace-existing to retain a backup"
+        )
+    if replace_existing and not registry_guard.path_for(reference_id).exists():
+        raise typer.BadParameter(
+            "--replace-existing requires an existing Reference; use normal collect"
         )
     target = AuditTarget(
         base_url=base_url,
@@ -192,6 +200,7 @@ def collect_reference(
             fingerprint_metadata=fp_meta,
             fingerprint_source="collected" if fp_path else None,
             baseline=baseline,
+            replace_existing=replace_existing,
         )
     report_dir = registry.path_for(reference_id) / "baseline-report"
     write_report(report, report_dir)
