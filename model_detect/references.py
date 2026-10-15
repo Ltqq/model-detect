@@ -121,6 +121,37 @@ class ReferenceRegistry:
             pending.unlink(missing_ok=True)
         return path
 
+    def create_imported_fingerprint(
+        self, manifest: ReferenceManifest, fingerprint_file: str | Path
+    ) -> Path:
+        """Import an existing fingerprint without exposing partial state."""
+        root = self.path_for(manifest.id)
+        if root.exists() or root.is_symlink():
+            raise FileExistsError(f"reference already exists: {manifest.id}")
+        source = Path(fingerprint_file)
+        if not source.is_file():
+            raise FileNotFoundError("fingerprint input missing")
+        stage = Path(tempfile.mkdtemp(prefix=".reference-import-", dir=self.root))
+        try:
+            dst = stage / "fingerprint.json"
+            shutil.copy2(source, dst)
+            payload = manifest.model_copy(deep=True)
+            payload.fingerprint_artifact = "fingerprint.json"
+            payload.fingerprint_reference = "fingerprint.json"
+            payload.artifact_sha256 = {
+                "fingerprint.json": hashlib.sha256(dst.read_bytes()).hexdigest()
+            }
+            (stage / "manifest.json").write_text(
+                payload.model_dump_json(indent=2), encoding="utf-8"
+            )
+            if root.exists() or root.is_symlink():
+                raise FileExistsError(f"reference already exists: {manifest.id}")
+            os.rename(stage, root)
+            return root / "manifest.json"
+        finally:
+            if stage.exists():
+                shutil.rmtree(stage)
+
     def create_from_report(
         self,
         *,
