@@ -94,7 +94,15 @@ class AuditHttpClient:
                 )
                 return CallResult(evidence=evidence)
             result = await self._post_json_unmetered(**args)
-            self.budget.observe(result.usage_record(stage="native"))
+            try:
+                usage = result.usage_record(stage="native")
+            except (ValueError, TypeError):
+                usage = UsageRecord(
+                    probe_id=probe_id, stage="native",
+                    http_status=result.evidence.response_status,
+                    missing_reason="malformed_or_inconsistent_provider_usage",
+                )
+            self.budget.observe(usage)
             return result
 
     async def _post_json_unmetered(
