@@ -154,7 +154,7 @@ class AuditHttpClient:
                 evidence.response_body = parsed if parsed is not None else text[:65536]
                 return CallResult(evidence=evidence, json_body=parsed, text_body=text)
         except Exception as exc:
-            evidence.error = f"{type(exc).__name__}: {exc}"
+            evidence.error = f"{type(exc).__name__}: request failed; raw exception hidden"
             return CallResult(evidence=evidence)
         finally:
             evidence.elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
