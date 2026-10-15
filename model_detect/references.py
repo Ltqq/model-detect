@@ -70,13 +70,17 @@ class ReferenceRegistry:
     def list(self) -> list[ReferenceManifest]:
         out: list[ReferenceManifest] = []
         for manifest in sorted(self.root.glob("*/manifest.json")):
+            if manifest.parent.is_symlink() or manifest.is_symlink():
+                continue
             try:
-                out.append(
-                    ReferenceManifest.model_validate_json(
-                        manifest.read_text(encoding="utf-8")
-                    )
+                parsed = ReferenceManifest.model_validate_json(
+                    manifest.read_text(encoding="utf-8")
                 )
-            except Exception:
+                if parsed.id != manifest.parent.name:
+                    continue
+                self.path_for(parsed.id)
+                out.append(parsed)
+            except (OSError, ValueError, TypeError):
                 continue
         return out
 
