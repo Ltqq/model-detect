@@ -42,7 +42,7 @@ def verify_offline_task_cache(level: str, *, timeout_seconds: int = 180) -> dict
     }
     # No secrets are needed to initialize local datasets.
     for name in tuple(env):
-        if any(term in name.upper() for term in ("API_KEY", "ACCESS_TOKEN", "AUTH_TOKEN", "SECRET")):
+        if any(term in name.upper() for term in ("API_KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")):
             env.pop(name, None)
     try:
         result = subprocess.run(
