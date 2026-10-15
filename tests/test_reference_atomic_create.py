@@ -122,3 +122,24 @@ def test_registry_listing_rejects_symlink_and_mismatched_manifest(tmp_path):
         content.replace('"id": "official"', '"id": "another"'), encoding="utf-8"
     )
     assert registry.list() == []
+
+
+def test_reference_checksum_detects_post_collection_tampering(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    manifest = create(registry)
+    assert manifest.artifact_sha256["protocol-signature.json"]
+    assert registry.validate(manifest, expected_model="glm-5.3") == []
+    path = registry.path_for("official") / "protocol-signature.json"
+    path.write_text('{"model":"glm-5.3","probes":{}}', encoding="utf-8")
+    assert "artifact_checksum_mismatch:protocol-signature.json" in registry.validate(
+        manifest, expected_model="glm-5.3"
+    )
+
+
+def test_historical_reference_without_hashes_is_unverified(tmp_path):
+    registry = ReferenceRegistry(tmp_path / "refs")
+    manifest = create(registry)
+    historical = manifest.model_copy(update={"artifact_sha256": {}})
+    assert "legacy_unverified_artifacts" in registry.validate(
+        historical, expected_model="glm-5.3"
+    )
