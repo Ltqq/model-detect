@@ -52,7 +52,17 @@ class ReferenceRegistry:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def path_for(self, reference_id: str) -> Path:
-        return self.root / _safe(reference_id)
+        # Never silently alias two logical IDs to the same storage directory.
+        # The former _safe() transform could collide and overwrite evidence.
+        if (not isinstance(reference_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}", reference_id)
+                or reference_id in {".", ".."}
+                or ".." in reference_id):
+            raise ValueError("invalid reference ID: use 1-96 safe ASCII characters")
+        path = self.root / reference_id
+        if path.is_symlink():
+            raise ValueError("reference path must not be a symbolic link")
+        return path
 
     def exists(self, reference_id: str) -> bool:
         return (self.path_for(reference_id) / "manifest.json").exists()
