@@ -445,3 +445,9 @@
 
 - 通用审计增加 `external_token_usage`，对 lm-eval、promptfoo、llm-fingerprint、proxy-sleuth 的实际调用缺乏 Usage 时标 `external_unmetered`，不再暗示原生请求费用等于全部费用。
 - JSON/HTML/ZIP 增加未计量工具数量；目前并未真正从 subprocess 收集 Usage，因此 B-C1 的跨工具精确计量仍未完成。
+
+
+### A-C1 受控 Reference 备份恢复（2026-10-15；待 CI）
+
+- 新增 `reference recover --id <ID> --reference-dir <dir>` 只读列出旧备份及 SHA256 完整性，`--backup-name <name> --restore` 才显式恢复。仅允许目标 ID 不存在且无 writer lock、备份 Manifest/附件哈希合法时同盘重命名恢复；复核后互斥锁保护。
+- 不会自动清除陈旧锁、覆盖现有 Reference 或自动选择备份。真实崩溃恢复、目录 fsync、持续竞态和平台差异仍需验收，**不称为完整 crash-atomic 替换**。

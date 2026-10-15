@@ -318,3 +318,29 @@ def verify_reference(
         f"Verdict: [bold]{report.summary.final_verdict}[/bold]  Score: {report.summary.overall_score}"
     )
     console.print(f"Report: {root / 'report.html'}")
+
+
+@reference_app.command("recover")
+def recover_reference(
+    reference_id: str = typer.Option(..., "--id"),
+    reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
+    backup_name: Optional[str] = typer.Option(None, "--backup-name",
+        help="Select an exact verified backup name for explicit restore"),
+    restore: bool = typer.Option(False, "--restore",
+        help="Actually restore missing target; default only lists candidates"),
+) -> None:
+    """Inspect backup candidates or explicitly restore a missing reference."""
+    from .reference_recovery import inspect_reference_backups, restore_missing_reference
+    registry = ReferenceRegistry(reference_dir)
+    try:
+        status = inspect_reference_backups(registry, reference_id)
+        console.print_json(data=status)
+        if restore:
+            if not backup_name:
+                raise typer.BadParameter("--restore requires --backup-name")
+            result = restore_missing_reference(registry, reference_id, backup_name)
+            console.print_json(data=result)
+    except (OSError, ValueError, RuntimeError):
+        raise typer.BadParameter(
+            "Reference recovery refused; check target, writer lock and backup integrity"
+        ) from None
