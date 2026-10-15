@@ -239,11 +239,20 @@ class ReferenceRegistry:
             reasons.append("reference_empty")
         return reasons
 
+    def _artifact_path(self, manifest: ReferenceManifest,
+                       filename: str | None, allowed: str) -> Path | None:
+        # A modified manifest must never read arbitrary files from the host.
+        if filename != allowed:
+            return None
+        target = self.path_for(manifest.id) / allowed
+        if target.is_symlink():
+            return None
+        return target if target.is_file() else None
+
     def fingerprint_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.fingerprint_artifact:
             return None
-        path = self.path_for(manifest.id) / manifest.fingerprint_artifact
-        return path if path.exists() else None
+        return self._artifact_path(manifest, manifest.fingerprint_artifact, "fingerprint.json")
 
     def fingerprint_reference_value(self, manifest: ReferenceManifest) -> str | None:
         path = self.fingerprint_path(manifest)
@@ -256,16 +265,15 @@ class ReferenceRegistry:
     def signature(self, manifest: ReferenceManifest) -> dict[str, Any] | None:
         if not manifest.protocol_signature:
             return None
-        path = self.path_for(manifest.id) / manifest.protocol_signature
-        if not path.exists():
+        path = self._artifact_path(manifest, manifest.protocol_signature, "protocol-signature.json")
+        if path is None:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
     def baseline_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.baseline_artifact:
             return None
-        path = self.path_for(manifest.id) / manifest.baseline_artifact
-        return path if path.exists() else None
+        return self._artifact_path(manifest, manifest.baseline_artifact, "baseline.json")
 
     def baseline(self, manifest: ReferenceManifest) -> OfficialBaseline | None:
         path = self.baseline_path(manifest)
