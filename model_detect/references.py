@@ -97,7 +97,22 @@ class ReferenceRegistry:
         root = self.path_for(manifest.id)
         root.mkdir(parents=True, exist_ok=True)
         path = root / "manifest.json"
-        path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=root,
+            prefix=".manifest-", suffix=".tmp", delete=False
+        ) as handle:
+            pending = Path(handle.name)
+            try:
+                handle.write(manifest.model_dump_json(indent=2))
+                handle.flush()
+                os.fsync(handle.fileno())
+            except BaseException:
+                pending.unlink(missing_ok=True)
+                raise
+        try:
+            os.replace(pending, path)
+        finally:
+            pending.unlink(missing_ok=True)
         return path
 
     def create_from_report(
