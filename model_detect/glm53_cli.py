@@ -191,6 +191,12 @@ def compare(
             "comparison output already exists; choose a new --output-dir "
             "to avoid losing costly previous measurements"
         )
+    if benchmark and (output_dir / "benchmark-evidence" / "benchmark-checkpoint.json").exists():
+        raise typer.BadParameter(
+            "existing benchmark checkpoint detected; refusing to repeat "
+            "native or benchmark paid calls. Inspect existing evidence and "
+            "use a fresh --output-dir for an intentional new run."
+        )
     cases = selected_cases(mode, capability_profile)
 
     async def collect():
@@ -233,6 +239,7 @@ def compare(
                 customer_runs=benchmark_runs,
                 max_gen_toks=benchmark_max_gen_toks,
                 reasoning_effort=benchmark_reasoning_effort,
+                checkpoint_dir=output_dir / "benchmark-evidence",
             )
         except Exception as exc:
             result["standard_benchmark"] = {
