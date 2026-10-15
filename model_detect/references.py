@@ -191,8 +191,16 @@ class ReferenceRegistry:
         if expected_model is not None and manifest.model != expected_model:
             reasons.append("model_mismatch")
         if manifest.protocol_signature:
-            if self.signature(manifest) is None:
-                reasons.append("protocol_signature_missing")
+            try:
+                signature = self.signature(manifest)
+                if not isinstance(signature, dict) or not isinstance(
+                    signature.get("probes"), dict
+                ):
+                    reasons.append("protocol_signature_invalid")
+                elif signature.get("model") != manifest.model:
+                    reasons.append("protocol_signature_model_mismatch")
+            except (OSError, ValueError, TypeError):
+                reasons.append("protocol_signature_invalid")
         if manifest.fingerprint_artifact and self.fingerprint_path(manifest) is None:
             reasons.append("fingerprint_artifact_missing")
         if manifest.baseline_artifact:
@@ -204,6 +212,9 @@ class ReferenceRegistry:
                     reasons.append("baseline_runs_mismatch")
                 elif manifest.baseline_suite_version != baseline.suite_version:
                     reasons.append("baseline_suite_mismatch")
+                elif (manifest.baseline_schema_version is not None
+                      and manifest.baseline_schema_version != baseline.schema_version):
+                    reasons.append("baseline_schema_mismatch")
             except (OSError, ValueError, TypeError):
                 reasons.append("baseline_invalid")
         if not (manifest.protocol_signature or manifest.fingerprint_reference
