@@ -131,6 +131,9 @@ def _usage_cost_section(report: AuditReport) -> str:
     usage = meter.get("summary") if isinstance(meter, dict) else None
     if not isinstance(usage, dict):
         return ""
+    external = report.adapters.get("external_token_usage") or {}
+    external_count = (external.get("unknown_usage_adapters")
+                      if isinstance(external, dict) else None)
     price = report.adapters.get("token_cost") or {}
     price = price if isinstance(price, dict) else {}
     labels = [
@@ -144,6 +147,7 @@ def _usage_cost_section(report: AuditReport) -> str:
         ("计费状态", price.get("status", "unconfigured")),
         ("部分计费金额", price.get("partial_amount")),
         ("费用未知请求数", price.get("unknown_cost_requests")),
+        ("外部工具无法计量的适配器数", external_count),
     ]
     rows = "".join(
         "<tr><td>" + html.escape(label) + "</td><td>" +
