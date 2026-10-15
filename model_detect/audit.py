@@ -263,6 +263,17 @@ async def run_audit(
         if native_budget is None or not native_budget.exhausted:
             return False
         report.adapters["native_budget"] = native_budget.snapshot()
+        recorded = [
+            usage_from_response(
+                probe_id=e.probe_id, stage="native", response=e.response_body,
+                http_status=e.response_status,
+            )
+            for e in report.evidences if e.method == "POST"
+        ]
+        report.adapters["token_usage"] = {
+            "summary": summarize_usage(recorded),
+            "records": [r.model_dump(mode="json") for r in recorded],
+        }
         report.summary = AuditSummary(
             overall_score=None, final_verdict="insufficient_budget",
             confidence="low",
