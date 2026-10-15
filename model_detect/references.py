@@ -208,7 +208,9 @@ class ReferenceRegistry:
         if manifest.protocol_signature:
             try:
                 signature = self.signature(manifest)
-                if not isinstance(signature, dict) or not isinstance(
+                if signature is None:
+                    reasons.append("protocol_signature_missing")
+                elif not isinstance(signature, dict) or not isinstance(
                     signature.get("probes"), dict
                 ):
                     reasons.append("protocol_signature_invalid")
