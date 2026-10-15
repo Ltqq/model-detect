@@ -235,7 +235,7 @@ async def run_audit(
         timeout_seconds=config.target.timeout_seconds,
         extra_headers=config.extra_headers,
         model=config.target.model,
-        budget=native_budget,
+        **({"budget": native_budget} if native_budget is not None else {}),
     )
     report = AuditReport(
         profile=profile,
