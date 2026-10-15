@@ -457,3 +457,9 @@
 
 - 新增 `usage-csv --report <report.json> --output <usage.csv>`：离线读取、验证并导出已存 Request UsageRecord；保留 unknown 与 missing_reason，不输出原始 Prompt/Answer/Key，不覆盖现有 CSV 文件。
 - 只能导出已有报告计量；不是重新测量或真实第三方工具用量采集。CLI/Web 一致展示仍需补齐。
+
+
+### C-C1 官方 Kimi 脱敏结果作为中文报告附录（2026-10-15，待 CI）
+
+- `kimi-verifier attach-report --audit <report.json> --summary <official-junit-summary.json> --output-dir <new-dir>` 将经官方版本、Suite、Model、Case 总数结构校验的结果作为**独立的**报告 Adapter，生成新 HTML/JSON/ZIP 兼容源，绝不修改旧原始审计，也不改变整体得分、身份判定。
+- 输出中仅保留官方 Git commit、Suite、次数与结论，原始 JUnit 名称、Prompt、失败日志和未信任字段不随导入。属于用户文件、未证明正式执行来源；Web SQLite 自动关联仍待进一步完善。
