@@ -356,3 +356,10 @@
 - 日志脱敏及异常安全：#60 已合并；离线 HTTP 请求 JSON 比较：#62 已合并，尚不能证明 lm-eval 实际发包或服务端参数生效。
 - Benchmark 逐轮脱敏 Checkpoint、失败分类和付费重复执行保护：从 #61 安全移植到新分支，避免覆盖 #62 的 CLI 更新。Checkpoint 存在即在任何原生付费调用前终止；仍不支持自动安全续跑。
 - G1.1 数据集完整离线校验、G1.2 真正 SDK 发包捕获、G1.4 HTTP 细粒度错误定位、G1.5 正式双端 Smoke 仍未完成。没有以上证据，G1 不得标记整体验收通过。
+
+
+### G1.1 离线任务加载预检增量（2026-10-15；待 CI）
+
+- 新增 opt-in `model-detect glm53 doctor --benchmark smoke|standard|deep --verify-task-cache`：独立进程用 lm-eval 0.4.13 `TaskManager/get_task_dict` 实例化所选 Task，设置 Hugging Face 离线标志，剥离 API Key/Token 等环境变量，超时与异常仅返回安全分类，不导出 stderr/raw 数据。
+- 只有子进程确认所有任务本地加载完成才标 `verified`；默认 `doctor` 保留轻量依赖检查，不冒充数据集缓存认证。离线环境不通过时不进行自动下载。
+- **风险边界**：第三方任务自定义代码可能绕过 HF 离线环境变量；该检查不验证远端模型参数、真正发包和在线基准成绩，也不自动解锁大额付费测试。
