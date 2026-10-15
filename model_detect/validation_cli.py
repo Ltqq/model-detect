@@ -10,6 +10,7 @@ from rich.table import Table
 from .validation import evaluate_suite, load_suite, write_validation
 from .calibration import calibrate_validation, write_calibration
 from .validation_runner import execution_plan, run_suite
+from .validation_doctor import validation_manifest_readiness
 
 validation_app = typer.Typer(
     no_args_is_help=True,
@@ -171,4 +172,24 @@ def run(
     console.print(f"JSON: {output_dir / 'validation.json'}")
     console.print(f"中文实验报告: {output_dir / 'validation.md'}")
     if errors:
+        raise typer.Exit(code=1)
+
+
+@validation_app.command("doctor")
+def doctor(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, readable=True),
+    output_dir: Path = typer.Option(
+        Path("model-detect-validation"), "--output-dir",
+    ),
+    strict_reports: bool = typer.Option(
+        False, "--strict-reports", help="Fail when declared real reports are absent",
+    ),
+) -> None:
+    """Check independent class labels and evidence files without invoking APIs."""
+    suite = load_suite(manifest)
+    readiness = validation_manifest_readiness(
+        suite, manifest_path=manifest, output_dir=output_dir,
+    )
+    console.print_json(data=readiness)
+    if strict_reports and readiness["missing_report_files"]:
         raise typer.Exit(code=1)
