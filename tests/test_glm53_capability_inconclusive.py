@@ -1,13 +1,11 @@
 """G1.4: infrastructure and malformed responses are not capability failures."""
+import asyncio
 from types import SimpleNamespace
-
-import pytest
 
 from model_detect import glm53_qualification as module
 
 
-@pytest.mark.asyncio
-async def test_infrastructure_failures_are_inconclusive(monkeypatch):
+def test_infrastructure_failures_are_inconclusive(monkeypatch):
     cases = module.capability_cases("smoke")[:1]
     responses = [
         (401, {"error": {"message": "unauthorized"}}, "application/json"),
@@ -31,10 +29,10 @@ async def test_infrastructure_failures_are_inconclusive(monkeypatch):
                 ),
             )
     monkeypatch.setattr(module, "AuditHttpClient", FakeHttpClient)
-    result = await module.run_endpoint(
+    result = asyncio.run(module.run_endpoint(
         base_url="https://example.test/v1", api_key="test",
         cases=cases * len(responses), runs=1, label="customer",
-    )
+    ))
     assert [row["status"] for row in result] == ["insufficient"] * len(responses)
     assert all(row["normalized_answer_excerpt"] is None for row in result)
     assert all(row["answer_normalization"] is None for row in result)
