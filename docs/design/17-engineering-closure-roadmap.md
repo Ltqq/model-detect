@@ -439,3 +439,9 @@
 
 - 新增 `glm53 inspect-checkpoint --checkpoint <path>`，仅离线检查 Schema、suite SHA256、已保存官方/供应商运行组数量及失败次数。不打印任何原始请求、答案、日志或环境变量，也不会重新调用模型。
 - 仍不自动恢复外部 lm-eval 消耗过 Token 的任务；下一步需设计带明确人工确认和任务级幂等边界的安全续跑机制。本检查命令**不是完整 G1-C2 交付**。
+
+
+### B-C1 进展（2026-10-15，待 CI）
+
+- 通用审计增加 `external_token_usage`，对 lm-eval、promptfoo、llm-fingerprint、proxy-sleuth 的实际调用缺乏 Usage 时标 `external_unmetered`，不再暗示原生请求费用等于全部费用。
+- JSON/HTML/ZIP 增加未计量工具数量；目前并未真正从 subprocess 收集 Usage，因此 B-C1 的跨工具精确计量仍未完成。
