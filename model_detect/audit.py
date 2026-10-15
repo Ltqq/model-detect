@@ -225,12 +225,17 @@ async def run_audit(
 
     profile = (config.profile or "quick").lower()
     api_key = get_api_key(config.target, api_key_override)
+    native_budget = (
+        NativeTokenBudget(config.native_soft_token_limit)
+        if config.native_soft_token_limit is not None else None
+    )
     client = AuditHttpClient(
         base_url=config.target.base_url,
         api_key=api_key,
         timeout_seconds=config.target.timeout_seconds,
         extra_headers=config.extra_headers,
         model=config.target.model,
+        budget=native_budget,
     )
     report = AuditReport(
         profile=profile,
@@ -253,6 +258,18 @@ async def run_audit(
         "oss",
     ]
     phase_no = 0
+
+    def _stop_for_budget() -> bool:
+        if native_budget is None or not native_budget.exhausted:
+            return False
+        report.adapters["native_budget"] = native_budget.snapshot()
+        report.summary = AuditSummary(
+            overall_score=None, final_verdict="insufficient_budget",
+            confidence="low",
+            warnings=["Native soft token budget was exhausted; remaining checks not executed."],
+        )
+        report.finished_at = datetime.now(timezone.utc).isoformat()
+        return True
 
     # 1. Native protocol probes.
     probes = _protocol_probe_set(profile)
@@ -304,6 +321,9 @@ async def run_audit(
                 report.finished_at = datetime.now(timezone.utc).isoformat()
                 return report
 
+    if _stop_for_budget():
+        return report
+
     # 2. Parameter integrity.
     if progress:
         progress("integrity-suite", 2, len(phase_names))
@@ -312,6 +332,9 @@ async def run_audit(
     )
     report.results.extend(rs)
     report.evidences.extend(evs)
+
+    if _stop_for_budget():
+        return report
 
     # 3. Context integrity.
     if progress:
@@ -325,6 +348,9 @@ async def run_audit(
     report.results.extend(rs)
     report.evidences.extend(evs)
 
+    if _stop_for_budget():
+        return report
+
     # 4. Routing stability.
     if progress:
         progress("routing-suite", 4, len(phase_names))
@@ -333,6 +359,9 @@ async def run_audit(
     )
     report.results.extend(rs)
     report.evidences.extend(evs)
+
+    if _stop_for_budget():
+        return report
 
     # 5. Capability Lite.
     if config.capability_enabled:
@@ -449,6 +478,9 @@ async def run_audit(
     rule = match_model_rule(config.target.model)
     report.adapters["model_rule"] = rule.model_dump(mode="json")
     report.results.extend(_rule_results(config.target.model, report.results))
+
+    if _stop_for_budget():
+        return report
 
     # 6. Reference Registry and statistical fingerprint.
     reference_fingerprint = config.fingerprint_reference
@@ -619,6 +651,8 @@ async def run_audit(
             "reason": "No token_prices supplied; price not inferred.",
         }
     report.adapters["external_token_usage"] = external_usage_boundary(report.adapters)
+    if native_budget is not None:
+        report.adapters["native_budget"] = native_budget.snapshot()
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()
     return report
