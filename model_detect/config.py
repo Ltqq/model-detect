@@ -8,6 +8,7 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 from .models import AuditTarget
+from .usage_pricing import TokenPrices
 
 
 class RegressionAuditConfig(BaseModel):
