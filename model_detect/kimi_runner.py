@@ -18,11 +18,14 @@ def run_official_subset(
     repo_dir: Path, python_executable: Path, suite: str,
     model: str, base_url: str, api_key: str,
     output_xml: Path, timeout_seconds: int = 1800,
+    max_cases: int = 10,
 ) -> dict[str, Any]:
     if suite not in OFFICIAL_CASES:
         raise ValueError("suite not in pinned official subset")
     if not 10 <= timeout_seconds <= 3600:
         raise ValueError("invalid timeout")
+    if not 1 <= max_cases <= 20:
+        raise ValueError("max_cases must be 1..20")
     repo_dir = Path(repo_dir).resolve()
     path = repo_dir / OFFICIAL_CASES[suite]["path"]
     if not path.is_dir() or not (repo_dir / "pyproject.toml").is_file():
@@ -53,6 +56,11 @@ def run_official_subset(
         "--smoke-model", model,
         "--junitxml", str(output_xml),
     ]
+    if suite == "params":
+        command += ["--think-mode", "kimi"]
+    if suite == "tool_call_json_schema":
+        command += ["--thinking", "--think-mode", "kimi",
+                    "--max-cases", str(max_cases)]
     try:
         result = subprocess.run(
             command, cwd=repo_dir, env=env,
