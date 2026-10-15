@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -89,6 +90,12 @@ def collect_reference(
         help="Optional lm-eval benchmark: smoke/standard/deep, repeated for each run.",
     ),
 ) -> None:
+    registry_guard = ReferenceRegistry(reference_dir)
+    if registry_guard.path_for(reference_id).exists():
+        raise typer.BadParameter(
+            f"reference ID already exists: {reference_id}; "
+            "choose another ID to avoid duplicate paid collection"
+        )
     target = AuditTarget(
         base_url=base_url,
         model=model,
@@ -146,42 +153,46 @@ def collect_reference(
         report = asyncio.run(run_audit(cfg, use_proxy_sleuth=False))
 
     registry = ReferenceRegistry(reference_dir)
+    # Guard before any paid requests: duplicate IDs must not consume tokens.
+    # An incomplete destination is also protected from accidental overwrite.
+    # All fingerprint output remains outside the final reference directory.
     fp_path = None
     fp_meta = None
-    if collect_fingerprint:
-        if fingerprint.availability().get("available"):
-            fp_path = registry.path_for(reference_id) / "fingerprint.json"
-            console.print("[cyan]Collecting statistical fingerprint...[/cyan]")
-            collected = fingerprint.collect(
-                base_url=base_url,
-                model=model,
-                api_key=api_key,
-                output=fp_path,
-            )
-            fp_meta = {
-                **(collected.get("fingerprint") or {}),
-                "collection": {
-                    "split_half_jsd": collected.get("split_half_jsd"),
-                    "adapter": collected.get("adapter"),
-                    "warnings": collected.get("warnings") or [],
-                },
-            }
-        else:
-            console.print(
-                "[yellow]llm-fingerprint-detector unavailable; reference will contain protocol signature only.[/yellow]"
-            )
-
-    manifest = registry.create_from_report(
-        reference_id=reference_id,
-        model=model,
-        provider=provider,
-        protocol="openai",
-        report=report,
-        fingerprint_path=fp_path,
-        fingerprint_metadata=fp_meta,
-        fingerprint_source="collected" if fp_path else None,
-        baseline=baseline,
-    )
+    with tempfile.TemporaryDirectory(prefix="model-detect-reference-fp-") as workspace:
+        if collect_fingerprint:
+            if fingerprint.availability().get("available"):
+                fp_path = Path(workspace) / "fingerprint.json"
+                console.print("[cyan]Collecting statistical fingerprint...[/cyan]")
+                collected = fingerprint.collect(
+                    base_url=base_url,
+                    model=model,
+                    api_key=api_key,
+                    output=fp_path,
+                )
+                fp_meta = {
+                    **(collected.get("fingerprint") or {}),
+                    "collection": {
+                        "split_half_jsd": collected.get("split_half_jsd"),
+                        "adapter": collected.get("adapter"),
+                        "warnings": collected.get("warnings") or [],
+                    },
+                }
+            else:
+                console.print(
+                    "[yellow]llm-fingerprint-detector unavailable; "
+                    "reference will contain protocol signature only.[/yellow]"
+                )
+        manifest = registry.create_from_report(
+            reference_id=reference_id,
+            model=model,
+            provider=provider,
+            protocol="openai",
+            report=report,
+            fingerprint_path=fp_path,
+            fingerprint_metadata=fp_meta,
+            fingerprint_source="collected" if fp_path else None,
+            baseline=baseline,
+        )
     report_dir = registry.path_for(reference_id) / "baseline-report"
     write_report(report, report_dir)
     console.print(f"[green]Saved reference {manifest.id}[/green]")

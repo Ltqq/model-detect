@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import tempfile
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +43,7 @@ class ReferenceManifest(BaseModel):
     model_rule_id: str | None = None
     model_rule_updated_at: str | None = None
     baseline_metadata: dict[str, Any] = Field(default_factory=dict)
+    artifact_sha256: dict[str, str] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -50,7 +54,17 @@ class ReferenceRegistry:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def path_for(self, reference_id: str) -> Path:
-        return self.root / _safe(reference_id)
+        # Never silently alias two logical IDs to the same storage directory.
+        # The former _safe() transform could collide and overwrite evidence.
+        if (not isinstance(reference_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}", reference_id)
+                or reference_id in {".", ".."}
+                or ".." in reference_id):
+            raise ValueError("invalid reference ID: use 1-96 safe ASCII characters")
+        path = self.root / reference_id
+        if path.is_symlink():
+            raise ValueError("reference path must not be a symbolic link")
+        return path
 
     def exists(self, reference_id: str) -> bool:
         return (self.path_for(reference_id) / "manifest.json").exists()
@@ -58,13 +72,17 @@ class ReferenceRegistry:
     def list(self) -> list[ReferenceManifest]:
         out: list[ReferenceManifest] = []
         for manifest in sorted(self.root.glob("*/manifest.json")):
+            if manifest.parent.is_symlink() or manifest.is_symlink():
+                continue
             try:
-                out.append(
-                    ReferenceManifest.model_validate_json(
-                        manifest.read_text(encoding="utf-8")
-                    )
+                parsed = ReferenceManifest.model_validate_json(
+                    manifest.read_text(encoding="utf-8")
                 )
-            except Exception:
+                if parsed.id != manifest.parent.name:
+                    continue
+                self.path_for(parsed.id)
+                out.append(parsed)
+            except (OSError, ValueError, TypeError):
                 continue
         return out
 
@@ -85,7 +103,22 @@ class ReferenceRegistry:
         root = self.path_for(manifest.id)
         root.mkdir(parents=True, exist_ok=True)
         path = root / "manifest.json"
-        path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=root,
+            prefix=".manifest-", suffix=".tmp", delete=False
+        ) as handle:
+            pending = Path(handle.name)
+            try:
+                handle.write(manifest.model_dump_json(indent=2))
+                handle.flush()
+                os.fsync(handle.fileno())
+            except BaseException:
+                pending.unlink(missing_ok=True)
+                raise
+        try:
+            os.replace(pending, path)
+        finally:
+            pending.unlink(missing_ok=True)
         return path
 
     def create_from_report(
@@ -103,76 +136,150 @@ class ReferenceRegistry:
         notes: list[str] | None = None,
     ) -> ReferenceManifest:
         root = self.path_for(reference_id)
-        root.mkdir(parents=True, exist_ok=True)
-        signature_path = root / "protocol-signature.json"
-        signature = protocol_signature_from_report(report)
-        signature_path.write_text(
-            json.dumps(signature, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-        fp_name = None
-        if fingerprint_path:
-            src = Path(fingerprint_path)
-            if src.exists():
-                dst = root / "fingerprint.json"
-                if src.resolve() != dst.resolve():
-                    shutil.copy2(src, dst)
-                fp_name = dst.name
-
-        baseline_name = None
-        if baseline is not None:
-            baseline_path = root / "baseline.json"
-            baseline_path.write_text(
-                baseline.model_dump_json(indent=2),
+        if root.exists() or root.is_symlink():
+            raise FileExistsError(f"reference already exists: {reference_id}")
+        stage = Path(tempfile.mkdtemp(prefix=".reference-stage-", dir=self.root))
+        try:
+            signature_path = stage / "protocol-signature.json"
+            signature = protocol_signature_from_report(report)
+            signature_path.write_text(
+                json.dumps(signature, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-            baseline_name = baseline_path.name
+            fp_name = None
+            if fingerprint_path:
+                src = Path(fingerprint_path)
+                if src.is_file():
+                    shutil.copy2(src, stage / "fingerprint.json")
+                    fp_name = "fingerprint.json"
+            baseline_name = None
+            if baseline is not None:
+                (stage / "baseline.json").write_text(
+                    baseline.model_dump_json(indent=2), encoding="utf-8"
+                )
+                baseline_name = "baseline.json"
+            artifact_hashes = {
+                file.name: hashlib.sha256(file.read_bytes()).hexdigest()
+                for file in stage.iterdir() if file.is_file()
+            }
+            manifest = ReferenceManifest(
+                id=reference_id,
+                model=model,
+                provider=provider,
+                protocol=protocol,
+                base_url_hint=_base_url_hint(str(report.target.get("base_url", ""))),
+                fingerprint_artifact=fp_name,
+                fingerprint_source=(
+                    fingerprint_source or ("collected" if fp_name else None)
+                ),
+                fingerprint_reference=fp_name,
+                fingerprint_metadata=fingerprint_metadata or {},
+                protocol_signature=signature_path.name,
+                baseline_schema_version=(
+                    baseline.schema_version if baseline is not None else None
+                ),
+                baseline_suite_version=(
+                    baseline.suite_version if baseline is not None else None
+                ),
+                baseline_runs=baseline.runs if baseline is not None else 0,
+                baseline_artifact=baseline_name,
+                artifact_sha256=artifact_hashes,
+                model_rule_id=(
+                    baseline.model_rule_id if baseline is not None else None
+                ),
+                model_rule_updated_at=(
+                    baseline.model_rule_updated_at if baseline is not None else None
+                ),
+                baseline_metadata=(
+                    dict(baseline.metadata) if baseline is not None else {}
+                ),
+                notes=notes or [],
+                metadata={
+                    "profile": report.profile,
+                    "summary": report.summary.model_dump(mode="json"),
+                },
+            )
+            (stage / "manifest.json").write_text(
+                manifest.model_dump_json(indent=2), encoding="utf-8"
+            )
+            if root.exists() or root.is_symlink():
+                raise FileExistsError(f"reference already exists: {reference_id}")
+            os.rename(stage, root)
+            return manifest
+        finally:
+            if stage.exists():
+                shutil.rmtree(stage)
 
-        manifest = ReferenceManifest(
-            id=reference_id,
-            model=model,
-            provider=provider,
-            protocol=protocol,
-            base_url_hint=_base_url_hint(str(report.target.get("base_url", ""))),
-            fingerprint_artifact=fp_name,
-            fingerprint_source=(
-                fingerprint_source or ("collected" if fp_name else None)
-            ),
-            fingerprint_reference=fp_name,
-            fingerprint_metadata=fingerprint_metadata or {},
-            protocol_signature=signature_path.name,
-            baseline_schema_version=(
-                baseline.schema_version if baseline is not None else None
-            ),
-            baseline_suite_version=(
-                baseline.suite_version if baseline is not None else None
-            ),
-            baseline_runs=baseline.runs if baseline is not None else 0,
-            baseline_artifact=baseline_name,
-            model_rule_id=(
-                baseline.model_rule_id if baseline is not None else None
-            ),
-            model_rule_updated_at=(
-                baseline.model_rule_updated_at if baseline is not None else None
-            ),
-            baseline_metadata=(
-                dict(baseline.metadata) if baseline is not None else {}
-            ),
-            notes=notes or [],
-            metadata={
-                "profile": report.profile,
-                "summary": report.summary.model_dump(mode="json"),
-            },
+
+    def validate(self, manifest: ReferenceManifest, *, expected_model: str | None = None) -> list[str]:
+        """Return explicit reasons a selected Reference is not fully trustworthy."""
+        reasons: list[str] = []
+        if expected_model is not None and manifest.model != expected_model:
+            reasons.append("model_mismatch")
+        if manifest.protocol_signature:
+            try:
+                signature = self.signature(manifest)
+                if signature is None:
+                    reasons.append("protocol_signature_missing")
+                elif not isinstance(signature, dict) or not isinstance(
+                    signature.get("probes"), dict
+                ):
+                    reasons.append("protocol_signature_invalid")
+                elif signature.get("model") != manifest.model:
+                    reasons.append("protocol_signature_model_mismatch")
+            except (OSError, ValueError, TypeError):
+                reasons.append("protocol_signature_invalid")
+        if manifest.fingerprint_artifact and self.fingerprint_path(manifest) is None:
+            reasons.append("fingerprint_artifact_missing")
+        if manifest.baseline_artifact:
+            try:
+                baseline = self.baseline(manifest)
+                if baseline is None:
+                    reasons.append("baseline_artifact_missing")
+                elif manifest.baseline_runs < 1 or baseline.runs != manifest.baseline_runs:
+                    reasons.append("baseline_runs_mismatch")
+                elif manifest.baseline_suite_version != baseline.suite_version:
+                    reasons.append("baseline_suite_mismatch")
+                elif (manifest.baseline_schema_version is not None
+                      and manifest.baseline_schema_version != baseline.schema_version):
+                    reasons.append("baseline_schema_mismatch")
+            except (OSError, ValueError, TypeError):
+                reasons.append("baseline_invalid")
+        local_artifacts = (
+            (manifest.protocol_signature, "protocol-signature.json"),
+            (manifest.fingerprint_artifact, "fingerprint.json"),
+            (manifest.baseline_artifact, "baseline.json"),
         )
-        self.save_manifest(manifest)
-        return manifest
+        for artifact, expected_name in local_artifacts:
+            if not artifact:
+                continue
+            path = self._artifact_path(manifest, artifact, expected_name)
+            expected_hash = manifest.artifact_sha256.get(expected_name)
+            if path is not None and expected_hash:
+                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                if actual_hash != expected_hash:
+                    reasons.append("artifact_checksum_mismatch:" + expected_name)
+        if not manifest.artifact_sha256 and any(name for name, _ in local_artifacts):
+            reasons.append("legacy_unverified_artifacts")
+        if not (manifest.protocol_signature or manifest.fingerprint_reference
+                or manifest.baseline_artifact):
+            reasons.append("reference_empty")
+        return reasons
+
+    def _artifact_path(self, manifest: ReferenceManifest,
+                       filename: str | None, allowed: str) -> Path | None:
+        # A modified manifest must never read arbitrary files from the host.
+        if filename != allowed:
+            return None
+        target = self.path_for(manifest.id) / allowed
+        if target.is_symlink():
+            return None
+        return target if target.is_file() else None
 
     def fingerprint_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.fingerprint_artifact:
             return None
-        path = self.path_for(manifest.id) / manifest.fingerprint_artifact
-        return path if path.exists() else None
+        return self._artifact_path(manifest, manifest.fingerprint_artifact, "fingerprint.json")
 
     def fingerprint_reference_value(self, manifest: ReferenceManifest) -> str | None:
         path = self.fingerprint_path(manifest)
@@ -185,16 +292,15 @@ class ReferenceRegistry:
     def signature(self, manifest: ReferenceManifest) -> dict[str, Any] | None:
         if not manifest.protocol_signature:
             return None
-        path = self.path_for(manifest.id) / manifest.protocol_signature
-        if not path.exists():
+        path = self._artifact_path(manifest, manifest.protocol_signature, "protocol-signature.json")
+        if path is None:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
     def baseline_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.baseline_artifact:
             return None
-        path = self.path_for(manifest.id) / manifest.baseline_artifact
-        return path if path.exists() else None
+        return self._artifact_path(manifest, manifest.baseline_artifact, "baseline.json")
 
     def baseline(self, manifest: ReferenceManifest) -> OfficialBaseline | None:
         path = self.baseline_path(manifest)
