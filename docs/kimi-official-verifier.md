@@ -32,3 +32,26 @@ JUnit 必须来自用户自有授权环境的官方测试运行。报告包含�
 报告标记 `user_supplied_unattested_junit`：无法仅凭文件证明它确实由固定官方源码生成；真实验证需在后续统一验收阶段于本机安装官方仓库、执行受控子集、保留运行环境和输出来源。未检查到的测试不能标为通过。
 
 当前尚未实现正式在线执行适配和固定样本量预算；官方 pytest 参数化可能造成请求数远超用例目录数，本工具不会估一个虚假的固定请求数。
+
+
+## 官方仓库受控执行入口（默认 dry run）
+
+先在本机独立目录检出指定 commit，安装并验证官方依赖（需 Python >=3.12）；**构建、安装依赖不属于本 CLI 的自动步骤**。
+
+```bash
+model-detect kimi-verifier run \
+  --repo-dir ./vendor/Kimi-Vendor-Verifier \
+  --python-executable ./vendor/.venv/bin/python \
+  --suite params \
+  --model kimi-k3 \
+  --base-url https://your-authorized-endpoint.example/v1 \
+  --output-dir ./private-kimi-results
+```
+
+上面没有 `--execute`，仅预览，不发出模型调用。统一真实验收阶段，准备好测试密钥环境变量 `KIMI_API_KEY` 后，才允许人工加 `--execute`。
+
+- 校验本地 Git HEAD 与固定 commit 完全一致，不自动下载源码。
+- 使用本地官方 pytest 文件，不复制官方测试逻辑；参数走环境变量，日志不回传到本工具结果。仍会在本地保存原始 JUnit，必须安全存储。
+- Tool JSON Schema 套件设置最多 `--max-cases 20`，默认为 10；其他官方目录不能保证请求数上限，**无严格账单预算**，正式运行需由用户审阅官方测试源码和数据。
+- 失败、超时仍尝试保存可用的脱敏结果；不能以 pytest 无报告或 skipped 冒充测试通过。
+- Python 3.11 只能使用离线规划/导入，官方验证器依赖 Python >=3.12；运行时应传单独 Python 3.12 虚拟环境可执行文件。
