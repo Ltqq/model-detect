@@ -40,6 +40,7 @@ def audit(
     api_key_env: str = typer.Option("OPENAI_API_KEY", "--api-key-env", help="Environment variable containing the API key"),
     profile: str = typer.Option("quick", "--profile", help="quick / standard / deep"),
     output_dir: Path = typer.Option(Path("model-detect-output"), "--output-dir", "-o"),
+    native_soft_token_limit: Optional[int] = typer.Option(None, "--native-soft-token-limit", min=1, help="Native observed token soft stop; not a hard API invoice cap"),
     fingerprint_reference: Optional[Path] = typer.Option(None, "--fingerprint-reference", help="Trusted llm-fingerprint reference JSON"),
     reference_id: Optional[str] = typer.Option(None, "--reference-id", help="Trusted reference registry ID"),
     reference_dir: Path = typer.Option(Path("references"), "--reference-dir"),
@@ -97,6 +98,8 @@ def audit(
             cfg.regression.suites = list(
                 dict.fromkeys(cfg.regression.suites)
             )
+        if native_soft_token_limit is not None:
+            cfg.native_soft_token_limit = native_soft_token_limit
         if benchmark_profile is not None:
             cfg.benchmark_profile = benchmark_profile
         if disallow_upstream:
@@ -126,6 +129,7 @@ def audit(
             declared_context_tokens=declared_context_tokens,
             coding_sandbox_enabled=bool(coding_sandbox),
             benchmark_profile=benchmark_profile,
+            native_soft_token_limit=native_soft_token_limit,
             regression=RegressionAuditConfig(
                 suites=[
                     str(path.expanduser().resolve())
