@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -42,6 +43,7 @@ class ReferenceManifest(BaseModel):
     model_rule_id: str | None = None
     model_rule_updated_at: str | None = None
     baseline_metadata: dict[str, Any] = Field(default_factory=dict)
+    artifact_sha256: dict[str, str] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -156,6 +158,10 @@ class ReferenceRegistry:
                     baseline.model_dump_json(indent=2), encoding="utf-8"
                 )
                 baseline_name = "baseline.json"
+            artifact_hashes = {
+                file.name: hashlib.sha256(file.read_bytes()).hexdigest()
+                for file in stage.iterdir() if file.is_file()
+            }
             manifest = ReferenceManifest(
                 id=reference_id,
                 model=model,
@@ -177,6 +183,7 @@ class ReferenceRegistry:
                 ),
                 baseline_runs=baseline.runs if baseline is not None else 0,
                 baseline_artifact=baseline_name,
+                artifact_sha256=artifact_hashes,
                 model_rule_id=(
                     baseline.model_rule_id if baseline is not None else None
                 ),
@@ -238,6 +245,21 @@ class ReferenceRegistry:
                     reasons.append("baseline_schema_mismatch")
             except (OSError, ValueError, TypeError):
                 reasons.append("baseline_invalid")
+        local_artifacts = (
+            manifest.protocol_signature, manifest.fingerprint_artifact,
+            manifest.baseline_artifact,
+        )
+        for artifact in (name for name in local_artifacts if name):
+            path = self._artifact_path(manifest, artifact, artifact)
+            expected_hash = manifest.artifact_sha256.get(artifact)
+            if path is not None and expected_hash:
+                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                if actual_hash != expected_hash:
+                    reasons.append("artifact_checksum_mismatch:" + artifact)
+        if not manifest.artifact_sha256 and any(local_artifacts):
+            # Historical files remain readable, but are not cryptographically
+            # attested by the new creator.
+            reasons.append("legacy_unverified_artifacts")
         if not (manifest.protocol_signature or manifest.fingerprint_reference
                 or manifest.baseline_artifact):
             reasons.append("reference_empty")
