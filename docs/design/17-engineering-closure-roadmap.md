@@ -384,3 +384,9 @@
 - 通用 YAML `token_prices` 可配置币种、输入、输出、缓存读和缓存写每百万 Token 单价；`run_audit()` 从 B1 UsageRecord 计算价格，未上报 Usage 或未配置必要价格时归类为未知，使用 Decimal 防止浮点金额误差。
 - HTML、JSON 统一呈现已观察/未知请求、输入输出、推理及缓存子项与可计价部分；历史原始报告不存在计价字段时兼容不展示。
 - 外部 subprocess（lm-eval、Fingerprint、promptfoo 等）的真实计量仍未纳入；只能标未计量，不能填 0。下一批补 CLI 覆盖参数和费用 CSV 导出；未做真实 API 测试。
+
+
+### 2026-10-15 B3 增量：GLM53 付费前名义 Token 容量保护
+
+- GLM53 `compare` 新增可选 `--max-nominal-output-tokens` / `--max-estimated-input-tokens`，在读取 API Key、任何付费请求之前检查计划值；同时保留 `--max-requests` 和默认不开额外 Benchmark。
+- **边界**：输入仅 UTF-8 字节估算；输出是配置名义上限（包含外部 Benchmark 额外样本），均不等于实际账单硬封顶。第三方 retry、缓存与模型记账差异不能由此保证严格费用限制。
