@@ -90,3 +90,21 @@ def test_reference_validation_fails_closed_on_missing_artifacts_and_wrong_model(
     assert "protocol_signature_missing" in registry.validate(
         manifest, expected_model="glm-5.3"
     )
+
+
+def test_malicious_manifest_artifact_paths_cannot_escape_registry(tmp_path):
+    from model_detect.references import ReferenceManifest
+    registry = ReferenceRegistry(tmp_path / "refs")
+    source = create(registry)
+    tampered = source.model_copy(update={
+        "protocol_signature": "../../secret.json",
+        "fingerprint_artifact": "../../secret.json",
+        "baseline_artifact": "../../secret.json",
+    })
+    assert registry.signature(tampered) is None
+    assert registry.fingerprint_path(tampered) is None
+    assert registry.baseline_path(tampered) is None
+    issues = registry.validate(tampered, expected_model="glm-5.3")
+    assert "protocol_signature_missing" in issues
+    assert "fingerprint_artifact_missing" in issues
+    assert "baseline_artifact_missing" in issues
