@@ -380,3 +380,14 @@ model-detect glm53 compare \
 标准档位的外部生成式评测为 GSM8K（数学）、IFEval（指令遵循）和 minerva_math500（MATH-500）。它们来自 EleutherAI 的 `lm-evaluation-harness`，**不是官方发布的 GLM-5.3 编程/Agent 榜单成绩复现**。普通 Chat Completions API 不支持基于 prompt logprobs 的默认 MMLU-Pro 选择题配置，所以不会错误地加入该任务。两端点独立运行，按 Harness 版本、任务配置、数据集版本、实际样本量、评分指标核对可比性；若有差异，报告只给观察值或“不可比”，绝不声称官方满血认证。
 
 默认 `all+standard` 仍为约 140 次原生请求和 245,760 Token 的**名义最大输出配置之和**，不是实际消耗。额外 `--benchmark standard --benchmark-runs 1` 会增加 150 道名义样本，上限另按每题 8192 输出 Token 计算，**外部评测子进程尚不能统一计量真实 Token**，可能远高于想象，务必先预览。客户正式验收仍须配好官方 Key、真实运行、保存日期和原始报告。
+
+
+## 发布和恢复文档（工程阶段）
+
+- [未发布变更](CHANGELOG.md)
+- [正式发布验收门槛](docs/release-checklist.md)
+- [单机升级与备份恢复](docs/upgrade-and-restore.md)
+- [四个 OSS 适配器兼容性状态](docs/oss-compatibility.md)
+- [Kimi 官方验证器适配范围](docs/kimi-official-verifier.md)
+
+当前改动只有代码和 Mock/CI 证据，尚未完成集中真实供应商验收；**未发布的开发内容不代表真实模型身份鉴定能力已验证**。
