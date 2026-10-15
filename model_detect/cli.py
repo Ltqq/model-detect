@@ -278,6 +278,20 @@ def oss_status(
     console.print("[yellow]CLI presence does not mean integrated or trusted results.[/yellow]")
 
 
+@app.command("usage-csv")
+def usage_csv(
+    report: Path = typer.Option(..., "--report", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output"),
+) -> None:
+    """Export recorded request usage from report.json offline, no model calls."""
+    from .usage_export import export_usage_csv
+    try:
+        result = export_usage_csv(report, output)
+    except (OSError, ValueError, TypeError):
+        raise typer.BadParameter("invalid usage report or output path") from None
+    console.print_json(data=result)
+
+
 @app.command("release-doctor")
 def release_doctor(
     repo_dir: Path = typer.Option(Path("."), "--repo-dir"),
