@@ -61,19 +61,20 @@ def _run_json(
     stderr = proc.stderr or ""
     if proc.returncode not in accepted:
         raise RuntimeError(
-            f"llm-fingerprint failed (exit {proc.returncode}): {(stdout + chr(10) + stderr)[-1800:]}"
+            f"llm-fingerprint failed (exit {proc.returncode}); subprocess logs hidden"
         )
     try:
         data = json.loads(stdout)
     except Exception as exc:
         raise RuntimeError(
-            f"llm-fingerprint returned invalid JSON: {exc}; stdout={stdout[-1200:]!r}"
+            "llm-fingerprint returned invalid JSON; subprocess text hidden"
         ) from exc
     if not isinstance(data, dict):
         raise RuntimeError("llm-fingerprint JSON root is not an object")
     return data, {
         "returncode": proc.returncode,
-        "stderr_tail": stderr[-4000:],
+        "stderr_tail": "",
+        "stderr_present": bool(stderr),
     }
 
 
@@ -142,7 +143,8 @@ def collect(
         "adapter": run.get("adapter"),
         "error_count": run.get("errorCount"),
         "duration_ms": run.get("durationMs"),
-        "warnings": run.get("warnings") or [],
+        "warning_count": len(run.get("warnings") or []),
+        "warnings": [],
     }
 
 
