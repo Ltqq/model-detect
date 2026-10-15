@@ -25,7 +25,7 @@ def test_runner_verifies_sha_and_keeps_secret_out_of_argv(tmp_path, monkeypatch)
     def fake_run(args, **kwargs):
         calls.append(args)
         if args[0] == "git":
-            return SimpleNamespace(returncode=0, stdout=OFFICIAL_COMMIT + "\n")
+            return SimpleNamespace(returncode=0, stdout=(OFFICIAL_COMMIT + "\n") if "rev-parse" in args else "")
         assert "secret-api-key" not in " ".join(args)
         assert kwargs["env"]["KIMI_API_KEY"] == "secret-api-key"
         xml.write_text("<testsuite><testcase classname='x' name='y'/></testsuite>")
@@ -40,7 +40,7 @@ def test_runner_verifies_sha_and_keeps_secret_out_of_argv(tmp_path, monkeypatch)
     assert result["status"] == "finished"
     assert result["report"]["counts"]["pass"] == 1
     assert "secret-api-key" not in json.dumps(result)
-    assert len(calls) == 2
+    assert len(calls) == 3
 
 
 def test_unpinned_source_never_executes_pytest(tmp_path, monkeypatch):
@@ -75,3 +75,24 @@ def test_cli_default_preview_never_executes(monkeypatch, tmp_path):
     ])
     assert result.exit_code == 0, result.output
     assert "Preview only" in result.output
+
+
+def test_dirty_official_checkout_blocks_pytest(tmp_path, monkeypatch):
+    repo = make_official_repo(tmp_path)
+    calls = []
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if "rev-parse" in args:
+            return SimpleNamespace(returncode=0, stdout=OFFICIAL_COMMIT + "\n")
+        if "status" in args:
+            return SimpleNamespace(returncode=0, stdout=" M tests/params/test_params.py\n")
+        raise AssertionError("must not run dirty verifier tests")
+    monkeypatch.setattr(kimi_runner.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="dirty"):
+        run_official_subset(
+            repo_dir=repo, python_executable=Path("/usr/bin/python3"),
+            suite="params", model="kimi-k3",
+            base_url="https://example.test/v1", api_key="secret",
+            output_xml=tmp_path / "junit.xml",
+        )
+    assert len(calls) == 2
