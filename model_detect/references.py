@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,70 +105,75 @@ class ReferenceRegistry:
         notes: list[str] | None = None,
     ) -> ReferenceManifest:
         root = self.path_for(reference_id)
-        root.mkdir(parents=True, exist_ok=True)
-        signature_path = root / "protocol-signature.json"
-        signature = protocol_signature_from_report(report)
-        signature_path.write_text(
-            json.dumps(signature, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-        fp_name = None
-        if fingerprint_path:
-            src = Path(fingerprint_path)
-            if src.exists():
-                dst = root / "fingerprint.json"
-                if src.resolve() != dst.resolve():
-                    shutil.copy2(src, dst)
-                fp_name = dst.name
-
-        baseline_name = None
-        if baseline is not None:
-            baseline_path = root / "baseline.json"
-            baseline_path.write_text(
-                baseline.model_dump_json(indent=2),
+        if root.exists() or root.is_symlink():
+            raise FileExistsError(f"reference already exists: {reference_id}")
+        stage = Path(tempfile.mkdtemp(prefix=".reference-stage-", dir=self.root))
+        try:
+            signature_path = stage / "protocol-signature.json"
+            signature = protocol_signature_from_report(report)
+            signature_path.write_text(
+                json.dumps(signature, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-            baseline_name = baseline_path.name
+            fp_name = None
+            if fingerprint_path:
+                src = Path(fingerprint_path)
+                if src.is_file():
+                    shutil.copy2(src, stage / "fingerprint.json")
+                    fp_name = "fingerprint.json"
+            baseline_name = None
+            if baseline is not None:
+                (stage / "baseline.json").write_text(
+                    baseline.model_dump_json(indent=2), encoding="utf-8"
+                )
+                baseline_name = "baseline.json"
+            manifest = ReferenceManifest(
+                id=reference_id,
+                model=model,
+                provider=provider,
+                protocol=protocol,
+                base_url_hint=_base_url_hint(str(report.target.get("base_url", ""))),
+                fingerprint_artifact=fp_name,
+                fingerprint_source=(
+                    fingerprint_source or ("collected" if fp_name else None)
+                ),
+                fingerprint_reference=fp_name,
+                fingerprint_metadata=fingerprint_metadata or {},
+                protocol_signature=signature_path.name,
+                baseline_schema_version=(
+                    baseline.schema_version if baseline is not None else None
+                ),
+                baseline_suite_version=(
+                    baseline.suite_version if baseline is not None else None
+                ),
+                baseline_runs=baseline.runs if baseline is not None else 0,
+                baseline_artifact=baseline_name,
+                model_rule_id=(
+                    baseline.model_rule_id if baseline is not None else None
+                ),
+                model_rule_updated_at=(
+                    baseline.model_rule_updated_at if baseline is not None else None
+                ),
+                baseline_metadata=(
+                    dict(baseline.metadata) if baseline is not None else {}
+                ),
+                notes=notes or [],
+                metadata={
+                    "profile": report.profile,
+                    "summary": report.summary.model_dump(mode="json"),
+                },
+            )
+            (stage / "manifest.json").write_text(
+                manifest.model_dump_json(indent=2), encoding="utf-8"
+            )
+            if root.exists() or root.is_symlink():
+                raise FileExistsError(f"reference already exists: {reference_id}")
+            os.rename(stage, root)
+            return manifest
+        finally:
+            if stage.exists():
+                shutil.rmtree(stage)
 
-        manifest = ReferenceManifest(
-            id=reference_id,
-            model=model,
-            provider=provider,
-            protocol=protocol,
-            base_url_hint=_base_url_hint(str(report.target.get("base_url", ""))),
-            fingerprint_artifact=fp_name,
-            fingerprint_source=(
-                fingerprint_source or ("collected" if fp_name else None)
-            ),
-            fingerprint_reference=fp_name,
-            fingerprint_metadata=fingerprint_metadata or {},
-            protocol_signature=signature_path.name,
-            baseline_schema_version=(
-                baseline.schema_version if baseline is not None else None
-            ),
-            baseline_suite_version=(
-                baseline.suite_version if baseline is not None else None
-            ),
-            baseline_runs=baseline.runs if baseline is not None else 0,
-            baseline_artifact=baseline_name,
-            model_rule_id=(
-                baseline.model_rule_id if baseline is not None else None
-            ),
-            model_rule_updated_at=(
-                baseline.model_rule_updated_at if baseline is not None else None
-            ),
-            baseline_metadata=(
-                dict(baseline.metadata) if baseline is not None else {}
-            ),
-            notes=notes or [],
-            metadata={
-                "profile": report.profile,
-                "summary": report.summary.model_dump(mode="json"),
-            },
-        )
-        self.save_manifest(manifest)
-        return manifest
 
     def fingerprint_path(self, manifest: ReferenceManifest) -> Path | None:
         if not manifest.fingerprint_artifact:
