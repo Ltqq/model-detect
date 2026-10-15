@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from .models import Evidence
+from .usage_meter import UsageRecord, usage_from_response
 from .redaction import redact_headers, redact_payload
 from .rules import apply_request_constraints
 
