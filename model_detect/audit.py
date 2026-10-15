@@ -618,6 +618,7 @@ async def run_audit(
             "status": "unconfigured", "partial_amount": None,
             "reason": "No token_prices supplied; price not inferred.",
         }
+    report.adapters["external_token_usage"] = external_usage_boundary(report.adapters)
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()
     return report
