@@ -418,3 +418,35 @@ def inspect_checkpoint_command(
     except (OSError, ValueError, TypeError, KeyError):
         raise typer.BadParameter("invalid checkpoint; source details withheld") from None
     console.print_json(data=evidence)
+
+
+@glm53_app.command("capture-local-wire")
+def capture_local_wire(
+    benchmark_level: str = typer.Option("smoke", "--benchmark"),
+    reasoning_effort: str = typer.Option("max", "--reasoning-effort"),
+    max_gen_toks: int = typer.Option(1024, "--max-gen-toks"),
+    output_file: Path = typer.Option(..., "--output-file"),
+) -> None:
+    """Capture actual lm-eval outgoing request JSON on a local mock HTTP server."""
+    from .glm53_local_wire import capture_local_lm_eval_wire
+    if output_file.exists() or output_file.is_symlink():
+        raise typer.BadParameter("capture output already exists")
+    try:
+        outcome = capture_local_lm_eval_wire(
+            benchmark_level, reasoning_effort=reasoning_effort,
+            max_gen_toks=max_gen_toks,
+        )
+    except (OSError, ValueError, RuntimeError):
+        raise typer.BadParameter(
+            "local lm-eval wire capture failed; check offline tasks and installation"
+        ) from None
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with output_file.open("x", encoding="utf-8") as handle:
+        json.dump(outcome, handle, ensure_ascii=False, indent=2)
+    console.print_json(data={
+        "capture_count": outcome["capture_count"],
+        "parameter_match": outcome["parameter_match"],
+        "harness_returncode": outcome["harness_returncode"],
+        "external_model_api_calls": 0,
+        "result_file": str(output_file),
+    })

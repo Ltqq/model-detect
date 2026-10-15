@@ -147,6 +147,7 @@ def run_endpoint(
     max_gen_toks: int | None = None,
     reasoning_effort: str | None = None,
     binary: str | None = None,
+    local_only: bool = False,
 ) -> dict[str, Any]:
     output = Path(output_path)
     output.mkdir(parents=True, exist_ok=True)
@@ -163,6 +164,19 @@ def run_endpoint(
         binary=binary,
     )
     env = dict(os.environ)
+    if local_only:
+        from urllib.parse import urlsplit
+        address = urlsplit(base_url)
+        if address.scheme != "http" or address.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("local_only execution must target loopback HTTP only")
+        for name in tuple(env):
+            upper = name.upper()
+            if any(x in upper for x in ("TOKEN", "API_KEY", "SECRET", "PASSWORD", "CREDENTIAL")):
+                env.pop(name, None)
+        env.update({
+            "HF_HUB_OFFLINE": "1", "HF_DATASETS_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1", "WANDB_DISABLED": "true",
+        })
     env["OPENAI_API_KEY"] = api_key
     try:
         proc = subprocess.run(
