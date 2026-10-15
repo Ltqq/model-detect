@@ -16,6 +16,21 @@ from .redaction import redact_headers, redact_payload, redact_url
 from .rules import apply_request_constraints
 
 
+def _classify_transport_exception(exc: Exception) -> str:
+    if isinstance(exc, (httpx.ConnectTimeout, httpx.ReadTimeout,
+                        httpx.WriteTimeout, httpx.PoolTimeout)):
+        return "timeout"
+    if isinstance(exc, httpx.ConnectError):
+        return "connection_error"
+    if isinstance(exc, (httpx.RemoteProtocolError, httpx.LocalProtocolError)):
+        return "http_protocol_error"
+    if isinstance(exc, httpx.TooManyRedirects):
+        return "redirect_error"
+    if isinstance(exc, httpx.RequestError):
+        return "transport_error"
+    return "unexpected_client_exception"
+
+
 @dataclass
 class CallResult:
     evidence: Evidence
@@ -201,6 +216,7 @@ class AuditHttpClient:
                 return CallResult(evidence=evidence, json_body=parsed, text_body=text)
         except Exception as exc:
             evidence.error = f"{type(exc).__name__}: request failed; raw exception hidden"
+            evidence.error_category = _classify_transport_exception(exc)
             return CallResult(evidence=evidence)
         finally:
             evidence.elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
