@@ -463,3 +463,10 @@
 
 - `kimi-verifier attach-report --audit <report.json> --summary <official-junit-summary.json> --output-dir <new-dir>` 将经官方版本、Suite、Model、Case 总数结构校验的结果作为**独立的**报告 Adapter，生成新 HTML/JSON/ZIP 兼容源，绝不修改旧原始审计，也不改变整体得分、身份判定。
 - 输出中仅保留官方 Git commit、Suite、次数与结论，原始 JUnit 名称、Prompt、失败日志和未信任字段不随导入。属于用户文件、未证明正式执行来源；Web SQLite 自动关联仍待进一步完善。
+
+
+### G1-C1 离线真实 lm-eval 客户端发包捕获（2026-10-15，待 CI）
+
+- 新增 `glm53 capture-local-wire --benchmark smoke --output-file <wire.json>`：在回环 HTTP 监听模拟 Chat Completions 模型返回、让实际 lm-eval 可执行程序向该地址发包；记录脱敏的请求参数、消息 SHA256 与设置 SHA256，不保存实际 Prompt 或 Key。
+- 指定运行仅使用回环 `127.0.0.1`、模拟 API Key、Hugging Face 离线标志，避免付费。不能证明 lm-eval 本地第三方 task 插件绝不联网，也不能证明官方/客户服务端采纳这些参数。若本地无 lm-eval 数据集缓存则预检失败。
+- 必须使用用户本机已安装的 lm-eval 0.4.13 和数据集在统一验收阶段运行该新入口，才可获得本机真实 CLI 请求证据；CI Mock 目前只证明捕获/脱敏链路。
