@@ -105,7 +105,9 @@ def run(
             except Exception:
                 data = None
 
-    stream_text = ((proc.stdout or "") + "\n" + (proc.stderr or ""))[-6000:]
+    # Diagnostic output may contain credentials, prompts or provider payloads.
+    subprocess_logs_suppressed = bool(proc.stdout or proc.stderr)
+    stream_text = ""
     if not isinstance(data, dict):
         return (
             [
@@ -122,7 +124,7 @@ def run(
             {
                 **availability(),
                 "returncode": proc.returncode,
-                "stdout_tail": stream_text,
+                "subprocess_logs_suppressed": subprocess_logs_suppressed,
             },
         )
 
@@ -146,7 +148,7 @@ def run(
                 score=score,
                 confidence=0.75,
                 summary=f"proxy-sleuth {name}: {verdict}",
-                observed=layer,
+                observed={"layer": name, "verdict": verdict, "score": score},
                 metadata={
                     "engine": "proxy-sleuth",
                     "layer": name,
@@ -174,7 +176,7 @@ def run(
                 score=score,
                 confidence=0.65,
                 summary=f"proxy-sleuth overall verdict={verdict}",
-                observed=data,
+                observed={"verdict": verdict, "overall_score": score},
                 metadata={"engine": "proxy-sleuth", "verdict": verdict.lower(), "identity_strength": "medium"},
             )
         )
@@ -187,8 +189,8 @@ def run(
             "mode": mode,
             "verdict": data.get("verdict"),
             "overall_score": data.get("overall_score"),
-            "raw": data,
-            "stdout_tail": stream_text,
+            "raw": None,
+            "stdout_tail": "",
         },
     )
 
