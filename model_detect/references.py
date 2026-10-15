@@ -246,19 +246,20 @@ class ReferenceRegistry:
             except (OSError, ValueError, TypeError):
                 reasons.append("baseline_invalid")
         local_artifacts = (
-            manifest.protocol_signature, manifest.fingerprint_artifact,
-            manifest.baseline_artifact,
+            (manifest.protocol_signature, "protocol-signature.json"),
+            (manifest.fingerprint_artifact, "fingerprint.json"),
+            (manifest.baseline_artifact, "baseline.json"),
         )
-        for artifact in (name for name in local_artifacts if name):
-            path = self._artifact_path(manifest, artifact, artifact)
-            expected_hash = manifest.artifact_sha256.get(artifact)
+        for artifact, expected_name in local_artifacts:
+            if not artifact:
+                continue
+            path = self._artifact_path(manifest, artifact, expected_name)
+            expected_hash = manifest.artifact_sha256.get(expected_name)
             if path is not None and expected_hash:
                 actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
                 if actual_hash != expected_hash:
-                    reasons.append("artifact_checksum_mismatch:" + artifact)
-        if not manifest.artifact_sha256 and any(local_artifacts):
-            # Historical files remain readable, but are not cryptographically
-            # attested by the new creator.
+                    reasons.append("artifact_checksum_mismatch:" + expected_name)
+        if not manifest.artifact_sha256 and any(name for name, _ in local_artifacts):
             reasons.append("legacy_unverified_artifacts")
         if not (manifest.protocol_signature or manifest.fingerprint_reference
                 or manifest.baseline_artifact):
