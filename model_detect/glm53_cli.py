@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -13,6 +14,7 @@ from rich.table import Table
 from .glm53_benchmark import benchmark_plan, run_standard_benchmark
 from .glm53_replay import replay_archive, write_replay
 from .glm53_preflight import benchmark_preflight
+from .glm53_wire import verify_wire_requests
 from .glm53_qualification import (
     build_comparison, normalize_base_url, plan_comparison,
     run_endpoint, selected_cases, write_comparison,
@@ -308,3 +310,40 @@ def doctor(
     console.print(
         "[green]本地依赖预检通过（未访问数据集、未使用 Key、未调用模型）。[/green]"
     )
+
+
+@glm53_app.command("verify-wire")
+def verify_wire(
+    captured_json: Path = typer.Option(
+        ..., "--captured-json", exists=True, dir_okay=False,
+        help="Local JSON with official/customer arrays of captured request bodies",
+    ),
+    output_file: Path = typer.Option(
+        ..., "--output-file", help="New sanitized verification JSON file",
+    ),
+    reasoning_effort: str = typer.Option(
+        "max", "--reasoning-effort", help="Expected low/high/max",
+    ),
+) -> None:
+    """Compare captured HTTP JSON bodies offline; never send model requests."""
+    if output_file.exists():
+        raise typer.BadParameter("output already exists; refusing to overwrite evidence")
+    try:
+        raw = json.loads(captured_json.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("expected JSON object")
+        verdict = verify_wire_requests(
+            raw.get("official"), raw.get("customer"),
+            expected_effort=reasoning_effort,
+        )
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+        raise typer.BadParameter("invalid local captured request JSON; no content shown") from None
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with output_file.open("x", encoding="utf-8") as target:
+        json.dump(verdict, target, ensure_ascii=False, indent=2)
+    console.print(
+        f"Offline wire validation: {verdict['status']}; "
+        "raw messages and credentials were not exported."
+    )
+    if verdict["status"] != "request_payload_matched":
+        raise typer.Exit(code=1)
