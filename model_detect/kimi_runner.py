@@ -39,6 +39,15 @@ def run_official_subset(
         raise RuntimeError("cannot verify local official source commit") from None
     if check.returncode != 0 or check.stdout.strip() != OFFICIAL_COMMIT:
         raise RuntimeError("official verifier source commit is not pinned")
+    try:
+        tree = subprocess.run(
+            ["git", "-C", str(repo_dir), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        raise RuntimeError("cannot verify official verifier checkout cleanliness") from None
+    if tree.returncode != 0 or tree.stdout.strip():
+        raise RuntimeError("official verifier checkout is dirty; results would not have pinned provenance")
     if output_xml.exists():
         raise FileExistsError("JUnit evidence already exists")
     output_xml.parent.mkdir(parents=True, exist_ok=True)
