@@ -123,7 +123,7 @@ def run(
             {
                 **availability(),
                 "returncode": proc.returncode,
-                "stdout_tail": stream_text,
+                "subprocess_logs_suppressed": subprocess_logs_suppressed,
             },
         )
 
