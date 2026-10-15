@@ -24,6 +24,7 @@ from .regression_promptfoo import run_regression_file
 from .rules import evaluate_rule_expectations, match_model_rule
 from .scoring import build_summary
 from .usage_meter import usage_from_response, summarize_usage
+from .usage_pricing import summarize_cost
 
 
 ProgressCallback = Callable[[str, int, int], None]
@@ -610,6 +611,13 @@ async def run_audit(
         "records": [item.model_dump(mode="json") for item in meter],
         "note": "External subprocess usage is not inferred from local HTTP evidence.",
     }
+    if config.token_prices is not None:
+        report.adapters["token_cost"] = summarize_cost(meter, config.token_prices)
+    else:
+        report.adapters["token_cost"] = {
+            "status": "unconfigured", "partial_amount": None,
+            "reason": "No token_prices supplied; price not inferred.",
+        }
     report.summary = build_summary(report.results)
     report.finished_at = datetime.now(timezone.utc).isoformat()
     return report
