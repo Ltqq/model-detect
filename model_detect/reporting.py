@@ -126,6 +126,38 @@ def _evidence_links(result) -> str:
     ) or "—"
 
 
+def _usage_cost_section(report: AuditReport) -> str:
+    meter = report.adapters.get("token_usage") or {}
+    usage = meter.get("summary") if isinstance(meter, dict) else None
+    if not isinstance(usage, dict):
+        return ""
+    price = report.adapters.get("token_cost") or {}
+    price = price if isinstance(price, dict) else {}
+    labels = [
+        ("记录请求数", usage.get("requests")),
+        ("观察到 Usage 的请求", usage.get("observed_requests")),
+        ("缺失 Usage 的请求", usage.get("unknown_requests")),
+        ("已观察输入 Token", usage.get("prompt_tokens_observed")),
+        ("已观察输出 Token", usage.get("completion_tokens_observed")),
+        ("缓存读（输入子项）", usage.get("cached_read_tokens_subset")),
+        ("推理 Token（输出子项）", usage.get("reasoning_tokens_subset")),
+        ("计费状态", price.get("status", "unconfigured")),
+        ("部分计费金额", price.get("partial_amount")),
+        ("费用未知请求数", price.get("unknown_cost_requests")),
+    ]
+    rows = "".join(
+        "<tr><td>" + html.escape(label) + "</td><td>" +
+        html.escape(str(value if value is not None else "未知")) +
+        "</td></tr>" for label, value in labels
+    )
+    return (
+        '<section class="card"><h2>Token 与费用</h2>'
+        '<p>仅统计已观察到的 Usage。缓存和推理 Token 是子项，'
+        '不应重复计入总量。缺失 Usage 或第三方工具用量不等于零。</p>'
+        '<table><tbody>' + rows + '</tbody></table></section>'
+    )
+
+
 def _fingerprint_section(report: AuditReport) -> str:
     primary = next(
         (
@@ -451,6 +483,7 @@ def _render_html(report: AuditReport) -> str:
     model = html.escape(str(report.target.get("model", "")))
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
+    usage_cost_section = _usage_cost_section(report)
     quality_section = _quality_section(quality)
     regression_section = _regression_section(report)
     copy_text_json = json.dumps(
@@ -546,6 +579,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 </section>
 
 {fingerprint_section}
+{usage_cost_section}
 
 <section class="card">
   <div class="section-head"><div><div class="eyebrow">下一步</div><h2>建议怎么处理</h2></div></div>
