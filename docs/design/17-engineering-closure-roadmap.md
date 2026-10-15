@@ -390,3 +390,9 @@
 
 - GLM53 `compare` 新增可选 `--max-nominal-output-tokens` / `--max-estimated-input-tokens`，在读取 API Key、任何付费请求之前检查计划值；同时保留 `--max-requests` 和默认不开额外 Benchmark。
 - **边界**：输入仅 UTF-8 字节估算；输出是配置名义上限（包含外部 Benchmark 额外样本），均不等于实际账单硬封顶。第三方 retry、缓存与模型记账差异不能由此保证严格费用限制。
+
+
+### 2026-10-15 D2 Web 本地集成测试补齐（Mock 开发阶段）
+
+- 从未合并的旧 #40 中只移植 `tests/test_web_e2e.py`，覆盖 Web 提交 Audit → 异步完成 → SQLite History → JSON/HTML/Evidence/ZIP → 搜索筛选 → 删除记录及清理文件。
+- 不合并 #40 中基于旧路线宣称轻量产品全部验收完成的文档修改；此次 Mock API 测试不等于真实模型、支付资源或第三方引擎 E2E 实证。
