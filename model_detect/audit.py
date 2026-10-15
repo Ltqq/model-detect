@@ -407,7 +407,7 @@ async def run_audit(
                     status=ProbeStatus.ERROR,
                     score=None,
                     confidence=1.0,
-                    summary=f"strong benchmark unavailable: {type(exc).__name__}: {exc}",
+                    summary=f"strong benchmark unavailable: {type(exc).__name__}; raw error hidden",
                 )
             )
             report.adapters["lm_eval_benchmark"] = {
