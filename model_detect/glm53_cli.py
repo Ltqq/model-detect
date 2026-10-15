@@ -69,6 +69,14 @@ def compare(
         help="Permit a non-official baseline host; report is not first-party verified.",
     ),
     max_requests: int = typer.Option(160, "--max-requests", min=1),
+    max_nominal_output_tokens: Optional[int] = typer.Option(
+        None, "--max-nominal-output-tokens", min=1,
+        help="Fail closed when configured output max_tokens sum exceeds this limit",
+    ),
+    max_estimated_input_tokens: Optional[int] = typer.Option(
+        None, "--max-estimated-input-tokens", min=1,
+        help="Fail when heuristic input estimate exceeds this limit; not a hard bound",
+    ),
     require_offline_task_cache: bool = typer.Option(
         False, "--require-offline-task-cache",
         help="Block all paid requests unless selected lm-eval tasks load from local cache",
@@ -151,6 +159,22 @@ def compare(
     total_planned = plan["requests"] + (
         benchmark["nominal_samples"] if benchmark else 0
     )
+    nominal_output = plan["nominal_output_token_cap"] + (
+        benchmark["nominal_max_output_tokens"] if benchmark else 0
+    )
+    if (max_nominal_output_tokens is not None
+            and nominal_output > max_nominal_output_tokens):
+        raise typer.BadParameter(
+            f"nominal output token cap {nominal_output} exceeds "
+            f"--max-nominal-output-tokens {max_nominal_output_tokens}; "
+            "no paid requests started"
+        )
+    if (max_estimated_input_tokens is not None
+            and plan["estimated_input_tokens"] > max_estimated_input_tokens):
+        raise typer.BadParameter(
+            "estimated native input tokens exceed --max-estimated-input-tokens; "
+            "not a billable or tokenizer-verified hard bound"
+        )
     if total_planned > max_requests:
         raise typer.BadParameter(
             f"planned native requests + benchmark samples {total_planned} "
