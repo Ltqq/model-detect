@@ -478,6 +478,10 @@ async def run_endpoint(
                 "http_status": call.evidence.response_status,
                 "finish_reason": _finish_reason(call.json_body),
                 "usage": _usage(call.json_body),
+                "usage_record": call.usage_record(
+                    stage="protocol" if protocol else "capability",
+                    attempt=number,
+                ).model_dump(mode="json"),
                 "elapsed_ms": call.evidence.elapsed_ms,
                 "observed_answer_excerpt": (
                     _content(call.json_body)[:160] if not protocol else None
