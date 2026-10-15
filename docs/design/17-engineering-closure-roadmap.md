@@ -470,3 +470,9 @@
 - 新增 `glm53 capture-local-wire --benchmark smoke --output-file <wire.json>`：在回环 HTTP 监听模拟 Chat Completions 模型返回、让实际 lm-eval 可执行程序向该地址发包；记录脱敏的请求参数、消息 SHA256 与设置 SHA256，不保存实际 Prompt 或 Key。
 - 指定运行仅使用回环 `127.0.0.1`、模拟 API Key、Hugging Face 离线标志，避免付费。不能证明 lm-eval 本地第三方 task 插件绝不联网，也不能证明官方/客户服务端采纳这些参数。若本地无 lm-eval 数据集缓存则预检失败。
 - 必须使用用户本机已安装的 lm-eval 0.4.13 和数据集在统一验收阶段运行该新入口，才可获得本机真实 CLI 请求证据；CI Mock 目前只证明捕获/脱敏链路。
+
+
+### B-C3 原生运行时软停机增量（2026-10-15，待 CI）
+
+- YAML `native_soft_token_limit` 或 `audit --native-soft-token-limit <N>`（必须显式开启），按实际返回 Usage 的 prompt+completion 累计。达到阈值或未收到 Usage 时 fail closed，后续原生 HTTP 请求被拒绝，不执行后续审计阶段；多任务同一个 HTTP client 的请求被串行保护避免预算竞态。
+- 单次在途请求可能超出上限，外部 OSS 子进程不保证限额；**这不是实际供应商账单硬上限**。未开启时原有行为保持不变。真实供应商和 Web 端完整策略待统一验收。

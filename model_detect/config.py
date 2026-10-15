@@ -76,6 +76,7 @@ class AuditConfig(BaseModel):
     )
     extra_headers: dict[str, str] = Field(default_factory=dict)
     token_prices: TokenPrices | None = None
+    native_soft_token_limit: int | None = Field(default=None, ge=1)
 
 
 def _resolve_relative_path(base: Path, value: str) -> str:
