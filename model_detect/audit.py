@@ -176,7 +176,7 @@ async def _run_regression_suites(
                 {
                     "status": "error",
                     "regression_file": str(regression_file),
-                    "error": f"{type(exc).__name__}: {exc}",
+                    "error": f"{type(exc).__name__}: raw error hidden",
                 }
             )
             report.results.append(
@@ -188,7 +188,7 @@ async def _run_regression_suites(
                     confidence=1.0,
                     summary=(
                         "regression suite failed: "
-                        f"{type(exc).__name__}: {exc}"
+                        f"{type(exc).__name__}: raw error hidden"
                     ),
                     metadata={
                         "engine": "promptfoo",
@@ -269,7 +269,7 @@ async def run_audit(
                     status=ProbeStatus.ERROR,
                     score=None,
                     confidence=1.0,
-                    summary=f"{type(exc).__name__}: {exc}",
+                    summary=f"{type(exc).__name__}: raw error hidden",
                 )
             ]
             evidences = []
@@ -413,7 +413,7 @@ async def run_audit(
             report.adapters["lm_eval_benchmark"] = {
                 "status": "error",
                 "profile": config.benchmark_profile,
-                "reason": f"{type(exc).__name__}: {exc}",
+                "reason": f"{type(exc).__name__}: raw error hidden",
             }
     else:
         report.adapters["lm_eval_benchmark"] = {"status": "disabled"}
@@ -510,13 +510,13 @@ async def run_audit(
                     status=ProbeStatus.ERROR,
                     score=None,
                     confidence=1.0,
-                    summary=f"fingerprint adapter failed: {type(exc).__name__}: {exc}",
+                    summary=f"fingerprint adapter failed: {type(exc).__name__}; raw error hidden",
                     metadata={"engine": "llm-fingerprint-detector"},
                 )
             )
             report.adapters["fingerprint"] = {
                 **fingerprint.availability(),
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": f"{type(exc).__name__}: raw error hidden",
             }
     else:
         report.adapters["fingerprint"] = {
