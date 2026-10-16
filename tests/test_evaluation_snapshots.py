@@ -45,3 +45,12 @@ def test_snapshot_never_overwrites_existing_reference(tmp_path):
     with pytest.raises(FileExistsError):
         save_snapshot(snapshot("supplier", score=.01), path)
     assert path.read_bytes() == original
+
+
+def test_self_asserted_provenance_flag_is_never_official_attestation():
+    official = snapshot("official", source_verified=True)
+    vendor = snapshot("vendor", source_verified=True)
+    result = compare_snapshots(official, vendor)
+    assert result["claimed_source_verified"] is True
+    assert result["provenance_verified"] is False
+    assert result["identity_proven"] is False
