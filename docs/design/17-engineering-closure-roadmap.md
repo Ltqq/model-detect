@@ -114,3 +114,8 @@
 
 - `import-lmeval-snapshot --result-file <results.json> --samples-file <samples.json> --task gsm8k --model glm-5.3 --provider-role official --dataset-revision <rev> --scorer-revision <rev> --output <snapshot.json>`：离线抽取分数、实际有效样本数、明确的 doc_id 集合 hash、原始文件 SHA256 及任务合同 SHA256；只有源产物包含足够字段时才生成不可覆盖快照。
 - 数据集 revision 与评分器 revision 当前需要**用户声明**，标记 `source_verified=false`；不假装自动取得官方真值。缺失样本日志、版本、doc_id 或分数时 fail closed。下一步必须让真实 lm-eval 运行流程提供 `--log_samples` 的标准原始文件及版本来源，否则不能宣称自动采集闭环完成。
+
+
+### K5 日志格式兼容补充（2026-10-16）
+
+- 样本证据导入兼容 lm-eval 常用的逐行 JSONL（以及原本 JSON 数组），两者都必须有可复核的 `doc_id`、实际有效题数一致；不导出原始提示词或回复，拒绝重复 ID。不支持的原始日志结构显式失败而非推测补齐。
