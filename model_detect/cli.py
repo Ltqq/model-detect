@@ -256,6 +256,36 @@ def compare_command(
         console.print(ptable)
 
 
+@app.command("import-lmeval-snapshot")
+def import_lmeval_snapshot_command(
+    result_file: Path = typer.Option(..., "--result-file", exists=True, dir_okay=False),
+    samples_file: Path = typer.Option(..., "--samples-file", exists=True, dir_okay=False),
+    task: str = typer.Option(..., "--task"),
+    model: str = typer.Option(..., "--model"),
+    provider_role: str = typer.Option(..., "--provider-role"),
+    dataset_revision: str = typer.Option(..., "--dataset-revision"),
+    scorer_revision: str = typer.Option(..., "--scorer-revision"),
+    output: Path = typer.Option(..., "--output"),
+) -> None:
+    """Import existing lm-eval results and logged sample IDs; does not run models."""
+    from .lmeval_snapshot_import import import_lmeval_snapshot
+    try:
+        item = import_lmeval_snapshot(
+            result_file=result_file, samples_file=samples_file,
+            task=task, model=model, provider_role=provider_role,
+            dataset_revision=dataset_revision, scorer_revision=scorer_revision,
+            output=output,
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        raise typer.BadParameter(
+            "lm-eval snapshot import failed: inspect result/sample versions and metadata"
+        ) from None
+    console.print_json(data={
+        "output": str(output), "task": item.task_id,
+        "sample_count": item.sample_count, "source_verified": False,
+    })
+
+
 @app.command("compare-evaluations")
 def compare_evaluations(
     official: Path = typer.Option(..., "--official", exists=True, dir_okay=False),

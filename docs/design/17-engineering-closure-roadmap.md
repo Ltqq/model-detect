@@ -108,3 +108,9 @@
 - 新增 evaluation-snapshot-v1 类型，用于保存每次官方/供应商标准 Benchmark 成绩、任务/评分版本、数据集修订、实际 sample ID hash、生成参数 hash、原始证据文件 hash、来源核验状态；旧文件默认拒绝覆盖。
 - 新增 `compare-evaluations --official <official.json> --vendor <vendor.json>`，只在合同一致时计算分差，同一简单题双双高分时提示天花板效应，绝不因此断言同权重身份。
 - 目前快照由用户在已有真实结果基础上提供/另行保存，**尚未自动从 lm-eval 原始日志填充可信 sample ID 和 scorer hash**；没有实测来源的快照 source_verified 必须保持 false。此项属于 K8 组件开发，不是完整官方 Reference 端到端验收。
+
+
+## 2026-10-16 K5 评测产物快照导入增量（待 CI）
+
+- `import-lmeval-snapshot --result-file <results.json> --samples-file <samples.json> --task gsm8k --model glm-5.3 --provider-role official --dataset-revision <rev> --scorer-revision <rev> --output <snapshot.json>`：离线抽取分数、实际有效样本数、明确的 doc_id 集合 hash、原始文件 SHA256 及任务合同 SHA256；只有源产物包含足够字段时才生成不可覆盖快照。
+- 数据集 revision 与评分器 revision 当前需要**用户声明**，标记 `source_verified=false`；不假装自动取得官方真值。缺失样本日志、版本、doc_id 或分数时 fail closed。下一步必须让真实 lm-eval 运行流程提供 `--log_samples` 的标准原始文件及版本来源，否则不能宣称自动采集闭环完成。
