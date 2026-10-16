@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 from .adapters.lm_eval import discover_result_file
@@ -11,6 +12,8 @@ from .lmeval_snapshot_import import import_lmeval_snapshot
 def import_run_directory(*, run_dir: Path, task: str, output: Path,
                          model: str, provider_role: str,
                          dataset_revision: str, scorer_revision: str) -> Any:
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", task):
+        raise ValueError("invalid task name")
     root = Path(run_dir)
     if not root.is_dir() or root.is_symlink():
         raise ValueError("invalid run directory")
