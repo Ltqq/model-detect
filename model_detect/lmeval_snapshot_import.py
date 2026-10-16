@@ -27,13 +27,34 @@ def _read_json(path: Path) -> tuple[dict[str, Any] | list[Any], bytes]:
     return parsed, raw
 
 
+def _read_samples(path: Path) -> list[dict[str, Any]]:
+    path = Path(path)
+    if path.is_symlink() or path.stat().st_size > 64 * 1024 * 1024:
+        raise ValueError("invalid or oversized sample log")
+    if path.suffix.lower() == ".jsonl":
+        rows = []
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if not isinstance(row, dict):
+                    raise ValueError("JSONL sample is not an object")
+                rows.append(row)
+        return rows
+    data, _ = _read_json(path)
+    if not isinstance(data, list):
+        raise ValueError("sample JSON must be an array")
+    return data
+
+
 def snapshot_from_lmeval(
     *, result_file: Path, samples_file: Path, task: str, model: str,
     provider_role: str, dataset_revision: str, scorer_revision: str,
 ) -> EvaluationSnapshot:
     report, raw = _read_json(result_file)
-    samples, _ = _read_json(samples_file)
-    if not isinstance(report, dict) or not isinstance(samples, list):
+    samples = _read_samples(samples_file)
+    if not isinstance(report, dict):
         raise ValueError("expected lm-eval result object and samples list")
     configs = report.get("configs")
     if not isinstance(configs, dict) or not isinstance(configs.get(task), dict):
