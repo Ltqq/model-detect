@@ -70,7 +70,8 @@ def compare_snapshots(official: EvaluationSnapshot, vendor: EvaluationSnapshot) 
             if compatible and official.score >= .9 and vendor.score >= .9 else None
         ),
         "identity_proven": False,
-        "provenance_verified": False,\n        "claimed_source_verified": official.source_verified and vendor.source_verified,
+        "provenance_verified": False,
+        "claimed_source_verified": official.source_verified and vendor.source_verified,
         "warning": (
             "Supplied benchmark scores are user-provided evidence. Matching scores "
             "never proves that the same model weights were used."
