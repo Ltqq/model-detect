@@ -256,6 +256,13 @@ def compare_command(
         console.print(ptable)
 
 
+@app.command("evaluation-catalog")
+def evaluation_catalog_command() -> None:
+    """List official versus community evaluation sources without API calls."""
+    from .evaluation_catalog import evaluation_catalog
+    console.print_json(data=evaluation_catalog())
+
+
 @app.command("oss-status")
 def oss_status(
     json_output: bool = typer.Option(False, "--json", help="Print structured readiness for all four adapters"),
