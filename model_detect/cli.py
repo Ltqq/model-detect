@@ -314,6 +314,25 @@ def import_lmeval_snapshot_command(
     })
 
 
+@app.command("compare-evaluation-dirs")
+def compare_evaluation_dirs(
+    official_dir: Path = typer.Option(..., "--official-dir", exists=True, file_okay=False),
+    vendor_dir: Path = typer.Option(..., "--vendor-dir", exists=True, file_okay=False),
+    output_dir: Path = typer.Option(..., "--output-dir"),
+) -> None:
+    """Write Chinese JSON/Markdown report for many stored benchmark tasks."""
+    from .evaluation_batch_report import compare_directories, write_comparison_report
+    try:
+        report = compare_directories(official_dir, vendor_dir)
+        write_comparison_report(report, output_dir)
+    except (OSError, ValueError, TypeError):
+        raise typer.BadParameter("batch evaluation compare failed; check distinct tasks and output path") from None
+    console.print_json(data={
+        "report": str(output_dir), "comparable_tasks": report["comparable_tasks"],
+        "unknown_or_incompatible_tasks": report["unknown_or_incompatible_tasks"],
+    })
+
+
 @app.command("compare-evaluations")
 def compare_evaluations(
     official: Path = typer.Option(..., "--official", exists=True, dir_okay=False),
