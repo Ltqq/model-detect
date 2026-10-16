@@ -131,3 +131,9 @@
 
 - `import-lmeval-run --run-dir <run-folder> --task gsm8k --model <model> --provider-role official --dataset-revision <rev> --scorer-revision <rev> --output <snapshot.json>`：自动查找 lm-eval 结果 JSON 与唯一匹配的任务级 samples JSONL/JSON，生成不可覆盖的 Reference 快照；不再要求用户逐个指定文件。
 - 多个样本文件、非法任务名、缺少对应样本或完整合同均拒绝，保留未知来源状态。该功能**读取现有真实产物但不运行模型**；仍需真正实装兼容性与未来 Web 主流程对照验收。
+
+
+### K9 离线多任务统一对照报告（2026-10-16）
+
+- 新增 `compare-evaluation-dirs --official-dir <path> --vendor-dir <path> --output-dir <new-path>`，按 task ID 配对多份存储快照，逐项标明可比/不兼容/缺少配对，生成中文 Markdown 与 JSON；不同数据集或样本 ID 不得计算分差。
+- 报告明确未经独立认证的来源快照不能证明模型身份；同类题双高分提示区分度不足。输出目录拒绝覆盖。该 CLI 是 K9 的离线组件，尚未接入 Web 任务历史和真实官方结果自动来源认证。
