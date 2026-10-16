@@ -256,6 +256,23 @@ def compare_command(
         console.print(ptable)
 
 
+@app.command("compare-evaluations")
+def compare_evaluations(
+    official: Path = typer.Option(..., "--official", exists=True, dir_okay=False),
+    vendor: Path = typer.Option(..., "--vendor", exists=True, dir_okay=False),
+) -> None:
+    """Compare stored benchmark snapshots; never call any model."""
+    from .evaluation_snapshots import EvaluationSnapshot, compare_snapshots
+    try:
+        if official.stat().st_size > 1_000_000 or vendor.stat().st_size > 1_000_000:
+            raise ValueError("snapshot too large")
+        left = EvaluationSnapshot.model_validate_json(official.read_text(encoding="utf-8"))
+        right = EvaluationSnapshot.model_validate_json(vendor.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise typer.BadParameter("invalid snapshot; raw private data hidden") from None
+    console.print_json(data=compare_snapshots(left, right))
+
+
 @app.command("evaluation-catalog")
 def evaluation_catalog_command() -> None:
     """List official versus community evaluation sources without API calls."""
