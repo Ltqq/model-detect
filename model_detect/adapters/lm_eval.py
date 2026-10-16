@@ -63,6 +63,7 @@ def build_command(
     max_gen_toks: int | None = None,
     reasoning_effort: str | None = None,
     binary: str | None = None,
+    log_samples: bool = False,
 ) -> list[str]:
     if not model.strip():
         raise ValueError("model is required")
@@ -100,6 +101,8 @@ def build_command(
         "--output_path",
         str(output_path),
     ]
+    if log_samples:
+        cmd.append("--log_samples")
     if reasoning_effort is not None:
         if reasoning_effort not in {"low", "high", "max"}:
             raise ValueError("reasoning_effort must be low, high or max")
@@ -148,6 +151,7 @@ def run_endpoint(
     reasoning_effort: str | None = None,
     binary: str | None = None,
     local_only: bool = False,
+    log_samples: bool = False,
 ) -> dict[str, Any]:
     output = Path(output_path)
     output.mkdir(parents=True, exist_ok=True)
@@ -162,6 +166,7 @@ def run_endpoint(
         max_gen_toks=max_gen_toks,
         reasoning_effort=reasoning_effort,
         binary=binary,
+        log_samples=log_samples,
     )
     env = dict(os.environ)
     if local_only:
