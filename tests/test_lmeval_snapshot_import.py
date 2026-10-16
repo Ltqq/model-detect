@@ -48,3 +48,20 @@ def test_missing_samples_and_duplicate_ids_fail_closed(tmp_path):
     args["samples_file"].write_text(json.dumps([{"doc_id": 7}]))
     with pytest.raises(ValueError, match="count"):
         snapshot_from_lmeval(**args)
+
+
+def test_official_lmeval_jsonl_sample_format(tmp_path):
+    args = _args(tmp_path)
+    path = tmp_path / "samples_gsm8k.jsonl"
+    path.write_text(
+        json.dumps({"doc_id": 3, "resps": [["private response"]]}) + "\n" +
+        json.dumps({"doc_id": 9, "doc": {"secret": "private prompt"}}) + "\n"
+    )
+    args["samples_file"] = path
+    snapshot = snapshot_from_lmeval(**args)
+    assert snapshot.sample_count == 2
+    assert snapshot.source_verified is False
+    assert "private" not in snapshot.model_dump_json()
+    path.write_text(json.dumps({"doc_id": 3}) + "\n" + json.dumps({"doc_id": 3}) + "\n")
+    with pytest.raises(ValueError, match="duplicate"):
+        snapshot_from_lmeval(**args)
