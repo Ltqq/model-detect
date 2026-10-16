@@ -296,6 +296,16 @@ def usage_csv(
     console.print_json(data=result)
 
 
+@app.command("catalog")
+def catalog(
+    model: Optional[str] = typer.Option(None, "--model", help="Filter to a model and model-agnostic benchmarks"),
+    provenance: Optional[str] = typer.Option(None, "--provenance", help="Filter by declared authority type"),
+) -> None:
+    """Show official-source pins, community benchmarks and unsupported coverage."""
+    from .test_catalog import select_catalog
+    console.print_json(data=select_catalog(model=model, provenance=provenance))
+
+
 @app.command()
 def version() -> None:
     console.print(__version__)
