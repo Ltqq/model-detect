@@ -256,6 +256,34 @@ def compare_command(
         console.print(ptable)
 
 
+@app.command("import-lmeval-run")
+def import_lmeval_run_command(
+    run_dir: Path = typer.Option(..., "--run-dir", exists=True, file_okay=False),
+    task: str = typer.Option(..., "--task"),
+    model: str = typer.Option(..., "--model"),
+    provider_role: str = typer.Option(..., "--provider-role"),
+    dataset_revision: str = typer.Option(..., "--dataset-revision"),
+    scorer_revision: str = typer.Option(..., "--scorer-revision"),
+    output: Path = typer.Option(..., "--output"),
+) -> None:
+    """Import one saved lm-eval task run; no model API calls."""
+    from .lmeval_run_import import import_run_directory
+    try:
+        record = import_run_directory(
+            run_dir=run_dir, task=task, model=model, provider_role=provider_role,
+            dataset_revision=dataset_revision, scorer_revision=scorer_revision,
+            output=output,
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        raise typer.BadParameter(
+            "lm-eval run import refused: expected one valid result and task sample log"
+        ) from None
+    console.print_json(data={
+        "task": record.task_id, "sample_count": record.sample_count,
+        "output": str(output), "source_verified": False,
+    })
+
+
 @app.command("import-lmeval-snapshot")
 def import_lmeval_snapshot_command(
     result_file: Path = typer.Option(..., "--result-file", exists=True, dir_okay=False),

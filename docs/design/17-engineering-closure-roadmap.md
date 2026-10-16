@@ -125,3 +125,9 @@
 
 - lm-eval Adapter 的 `build_command/run_endpoint` 增加 `log_samples=False` 参数，用户明确选择时才向官方 lm-eval CLI 传入 `--log_samples`。默认不存储原始逐题问答，保护隐私和减少文件大小；运行成功后才可将原始结果与对应 JSONL 导入 Reference 快照。
 - 下一项是把明确用户授权的评测执行与快照导入联通，保证 task、样本日志、实际版本匹配；这次没有调用模型，也没有宣称自动认证官方模型。
+
+
+### K5 保存运行目录的一键离线导入（2026-10-16）
+
+- `import-lmeval-run --run-dir <run-folder> --task gsm8k --model <model> --provider-role official --dataset-revision <rev> --scorer-revision <rev> --output <snapshot.json>`：自动查找 lm-eval 结果 JSON 与唯一匹配的任务级 samples JSONL/JSON，生成不可覆盖的 Reference 快照；不再要求用户逐个指定文件。
+- 多个样本文件、非法任务名、缺少对应样本或完整合同均拒绝，保留未知来源状态。该功能**读取现有真实产物但不运行模型**；仍需真正实装兼容性与未来 Web 主流程对照验收。
