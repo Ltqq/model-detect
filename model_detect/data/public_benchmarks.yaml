@@ -127,3 +127,28 @@ entries:
       decoding_parameters: null
     comparison_status: background_only
     caveat: "Official model-card result. Its reported mini-swe-agent setup does not imply local runs use the same samples, scoring revision or agent harness."
+
+  - id: deepseek-v4-pro-0813-deepswe-published
+    evidence_type: official_published_aggregate
+    model: deepseek-v4
+    model_variant: "DeepSeek-V4-Pro-0813"
+    benchmark: "DeepSWE"
+    metric: "vendor_reported_score"
+    value: 62.7
+    unit: "points"
+    source:
+      publisher: "DeepSeek"
+      url: "https://api-docs.deepseek.com/updates/"
+      section: "2026-08-13 DeepSeek-V4-Pro GA update"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: "max"
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Official V4-Pro-0813 aggregate; DeepSeek reports its agent tests with DeepSeek Harness minimal mode, max effort, top_p 0.95 and temperature 1.0. Missing exact task/samples/scorer version prevents strict comparison."
