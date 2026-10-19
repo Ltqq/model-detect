@@ -52,7 +52,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 |---|---|---|---|
 | M0 | **代码已合并** | [#105](https://github.com/Ltqq/model-detect/pull/105)，CI 成功，文档替代旧排期 | **未偏移**：只冻结主链、退出标准及复用边界 |
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
-| M2 | **进行中** | opt-in 持久化实际 lm-eval 结果及样本日志，阻止目标目录覆盖；下批衔接自动快照导入 | **未偏移（本 PR 待核对）**：复用 audit/lm_eval，不加引擎；尚未完成一键 Reference |
+| M2 | **进行中，待 CI** | [#107](https://github.com/Ltqq/model-detect/pull/107) 已合并：保留真实评测结果及 sample log；本批从任务修订清单自动生成多份快照 | **未偏移（待 CI）**：直接调用现有 snapshot 导入器，不新建引擎或新 CLI |
 | M3 | 待做 | 官方结果与供应商能力差异汇总 | 待判定 |
 | M4 | 待做 | Web/SQLite 主路径 | 待判定 |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
@@ -83,3 +83,12 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 明确风险：原始 sample log **可能包含 Prompt/响应**；不要上传公开仓库，脱敏 Reference 快照仍然不含正文。
 - **尚未达 M2 完成标准**：这一步只保留真实产物，后续需复用现有导入器完成「评测成功后自动转换为同版本 Reference」，不加新的独立目录或导入命令。
 - 偏移判定：本次修改既有 `audit`/`lm_eval` 接口、路径配置与最小回归，**未偏移**；如 CI 失败需修复后才能合并。
+
+
+### M2-B 运行结果自动转 Reference（2026-10-19，提交前偏移复核）
+
+- 现有 `audit` 增加可选 `--benchmark-revisions revisions.yaml`，必须同时设置 `--benchmark-profile`、`--benchmark-evidence-dir`；清单 `schema: benchmark-revisions-v1`、`provider_role: official|vendor`、`tasks: {gsm8k: {dataset_revision: ..., scorer_revision: ...}}`。
+- 运行前严格检查清单 task 与 profile 任务集合相等、身份角色和修订字段合法；异常不发送收费请求、不创建输出目录。
+- lm-eval 正常结束后复用已存在的结果解析、任务合同、sample ID hash 和 `EvaluationSnapshot`，批量保存至 `<benchmark-evidence-dir>/snapshots/<task>.json`；所有任务先完成验证后保存。原始数据仍只保留在用户明确指定的目录。
+- **来源仍未经认证**：输入修订由用户声明，即使 role=official 也不属于官方认证成绩；缺样本/版本/评分器则在审计报告标记 `snapshot_import=incomplete`，不计算虚假可比结论。
+- 漂移检查：沿用现有 audit、lm_eval、导入器、score/Reference 模型，未增加新的评测引擎或独立入口，**未偏移**。真正官方执行与日志样本兼容性需 R 阶段实测；本阶段只标工程代码可用。
