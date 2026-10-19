@@ -6,7 +6,7 @@ import re
 import shutil
 from pathlib import Path
 
-from .models import AuditReport
+from .models import AuditReport, ProbeStatus
 from .interpretation import (
     build_report_interpretation,
     category_label,
