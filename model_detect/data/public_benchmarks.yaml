@@ -1,0 +1,29 @@
+# Officially published aggregate figures only; NOT observed via the user's API.
+# Consumers must never subtract these figures from arbitrary model-detect
+# scores to declare an identity match or quality regression.
+schema_version: 1
+entries:
+  - id: kimi-k3-gpqa-diamond-max-published
+    evidence_type: official_published_aggregate
+    model: kimi-k3
+    model_variant: "Kimi K3 (max)"
+    benchmark: "GPQA Diamond"
+    metric: "vendor_reported_score"
+    value: 93.5
+    unit: "points"
+    source:
+      publisher: "MoonshotAI"
+      url: "https://github.com/MoonshotAI/Kimi-K3/blob/main/README.md"
+      section: "3. Evaluation Results"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: "max"
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Vendor-published aggregate; unknown task and harness revisions. No same-sample comparison or weight authentication is possible."
