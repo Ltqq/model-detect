@@ -170,10 +170,6 @@ def create_app(
                 ),
                 "references": registry.list(),
                 "regression_suites": _list_regression_suites(regression_root),
-                "provider_options": [
-                    {"id": provider_id, "label": rule.label}
-                    for provider_id, rule in load_provider_rule_set().providers.items()
-                ],
                 "history_filters": {
                     "model": model or "",
                     "status": status or "",
