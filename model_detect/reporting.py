@@ -520,8 +520,7 @@ def _render_html(report: AuditReport) -> str:
     copy_text_json = json.dumps(
         "准入建议：" + str(human["decision"]) + "\n"
         + "结论：" + str(human["headline"]) + "\n"
-        + "综合分：" + str(score_text) + "\n"
-        + "证据可信度：" + str(human["confidence_label"]) + "\n"
+        + "模型身份：未经独立认证，需结合逐项证据复核\n"
         + "质量基准：" + str(quality.get("label") or "未配置"),
         ensure_ascii=False,
     )
@@ -564,13 +563,13 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
       <div class="decision">准入建议<strong>{html.escape(human['decision'])}</strong></div>
       <p class="headline" id="human-headline">{html.escape(human['headline'])}</p>
       <div style="margin-top:12px"><button onclick="copyConclusion()">复制结论</button></div>
-      <div class="notice" style="margin-top:14px">综合分数是审计评分，不是“模型为真”的概率。模型真假优先看“模型身份”与 Trusted Reference / Statistical Fingerprint。</div>
+      <div class="notice" style="margin-top:14px">仅展示本次检测的可观察结果；协议或能力通过不能认证模型权重身份。历史加权分数保留在原始 JSON 中，不作为当前准入结论。</div>
     </div>
     <div class="scorebox">
-      <div class="metric"><span>综合分</span><b>{html.escape(score_text)}</b></div>
-      <div class="metric"><span>证据可信度</span><b>{html.escape(human['confidence_label'])}</b></div>
-      <div class="metric"><span>系统 Verdict</span><b>{html.escape(human['verdict_label'])}</b></div>
-      <div class="metric"><span>分数硬上限</span><b>{html.escape(hard_cap)}</b></div>
+      <div class="metric"><span>通过检查项</span><b>{sum(r.status == ProbeStatus.PASS for r in report.results)}</b></div>
+      <div class="metric"><span>失败检查项</span><b>{sum(r.status == ProbeStatus.FAIL for r in report.results)}</b></div>
+      <div class="metric"><span>执行错误</span><b>{sum(r.status == ProbeStatus.ERROR for r in report.results)}</b></div>
+      <div class="metric"><span>模型身份</span><b>未独立认证</b></div>
     </div>
   </div>
 </section>
