@@ -296,6 +296,7 @@ def run_builtin_profile(
     max_retries: int = 3,
     timeout_seconds: float = 1800,
     binary: str | None = None,
+    log_samples: bool = False,
 ) -> dict[str, Any]:
     profile = resolve_builtin_profile(
         profile_name,
@@ -312,6 +313,7 @@ def run_builtin_profile(
         limit=profile["limit"],
         timeout_seconds=timeout_seconds,
         binary=binary,
+        log_samples=log_samples,
     )
     return {
         **result,
@@ -656,6 +658,7 @@ def run_builtin_profile_results(
     max_retries: int = 3,
     timeout_seconds: float = 1800,
     binary: str | None = None,
+    log_samples: bool = False,
 ) -> tuple[list[ProbeResult], dict[str, Any]]:
     profile = resolve_builtin_profile(
         profile_name,
@@ -672,6 +675,7 @@ def run_builtin_profile_results(
         max_retries=max_retries,
         timeout_seconds=timeout_seconds,
         binary=binary,
+        log_samples=log_samples,
     )
     if int(meta.get("returncode") or 0) != 0:
         raise RuntimeError(
