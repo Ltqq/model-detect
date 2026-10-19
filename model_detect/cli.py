@@ -432,10 +432,6 @@ def oss_status(
             else "unknown" if item["version_compatible"] is None else "matched",
             "NOT live verified",
         )
-    from .sandbox import availability as sandbox_availability
-    sb = sandbox_availability()
-    table.add_row("Docker coding sandbox", "yes" if sb["available"] else "no",
-                  "separate optional executable sandbox", "NOT live verified")
     console.print(table)
     console.print("[yellow]CLI presence does not mean integrated or trusted results.[/yellow]")
 
