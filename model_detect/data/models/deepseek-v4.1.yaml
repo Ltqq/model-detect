@@ -14,7 +14,7 @@ sources:
   - id: deepseek-first-call
     type: official_doc
     title: "DeepSeek API - Your First API Call"
-    url: "https://api-docs.deepseek.com/guides/harness"
+    url: "https://api-docs.deepseek.com/"
     collected_at: "2026-10-19"
     confidence: high
   - id: deepseek-updates
@@ -23,18 +23,58 @@ sources:
     url: "https://api-docs.deepseek.com/updates/"
     collected_at: "2026-10-19"
     confidence: high
+  - id: deepseek-thinking-mode
+    type: official_doc
+    title: "DeepSeek API - Thinking Mode"
+    url: "https://api-docs.deepseek.com/guides/thinking_mode/"
+    collected_at: "2026-10-19"
+    confidence: high
+  - id: deepseek-chat-completions
+    type: official_doc
+    title: "DeepSeek API - Chat Completions"
+    url: "https://api-docs.deepseek.com/api/create-chat-completion/"
+    collected_at: "2026-10-19"
+    confidence: high
+  - id: deepseek-pricing
+    type: official_doc
+    title: "DeepSeek API - Current Model and Feature Matrix"
+    url: "https://api-docs.deepseek.com/quick_start/pricing/"
+    collected_at: "2026-10-19"
+    confidence: high
 strict: false
 features:
   reasoning_effort:
-    expected: null
+    expected: true
+    source_refs: [deepseek-thinking-mode, deepseek-chat-completions]
   disable_thinking:
-    expected: null
+    expected: true
+    source_refs: [deepseek-thinking-mode, deepseek-chat-completions]
   tools:
-    expected: null
+    expected: true
+    source_refs: [deepseek-pricing, deepseek-thinking-mode]
   json_schema:
     expected: null
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [none, low, high, max]
+      default: high
+      native_parameter: reasoning_effort
+      source_refs: [deepseek-chat-completions, deepseek-thinking-mode]
+    disable_thinking:
+      expected: true
+      mechanisms: ["thinking.type=disabled", "reasoning_effort=none"]
+      source_refs: [deepseek-chat-completions, deepseek-thinking-mode]
+  responses:
+    reasoning_effort:
+      values: [none, low, high, max]
+      default: high
+      native_parameter: reasoning.effort
+      source_refs: [deepseek-thinking-mode]
 notes:
   - "Official deepseek-flash is served by DeepSeek-V4.1-Flash-1017 as of 2026-10-17."
   - "Legacy deepseek-v4-flash and deepseek-v4-flash-vision-exp IDs route to V4.1 Flash, not original V4 weights."
-  - "Exact effort/tool/JSON constraints must be sourced independently before enabling strict per-model assertions."
+  - "Current official API documents Chat Completions thinking toggles, low/high/max effort, and tool calls. This is protocol support, not an assertion that any third-party gateway passes every parameter through."
+  - "In thinking-mode tool turns the official API requires preserving reasoning_content in subsequent messages."
+  - "Do not assert strict json_schema support from JSON-object mode documentation alone."
   - "The model id sent to a third-party gateway does not independently prove the deployed weight version."

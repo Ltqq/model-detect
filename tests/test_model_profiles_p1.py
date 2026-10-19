@@ -30,3 +30,32 @@ def test_deepseek_flash_legacy_alias_is_versioned():
 def test_deepseek_v4_pro_is_not_mislabeled_as_flash():
     assert match_model_rule("deepseek-v4-pro").id == "deepseek-v4"
     assert feature_spec_for("deepseek-flash", "json_schema").get("expected") is None
+
+
+def test_deepseek_flash_uses_documented_chat_completion_parameters():
+    from model_detect.rules import effective_features_for, preferred_feature_value
+    rule = match_model_rule("deepseek-flash")
+    reasoning = feature_spec_for("deepseek-flash", "reasoning_effort")
+    assert reasoning["expected"] is True
+    assert reasoning["values"] == ["none", "low", "high", "max"]
+    assert reasoning["default"] == "high"
+    assert preferred_feature_value("deepseek-flash", "reasoning_effort") == "high"
+    assert rule.protocol_features["chat_completions"]["disable_thinking"]["expected"] is True
+    assert feature_spec_for("deepseek-flash", "tools")["expected"] is True
+    assert feature_spec_for("deepseek-flash", "json_schema")["expected"] is None
+    assert feature_spec_for(
+        "deepseek-flash", "reasoning_effort", protocol="responses"
+    )["native_parameter"] == "reasoning.effort"
+    sources = {source.id for source in rule.sources}
+    assert "deepseek-thinking-mode" in sources
+    assert "deepseek-chat-completions" in sources
+    assert "deepseek-pricing" in sources
+
+
+def test_deepseek_flash_unsupported_json_schema_not_inferred_as_failure():
+    from model_detect.rules import evaluate_rule_expectations
+    checks = evaluate_rule_expectations(
+        "deepseek-flash", {"json_schema": False, "tools": True}
+    )
+    assert "json_schema" not in {item["feature"] for item in checks}
+    assert any(item["feature"] == "tools" and item["status"] == "pass" for item in checks)
