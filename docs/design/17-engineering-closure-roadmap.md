@@ -52,8 +52,8 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 |---|---|---|---|
 | M0 | **代码已合并** | [#105](https://github.com/Ltqq/model-detect/pull/105)，CI 成功，文档替代旧排期 | **未偏移**：只冻结主链、退出标准及复用边界 |
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
-| M2 | **进行中，待 CI** | [#107](https://github.com/Ltqq/model-detect/pull/107) 已合并：保留真实评测结果及 sample log；本批从任务修订清单自动生成多份快照 | **未偏移（待 CI）**：直接调用现有 snapshot 导入器，不新建引擎或新 CLI |
-| M3 | 待做 | 官方结果与供应商能力差异汇总 | 待判定 |
+| M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
+| M3 | **进行中，待 CI/合并** | 原多任务 Benchmark 报告追加 Kimi 同套官方 Pytest JUnit 用例比较，沿用已有 CLI | **未偏移（待复核）**：不重新执行/评分官方套件 |
 | M4 | 待做 | Web/SQLite 主路径 | 待判定 |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
@@ -92,3 +92,11 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - lm-eval 正常结束后复用已存在的结果解析、任务合同、sample ID hash 和 `EvaluationSnapshot`，批量保存至 `<benchmark-evidence-dir>/snapshots/<task>.json`；所有任务先完成验证后保存。原始数据仍只保留在用户明确指定的目录。
 - **来源仍未经认证**：输入修订由用户声明，即使 role=official 也不属于官方认证成绩；缺样本/版本/评分器则在审计报告标记 `snapshot_import=incomplete`，不计算虚假可比结论。
 - 漂移检查：沿用现有 audit、lm_eval、导入器、score/Reference 模型，未增加新的评测引擎或独立入口，**未偏移**。真正官方执行与日志样本兼容性需 R 阶段实测；本阶段只标工程代码可用。
+
+
+### M3-A Kimi 协议与能力基准分栏汇总（2026-10-19）
+
+- 现有 `compare-evaluation-dirs` 支持可选 `--kimi-official <summary.json> --kimi-vendor <summary.json>`；官方端点和供应商必须同模型、同套件、同固定源码、同一 testcase SHA256 集合。仅在此情况下统计官方端点通过但供应商不通过的数量。
+- Pytest 的原始通过/失败由 Kimi 官方代码产生；本项目不重复判题，只对已有状态进行对照。skip/error 显示「不完整」，用例/版本不一致显示「不可比」，不污染 Benchmark 综合分或宣称权重认证。
+- 单独 Kimi JUnit 也可生成中文 JSON/Markdown；有 Benchmark 时与分数对照共用一份文件。来源真实性仍记「输入声明、未独立认证」。
+- 偏移复核：直接使用已有 `kimi_report` JUnit 校验与 `evaluation_batch_report`、原 CLI；未新增命令/框架。尚需 M4 统一 Web/SQLite 与整条真实端点验收。
