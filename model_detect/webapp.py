@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from .adapters import fingerprint
+from .adapters import fingerprint, lm_eval
+from .lmeval_run_import import load_revision_manifest
 from .audit import run_audit
 from .baseline_collection import collect_quality_baseline
 from .config import AuditConfig, RegressionAuditConfig, UpstreamPolicyConfig
@@ -40,6 +41,8 @@ class WebAuditRequest(BaseModel):
     proxy_sleuth: bool = True
     coding_sandbox: bool = False
     benchmark_profile: str | None = None
+    retain_benchmark_reference: bool = False
+    benchmark_revisions_file: str | None = None
     regression_suites: list[str] = Field(default_factory=list)
     disallowed_upstreams: list[str] = Field(default_factory=list)
 
@@ -244,6 +247,11 @@ def create_app(
             if report_root.is_relative_to(output_root) and report_root.exists():
                 shutil.rmtree(report_root, ignore_errors=True)
 
+        if item["kind"] == "audit":
+            root = (app.state.state_dir / "benchmark-runs").resolve()
+            archived_run = (root / job_id).resolve()
+            if archived_run.is_relative_to(root) and archived_run.is_dir():
+                shutil.rmtree(archived_run, ignore_errors=True)
         archive = app.state.state_dir / f"{job_id}-report.zip"
         if archive.exists():
             archive.unlink()
@@ -332,6 +340,21 @@ def create_app(
             _validated_benchmark_profile(payload.benchmark_profile)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
+        if payload.retain_benchmark_reference:
+            if not payload.benchmark_profile or not payload.benchmark_revisions_file:
+                raise HTTPException(400, "要保存可对照的 Benchmark，请选择测试档位并提供本地版本清单")
+            try:
+                selected = lm_eval.resolve_builtin_profile(
+                    payload.benchmark_profile, include_native_overlap=True
+                )
+                load_revision_manifest(
+                    Path(payload.benchmark_revisions_file),
+                    expected_tasks=list(selected["tasks"]),
+                )
+            except (OSError, ValueError, TypeError):
+                raise HTTPException(400, "本地 Benchmark 版本清单无效或任务不匹配") from None
+        elif payload.benchmark_revisions_file:
+            raise HTTPException(400, "版本清单只能用于保存 Benchmark Reference")
         try:
             regression_paths = _resolve_regression_suites(
                 app.state.regression_dir,
@@ -350,6 +373,7 @@ def create_app(
                 "reference_id": payload.reference_id,
                 "coding_sandbox": payload.coding_sandbox,
                 "benchmark_profile": payload.benchmark_profile,
+                "retain_benchmark_reference": payload.retain_benchmark_reference,
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": (
                     "queued" if payload.regression_suites else "not_configured"
@@ -557,6 +581,14 @@ async def _run_audit_job(
             proxy_sleuth_enabled=payload.proxy_sleuth,
             coding_sandbox_enabled=payload.coding_sandbox,
             benchmark_profile=payload.benchmark_profile,
+            benchmark_evidence_dir=(
+                str(app.state.state_dir / "benchmark-runs" / job_id)
+                if payload.retain_benchmark_reference else None
+            ),
+            benchmark_revisions_file=(
+                payload.benchmark_revisions_file
+                if payload.retain_benchmark_reference else None
+            ),
             regression=RegressionAuditConfig(
                 suites=list(regression_paths or []),
             ),
@@ -594,6 +626,13 @@ async def _run_audit_job(
             if isinstance(regression_adapter, dict)
             else "not_configured"
         )
+        benchmark_meta = report.adapters.get("lm_eval_benchmark") or {}
+        imported = benchmark_meta.get("snapshot_import") if isinstance(benchmark_meta, dict) else None
+        benchmark_snapshots_dir = (
+            str(app.state.state_dir / "benchmark-runs" / job_id / "snapshots")
+            if isinstance(imported, dict) and imported.get("status") == "completed"
+            else None
+        )
         model_rule = report.adapters.get("model_rule")
         provider_provenance = _provider_provenance(
             [item.provider for item in report.provider_hypotheses[:5]]
@@ -613,6 +652,8 @@ async def _run_audit_job(
                 "provider_provenance": provider_provenance,
                 "regression_suites": list(payload.regression_suites),
                 "regression_status": regression_status,
+                "benchmark_snapshots_dir": benchmark_snapshots_dir,
+                "benchmark_snapshot_status": imported.get("status") if isinstance(imported, dict) else "not_requested",
                 "upstream_policy": report.adapters.get("upstream_policy"),
                 "human_summary": {
                     "decision": human["decision"],
