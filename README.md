@@ -28,7 +28,7 @@ model-detect audit \
   --profile standard
 ```
 
-**默认**：内置协议与基础能力检测开启；proxy-sleuth、Docker 执行沙箱和 lm-eval 外部 Benchmark 均关闭。额外功能需手动选择；`--with-proxy-sleuth` 可以主动开启第三方增强检测。普通检测也会调用 API 并可能收费；`--native-soft-token-limit` 只是观察到 Token 使用后的软停止，不是完整账单硬限额。
+**默认**：内置协议与基础能力检测开启；proxy-sleuth 和 lm-eval 外部 Benchmark 均关闭；原自研 Docker Coding Sandbox 已移除，请优先使用 lm-eval 的原生评分器。额外功能需手动选择；`--with-proxy-sleuth` 可以主动开启第三方增强检测。普通检测也会调用 API 并可能收费；`--native-soft-token-limit` 只是观察到 Token 使用后的软停止，不是完整账单硬限额。
 
 ## 目前支持的模型规则（规则存在不代表真实渠道验收通过）
 
