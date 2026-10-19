@@ -74,7 +74,13 @@ def build_test_catalog() -> dict[str, Any]:
         items.append(_entry(
             id=f"lm_eval.{name}", title=str(spec.get("dimension") or name),
             owner="EleutherAI/lm-evaluation-harness",
-            source_url="https://github.com/EleutherAI/lm-evaluation-harness",
+            source_url=(
+                f"https://github.com/{spec['source_repo']}/blob/"
+                f"{spec['source_tag']}/{spec['source_task']}"
+                if all(spec.get(k) for k in ("source_repo", "source_tag", "source_task"))
+                else "https://github.com/EleutherAI/lm-evaluation-harness"
+            ),
+            source_revision=spec.get("source_tag"),
             provenance="community_benchmark_adapter", difficulty=str(spec.get("difficulty") or "unverified"),
             cost_class="variable", integration="local_lm_eval_adapter",
             task_path=name, authority_note=(
