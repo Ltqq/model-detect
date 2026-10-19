@@ -75,7 +75,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         <option value="">不使用 Reference</option>
         {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}{% if r.fingerprint_artifact or r.fingerprint_reference %} · 指纹✓{% endif %}{% if r.baseline_artifact %} · Baseline {{ r.baseline_runs }}次{% endif %}{% if r.baseline_metadata.get('benchmark_profile') %} · Benchmark {{ r.baseline_metadata.get('benchmark_profile') }}{% endif %}</option>{% endfor %}
       </select>
-      <div class="field-help">{% if references %}带“指纹✓”的 Reference 可增强模型身份判断；带“Baseline Nx”的 Reference 还能比较能力/质量是否相对可信基准退化。{% else %}当前还没有 Reference；如果主要目标是判断模型身份，建议先去 Reference 管理页采集。{% endif %}</div>
+      <div class="field-help">{% if references %}带“指纹✓”的 Reference 可增强模型身份判断；带“Baseline Nx”的 Reference 还能比较能力/质量是否相对可信基准退化。{% else %}没有自采 Reference 也能直接检测供应商；公开成绩仅作为注明来源的背景参考，不能证明模型权重身份。{% endif %}</div>
     </div>
     <div>
       <label>声明的上下文长度（可选）</label>
@@ -102,7 +102,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         <div class="field-help">{% if regression_suites %}用于复测已知协议/参数问题，不等同于模型身份验证。{% else %}当前 regression 目录没有配置规则。{% endif %}</div>
       </div>
       <div class="wide">
-        <label>标准能力 Benchmark（可选，仅有同档 Benchmark Reference 才可比较）</label>
+        <label>标准能力 Benchmark（可选；无需官方 API，严格分数对比需要相同测试条件）</label>
         <select id="benchmark_profile">
           <option value="">不开启（默认；不额外消耗 Benchmark Token）</option>
           <option value="smoke">Smoke：1 类 × 最多 5 题</option>
