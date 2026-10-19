@@ -335,20 +335,45 @@ def import_lmeval_snapshot_command(
 
 @app.command("compare-evaluation-dirs")
 def compare_evaluation_dirs(
-    official_dir: Path = typer.Option(..., "--official-dir", exists=True, file_okay=False),
-    vendor_dir: Path = typer.Option(..., "--vendor-dir", exists=True, file_okay=False),
+    official_dir: Optional[Path] = typer.Option(None, "--official-dir", exists=True, file_okay=False),
+    vendor_dir: Optional[Path] = typer.Option(None, "--vendor-dir", exists=True, file_okay=False),
     output_dir: Path = typer.Option(..., "--output-dir"),
+    kimi_official: Optional[Path] = typer.Option(None, "--kimi-official", exists=True, dir_okay=False),
+    kimi_vendor: Optional[Path] = typer.Option(None, "--kimi-vendor", exists=True, dir_okay=False),
 ) -> None:
-    """Write Chinese JSON/Markdown report for many stored benchmark tasks."""
-    from .evaluation_batch_report import compare_directories, write_comparison_report
+    """Compare saved benchmark scores and/or original Kimi protocol suites; no API calls."""
+    from .evaluation_batch_report import (
+        compare_directories, compare_kimi_official_protocol_summaries,
+        write_comparison_report,
+    )
     try:
-        report = compare_directories(official_dir, vendor_dir)
+        if (official_dir is None) != (vendor_dir is None):
+            raise ValueError("benchmark comparison requires both endpoints")
+        if (kimi_official is None) != (kimi_vendor is None):
+            raise ValueError("Kimi protocol comparison requires both endpoints")
+        if official_dir is None and kimi_official is None:
+            raise ValueError("at least one evidence pair is required")
+        if official_dir is not None:
+            report = compare_directories(official_dir, vendor_dir)
+        else:
+            report = {
+                "schema": "evaluation-batch-report-v1", "tasks": [],
+                "total_tasks": 0, "comparable_tasks": 0,
+                "unknown_or_incompatible_tasks": 0,
+                "official_provenance_attested": False,
+                "model_identity_proven": False,
+            }
+        if kimi_official is not None:
+            report["kimi_official_protocol"] = compare_kimi_official_protocol_summaries(
+                kimi_official, kimi_vendor
+            )
         write_comparison_report(report, output_dir)
-    except (OSError, ValueError, TypeError):
-        raise typer.BadParameter("batch evaluation compare failed; check distinct tasks and output path") from None
+    except (OSError, ValueError, TypeError, KeyError):
+        raise typer.BadParameter("evaluation compare rejected: invalid, missing or incomparable source inputs") from None
     console.print_json(data={
         "report": str(output_dir), "comparable_tasks": report["comparable_tasks"],
         "unknown_or_incompatible_tasks": report["unknown_or_incompatible_tasks"],
+        "kimi_protocol": report.get("kimi_official_protocol", {}).get("status"),
     })
 
 
