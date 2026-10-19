@@ -110,6 +110,13 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
           <option value="deep">Deep：3 类 × 最多 100 题</option>
         </select>
         <div class="field-help">必须与官方 Reference 的 Benchmark 档位相同，且本机安装 lm-eval。不同题集/版本会判“不可比”。</div>
+        <div class="row" style="margin-top:10px">
+          <input id="retain_benchmark_reference" type="checkbox" style="width:auto">
+          <span>保留本次 Benchmark 结果并自动生成 Reference 快照（需要本地版本清单）</span>
+        </div>
+        <label for="benchmark_revisions_file" style="margin-top:8px">版本清单 YAML 路径（服务器本机）</label>
+        <input id="benchmark_revisions_file" placeholder="./revisions-official.yaml">
+        <div class="field-warn">勾选后保存的原始逐题日志可能含 Prompt 和回复；不要公开分享。实际来源未经独立认证。删除任务会一并删除这些日志与快照。</div>
       </div>
       <div>
         <label>开源增强检测</label>
@@ -204,6 +211,13 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
             <div class="small">未知/不可比：{{ j.meta.get('unknown_or_incompatible_tasks',0) }}</div>
             <div class="small">Kimi 协议：{{ j.meta.get('kimi_protocol_status') or '未提供' }}</div>
           {% else %}—{% endif %}
+          {% if j.kind == 'audit' and j.meta.get('benchmark_snapshots_dir') %}
+            <div class="small" style="margin-top:8px">Benchmark 快照已保存</div>
+            <button class="secondary" style="padding:5px 7px;font-size:11px" data-snapshot-path="{{ j.meta['benchmark_snapshots_dir'] }}" data-model="{{ j.model }}" onclick="selectSnapshot(this,'official')">设为官方</button>
+            <button class="secondary" style="padding:5px 7px;font-size:11px" data-snapshot-path="{{ j.meta['benchmark_snapshots_dir'] }}" data-model="{{ j.model }}" onclick="selectSnapshot(this,'vendor')">设为供应商</button>
+          {% elif j.kind == 'audit' and j.meta.get('benchmark_snapshot_status') == 'incomplete' %}
+            <div class="field-warn">已保留日志，但快照不完整；检查版本/样本。</div>
+          {% endif %}
         </td>
         <td>
           {% if j.status == 'running' %}<span class="status-running">检测中</span>
@@ -268,10 +282,15 @@ q('run').onclick=async()=>{
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
     proxy_sleuth:q('proxy').checked,coding_sandbox:q('coding_sandbox').checked,
     benchmark_profile:q('benchmark_profile').value||null,
+    retain_benchmark_reference:q('retain_benchmark_reference').checked,
+    benchmark_revisions_file:q('benchmark_revisions_file').value.trim()||null,
     regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
     disallowed_upstreams:Array.from(q('disallowed_upstreams').selectedOptions).map(o=>o.value)
   };
   if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='请填写 Base URL、API Key 和模型 ID';return}
+  if(body.retain_benchmark_reference&&(!body.benchmark_profile||!body.benchmark_revisions_file)){
+    q('msg').textContent='请先选择 Benchmark 档位并填写本地版本清单路径';return
+  }
   q('run').disabled=true;q('msg').textContent='正在创建检测任务…';q('result_box').style.display='none';
   try{
     const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
@@ -279,6 +298,13 @@ q('run').onclick=async()=>{
     q('api_key').value='';q('msg').textContent='任务已启动：'+data.id;poll(data.id);
   }catch(e){q('msg').textContent='创建失败：'+e.message;q('run').disabled=false}
 };
+function selectSnapshot(button,role){
+  const field=role==='official'?'compare_official_dir':'compare_vendor_dir';
+  q(field).value=button.dataset.snapshotPath||'';
+  q('compare_model').value=button.dataset.model||'';
+  q('compare_msg').textContent='已选择本地快照，另一侧也需选择同版本结果。';
+  q(field).scrollIntoView({behavior:'smooth',block:'center'});
+}
 q('compare_run').onclick=async()=>{
   const get=id=>q(id).value.trim();
   const payload={
@@ -326,7 +352,7 @@ async function poll(id){
   },1200);
 }
 async function deleteJob(id){
-  if(!confirm('删除这条历史记录和本地报告文件？'))return;
+  if(!confirm('删除这条历史记录、报告及相关本地 Benchmark 原始日志与快照？'))return;
   const r=await fetch('/api/jobs/'+encodeURIComponent(id),{method:'DELETE'});
   const d=await r.json();if(r.ok)location.reload();else alert('删除失败：'+(d.detail||'未知错误'));
 }
