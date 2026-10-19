@@ -130,6 +130,23 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
 </div>
 
 <div class="card">
+  <div class="row between"><div><div class="eyebrow">官方 Reference 对照</div><h2>比较已保存的评测结果</h2></div><span class="muted">离线操作 · 不消耗模型 Token</span></div>
+  <p class="muted">先通过 CLI 将同模型、同任务的评测输出保存在 <code>.model-detect/evaluation-runs/目录名/</code>，目录内应包含 <code>snapshots/*.json</code>。可选：每边各放一份 <code>kimi-summary.json</code>，对应相同官方 Pytest 套件。这里仅比较已有结果，不调用供应商 API，也不会将用户声明来源当作官方认证。</p>
+  <div class="grid">
+    <div><label>要对照的模型 ID</label><input id="compare_model" placeholder="例如 kimi-k3" maxlength="128"></div>
+    <div><label>官方端点评测目录名</label><input id="compare_official" placeholder="例如 kimi-official-01" maxlength="80"></div>
+    <div><label>供应商评测目录名</label><input id="compare_vendor" placeholder="例如 kimi-vendor-01" maxlength="80"></div>
+    <div>
+      <label>对照范围</label>
+      <div class="row"><input id="compare_benchmark" type="checkbox" checked style="width:auto"><span class="small">能力 Benchmark 快照</span></div>
+      <div class="row"><input id="compare_kimi" type="checkbox" style="width:auto"><span class="small">Kimi 官方协议子套件结果</span></div>
+    </div>
+  </div>
+  <div style="margin-top:16px"><button id="compare_run">生成对照报告</button> <span id="compare_msg" class="muted"></span></div>
+  <div id="compare_result" class="result-box"><h3>对照报告已生成</h3><p>结果已保存到 SQLite 历史，含可比、不可比和来源限制。</p><a id="compare_report_link" href="#">查看中文对照报告 →</a></div>
+</div>
+
+<div class="card">
   <div class="row between"><div><div class="eyebrow">历史记录</div><h2>检测结果</h2></div><button class="secondary" onclick="location.reload()">刷新</button></div>
   <form method="get" action="/" class="filters">
     <input name="model" value="{{ history_filters.model }}" placeholder="按模型筛选，例如 kimi">
@@ -144,6 +161,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
       <option value="">全部类型</option>
       <option value="audit" {% if history_filters.kind == 'audit' %}selected{% endif %}>模型审计</option>
       <option value="reference" {% if history_filters.kind == 'reference' %}selected{% endif %}>Reference 采集</option>
+      <option value="comparison" {% if history_filters.kind == 'comparison' %}selected{% endif %}>模型能力对照</option>
     </select>
     <button type="submit">筛选</button><a class="muted" href="/">清空</a>
   </form>
@@ -156,11 +174,14 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
       <tr data-job="{{ j.id }}">
         <td>
           <div class="job-title">{{ j.model }}</div>
-          <div class="job-sub">{{ j.created_at[:19] }} · {{ '模型审计' if j.kind == 'audit' else 'Reference' }} · {{ j.profile }}</div>
+          <div class="job-sub">{{ j.created_at[:19] }} · {{ '模型审计' if j.kind == 'audit' else ('模型能力对照' if j.kind == 'comparison' else 'Reference') }} · {{ j.profile }}</div>
           <div class="job-sub">{{ j.base_url }}</div>
         </td>
         <td>
-          {% if j.kind == 'audit' and (h.get('decision') or j.meta.get('verdict')) %}
+          {% if j.kind == 'comparison' %}
+            <span class="pill">离线能力对照</span>
+            <div class="headline">来源未经独立认证，不能证明权重身份</div>
+          {% elif j.kind == 'audit' and (h.get('decision') or j.meta.get('verdict')) %}
             <span class="pill {% if h.get('tone') == 'good' %}good{% elif h.get('tone') == 'bad' %}bad{% else %}warn{% endif %}">{{ h.get('decision') or j.meta.get('verdict') }}</span>
             <div class="headline">{{ h.get('headline','') }}</div>
           {% else %}—{% endif %}
@@ -178,6 +199,10 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
             <div class="small">质量：{{ h.get('quality_state','—') }}</div>
             <div class="small">上游策略：{{ h.get('provider_state','—') }}</div>
             <div class="small">429：{{ h.get('http_429_count',0) }}</div>
+          {% elif j.kind == 'comparison' %}
+            <div class="small">可比任务：{{ j.meta.get('comparable_tasks',0) }}</div>
+            <div class="small">未知/不可比：{{ j.meta.get('unknown_or_incompatible_tasks',0) }}</div>
+            <div class="small">Kimi 协议：{{ j.meta.get('kimi_status') or '未选择' }}</div>
           {% elif j.kind == 'audit' %}<span class="muted">旧报告暂无中文摘要，打开报告查看。</span>{% else %}—{% endif %}
         </td>
         <td>
@@ -235,6 +260,29 @@ async function previewModelRule(){
   }catch(e){}
 }
 q('model').addEventListener('blur',previewModelRule);
+
+q('compare_run').onclick=async()=>{
+  const payload={
+    model:q('compare_model').value.trim(),
+    official_run:q('compare_official').value.trim(),
+    vendor_run:q('compare_vendor').value.trim(),
+    include_benchmark:q('compare_benchmark').checked,
+    include_kimi:q('compare_kimi').checked
+  };
+  if(!payload.model||!payload.official_run||!payload.vendor_run){
+    q('compare_msg').textContent='请填写模型 ID 和两边已保存的目录名';return;
+  }
+  q('compare_run').disabled=true;q('compare_msg').textContent='正在比较本地结果…';
+  q('compare_result').style.display='none';
+  try {
+    const r=await fetch('/api/evaluation-comparisons',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+    const data=await r.json();if(!r.ok)throw new Error(data.detail||'输入无效');
+    q('compare_msg').textContent='已保存到历史：'+data.id;
+    q('compare_report_link').href='/reports/'+encodeURIComponent(data.id);
+    q('compare_result').style.display='block';
+  }catch(e){q('compare_msg').textContent='对照失败：'+e.message}
+  finally{q('compare_run').disabled=false}
+};
 
 q('run').onclick=async()=>{
   const body={
