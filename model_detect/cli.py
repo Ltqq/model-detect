@@ -66,6 +66,10 @@ def audit(
         None, "--benchmark-profile",
         help="Opt-in lm-eval profile: smoke (5), standard (25), deep (100 items/task).",
     ),
+    benchmark_evidence_dir: Optional[Path] = typer.Option(
+        None, "--benchmark-evidence-dir",
+        help="Persist actual lm-eval JSON/sample logs (may include private prompts); fresh path only.",
+    ),
     disallow_upstream: list[str] = typer.Option(
         [],
         "--disallow-upstream",
@@ -102,6 +106,8 @@ def audit(
             cfg.native_soft_token_limit = native_soft_token_limit
         if benchmark_profile is not None:
             cfg.benchmark_profile = benchmark_profile
+        if benchmark_evidence_dir is not None:
+            cfg.benchmark_evidence_dir = str(benchmark_evidence_dir)
         if disallow_upstream:
             cfg.upstream_policy = UpstreamPolicyConfig(
                 disallowed=[
@@ -129,6 +135,7 @@ def audit(
             declared_context_tokens=declared_context_tokens,
             coding_sandbox_enabled=bool(coding_sandbox),
             benchmark_profile=benchmark_profile,
+            benchmark_evidence_dir=str(benchmark_evidence_dir) if benchmark_evidence_dir else None,
             native_soft_token_limit=native_soft_token_limit,
             regression=RegressionAuditConfig(
                 suites=[
@@ -141,6 +148,10 @@ def audit(
             ),
         )
 
+    if cfg.benchmark_evidence_dir and not cfg.benchmark_profile:
+        raise typer.BadParameter("--benchmark-evidence-dir requires --benchmark-profile")
+    if cfg.benchmark_evidence_dir:
+        console.print("[yellow]Persisted benchmark artifacts can contain prompts and model responses; protect this directory.[/yellow]")
     if cfg.benchmark_profile:
         from .adapters.lm_eval import resolve_builtin_profile
         plan = resolve_builtin_profile(
