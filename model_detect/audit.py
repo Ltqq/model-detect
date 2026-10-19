@@ -12,6 +12,7 @@ from .adapters import fingerprint, lm_eval, proxy_sleuth
 from .comparison import compare_report_to_baseline
 from .config import AuditConfig, get_api_key
 from .http_client import AuditHttpClient
+from .external_usage import external_usage_boundary
 from .models import AuditReport, AuditSummary, ProbeResult, ProbeStatus
 from .probes.capability import derived_capability_results, run_capability_suite
 from .probes.context import run_context_suite
