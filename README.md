@@ -4,6 +4,8 @@
 
 它不是性能压测工具。TTFT、ITL、TPS、RPM、TPM、吞吐、并发和 429 压力曲线继续使用独立压测工具。
 
+> **默认行为（单用户轻量版）**：常规 CLI/Web 检测只运行内置协议与能力项；proxy-sleuth、Docker Coding Sandbox 和外部 lm-eval Benchmark 均默认关闭。要运行 proxy-sleuth，请显式使用 `--with-proxy-sleuth` 或在 Web 高级选项中勾选。原本 YAML 显式设置 `proxy_sleuth_enabled: true` 的用户不受影响。第三方工具会额外消耗时间，某些还会消耗付费 Token；不能把外部费用当作有硬性上限。
+
 ## 当前目标
 
 给定：
