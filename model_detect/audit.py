@@ -612,7 +612,6 @@ async def run_audit(
             }
     else:
         report.adapters["fingerprint"] = {
-            **fingerprint.availability(),
             "status": "not_run",
             "reason": "no trusted fingerprint reference configured",
         }
@@ -639,7 +638,6 @@ async def run_audit(
         report.adapters["proxy_sleuth"] = meta
     else:
         report.adapters["proxy_sleuth"] = {
-            **proxy_sleuth.availability(),
             "status": "disabled",
         }
 
