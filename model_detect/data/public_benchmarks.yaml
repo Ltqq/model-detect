@@ -77,3 +77,53 @@ entries:
       decoding_parameters: null
     comparison_status: background_only
     caveat: "Official vendor aggregate under Claude Code harness; exact harness revision and full run configuration unknown. Not comparable to arbitrary local lm-eval runs."
+
+  - id: glm-53-deepswe-v11-published
+    evidence_type: official_published_aggregate
+    model: glm-5.3
+    model_variant: "GLM-5.3 (max)"
+    benchmark: "DeepSWE v1.1"
+    metric: "vendor_reported_score"
+    value: 66.9
+    unit: "points"
+    source:
+      publisher: "Z.ai"
+      url: "https://huggingface.co/zai-org/GLM-5.3"
+      section: "Model card: Benchmark table / DeepSWE v1.1"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: "max"
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Official model-card aggregate; DeepSWE is an agent evaluation with external harness and settings. Not an interchangeable lm-eval score or same-sample identity proof."
+
+  - id: glm-53-flash-deepswe-v11-published
+    evidence_type: official_published_aggregate
+    model: glm-5.3-flash
+    model_variant: "GLM-5.3-Flash (max)"
+    benchmark: "DeepSWE v1.1"
+    metric: "vendor_reported_score"
+    value: 63.4
+    unit: "points"
+    source:
+      publisher: "Z.ai"
+      url: "https://huggingface.co/zai-org/GLM-5.3-Flash"
+      section: "Model card: Evaluation results / Deep SWE"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: "max"
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Official model-card result. Its reported mini-swe-agent setup does not imply local runs use the same samples, scoring revision or agent harness."

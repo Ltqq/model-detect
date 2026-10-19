@@ -51,3 +51,23 @@ def test_deepseek_october_public_results_are_background_only():
         assert record["comparison_status"] == "background_only"
         assert "2026-10-17" in record["source"]["section"]
         assert record["conditions"]["dataset_revision"] is None
+
+
+def test_zai_glm_model_cards_are_background_references_not_live_verification():
+    manifest = yaml.safe_load(
+        files("model_detect").joinpath("data/public_benchmarks.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    by_id = {item["id"]: item for item in manifest["entries"]}
+    for evidence_id, model, value in (
+        ("glm-53-deepswe-v11-published", "glm-5.3", 66.9),
+        ("glm-53-flash-deepswe-v11-published", "glm-5.3-flash", 63.4),
+    ):
+        item = by_id[evidence_id]
+        assert item["model"] == model
+        assert item["value"] == value
+        assert item["benchmark"] == "DeepSWE v1.1"
+        assert item["source"]["publisher"] == "Z.ai"
+        assert item["comparison_status"] == "background_only"
+        assert item["conditions"]["sample_count"] is None
