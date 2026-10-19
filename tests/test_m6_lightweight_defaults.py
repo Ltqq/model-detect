@@ -35,5 +35,6 @@ def test_web_request_and_page_default_optional_oss_off(tmp_path):
     html = TestClient(app).get("/")
     assert html.status_code == 200
     assert 'id="proxy" type="checkbox" checked' not in html.text
-    assert 'id="proxy" type="checkbox"' in html.text
+    assert 'id="proxy" type="checkbox"' not in html.text
+    assert "proxy_sleuth:false" in html.text
     assert "secret-fixture-do-not-output" not in html.text
