@@ -57,3 +57,35 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 ## PR 执行规约
 
 每个小 PR：范围/删减价值 → 保留旧样本回放或兼容测试 → 修改 → CI → 路线偏移判定 → 合并。不得开发新 Agent、评分引擎或协议管理平台。**后续只更新本计划勾选状态、PR 链接和具体证据，不修改冻结宪章**。
+
+
+## P0.1 已核实的代码引用与开源复用审计（2026-10-19）
+
+此表基于逐文件读取主线 `audit.py`、`cli.py`、`webapp.py`、`config.py`、`scoring.py`、`adapters/lm_eval.py`、`regression_promptfoo.py`、`probes/provider.py` 和评测 profiles；只代表已核实的入口/引用，非全部仓库引用图。**当前没有证明任何候选文件可安全物理删除。**
+
+| 模块/路径 | 实际引用与证据 | 决策 | 下一步动作 |
+|---|---|---|---|
+| `model_detect/audit.py` | 主执行器依赖 protocol/integrity/context/routing/capability/reference/OSS，且计算单一总体分数 | **keep/merge** | 单入口保留；先把非核心执行变显式 opt-in，保持旧 config/报告兼容 |
+| `model_detect/cli.py` | 暴露 fingerprint/upstream policy/coding/regression/benchmark/reference，最终打印整体分数和 provider hypothesis | **merge** | 简化 Quick/Standard 首要参数；旧 CLI 选项先弃用提醒，不直接破坏脚本 |
+| `model_detect/webapp.py` | 请求模型仍含 proxy/coding/regression/disallowed_upstreams，使用现有存储报告 | **keep/merge** | 前台隐藏未验证高级字段，不动旧历史记录读取 |
+| `model_detect/scoring.py` | identity 35 / protocol 20 / integrity 15 / context 10 / routing 10 / capability 10 加权；基于自定义身份/路由推断给 final verdict | **quarantine** | 退出新报告主结论；先补旧文件加载和升级兼容测试 |
+| `model_detect/probes/provider.py` | HTTP header/body provider hypotheses 与上游政策；被 audit 及 Web 引用 | **quarantine** | 不以概率判模型真实身份；证据可留但不进入准入 PASS/FAIL |
+| `model_detect/adapters/lm_eval.py` + `data/lm_eval_profiles.yaml` | 已直接执行 EleutherAI 原始引擎，固定标准任务和结果读取；与自研评分不重复 | **keep** | 固定/核验版本、CLI 发包参数与原生评分；不自研数学分数 |
+| `model_detect/regression_promptfoo.py` + `adapters/promptfoo.py` | 主 `audit.py` 直接调用，非孤立死代码 | **quarantine** | 不作为 V2 默认路径；检查 Web/CLI/YAML/测试/历史引用后决定删除或独立归档 |
+| `adapters/proxy_sleuth.py` | `audit.py` + `cli.py` 仍引用，按现有配置默认关闭 | **evaluate/quarantine** | 检查真实运行成本、固定版本、独有协议/混路由能力后做去留决策 |
+| `adapters/fingerprint.py` | `cli.py` 与 `webapp.py` 直接引用 | **quarantine** | 只有已知真值校准通过才允许参与身份结论，否则候选删除 |
+| `probes/capability.py` / capability_lite | `audit.py` 执行自研能力题 | **keep as smoke** | 降级为低成本可用性探测，不进入正式能力评分 |
+| `probes/coding.py` / sandbox | 主执行器依赖并受 opt-in 控制 | **evaluate/quarantine** | 若成熟 Benchmark 能覆盖用户场景则删除沙箱；先审计依赖和测试 |
+| `storage.py`、`reporting.py`、`references.py` | 已有 Web/SQLite/历史/报告/Reference 基础 | **keep** | 禁止重建第二套 DB/报告系统；保留既有证据格式 |
+| `kimi_cli.py` / Kimi Vendor Verifier | 固定官方子集的原始 Pytest 适配 | **keep** | 非默认收费路径，保留原测试器 |
+| `glm53_cli.py` | 历史 GLM 真实付费数据与 replay 关联 | **merge, do not delete yet** | 提炼可复用通用部分，继续支持旧证据只读复算 |
+
+### 强制执行：开源优先、禁止重复造轮子
+
+1. 对每个拟新开发的测试器/评分器，先记录现有开源项目及固定版本、许可证、接口、维护状态、测试证据、调用成本；若成熟实现满足需要，必须复用，不允许自行复制功能。
+2. 自研仅允许保留**必要的适配胶水、官方参数规则、证据规范、UI/报告**；绝不自研新的数学/代码 Benchmark 评分器、模型身份概率器。
+3. `proxy-sleuth` 等不能因为 README 声称七层检测就无条件选为主引擎；必须用确定性正反案例证明与已有代码相比的**独有贡献**及可靠性。
+4. 删除顺序固定为：依赖和历史格式回归 → 退出默认入口 → 删除调用/选项 → 删除适配器 → 移除测试与文档冗余；任何一步失败立即停止，不损坏用户数据。
+5. 每次新增依赖需论证“比当前依赖更少、更稳、更可维护”，不为了多一种能力并行维护多个引擎。
+
+**本小步验收**：完成初步代码引用矩阵及上述硬性开源复用规则；尚未达到整个 P0（全仓文件图、兼容测试、物理删减）的退出条件；不得勾选完整 P0 或声称已清理代码。
