@@ -27,3 +27,53 @@ entries:
       decoding_parameters: null
     comparison_status: background_only
     caveat: "Vendor-published aggregate; unknown task and harness revisions. No same-sample comparison or weight authentication is possible."
+
+  - id: deepseek-v41-flash-1017-hle-without-tools-published
+    evidence_type: official_published_aggregate
+    model: deepseek-v4.1
+    model_variant: "DeepSeek-V4.1-Flash-1017"
+    benchmark: "HLE (without tools)"
+    metric: "vendor_reported_score"
+    value: 42.6
+    unit: "points"
+    source:
+      publisher: "DeepSeek"
+      url: "https://api-docs.deepseek.com/updates/"
+      section: "2026-10-17 DeepSeek-V4.1-Flash-1017 Update"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: null
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Official vendor aggregate; harness, prompt and sample identifiers are not provided. Do not subtract from local scores or infer model identity."
+
+  - id: deepseek-v41-flash-1017-terminal-bench-4-published
+    evidence_type: official_published_aggregate
+    model: deepseek-v4.1
+    model_variant: "DeepSeek-V4.1-Flash-1017"
+    benchmark: "Terminal-Bench 4.0"
+    metric: "vendor_reported_score"
+    value: 42.3
+    unit: "points"
+    source:
+      publisher: "DeepSeek"
+      url: "https://api-docs.deepseek.com/updates/"
+      section: "2026-10-17 DeepSeek-V4.1-Flash-1017 Update"
+      retrieved_at: "2026-10-19"
+      immutable_commit: null
+    conditions:
+      effort: null
+      sample_count: null
+      dataset_revision: null
+      harness_revision: null
+      scorer_revision: null
+      prompt_template: null
+      decoding_parameters: null
+    comparison_status: background_only
+    caveat: "Official vendor aggregate under Claude Code harness; exact harness revision and full run configuration unknown. Not comparable to arbitrary local lm-eval runs."
