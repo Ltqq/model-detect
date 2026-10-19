@@ -24,8 +24,13 @@ def test_source_and_difficulty_only_registered_once():
     main = {row["id"]: row for row in build_test_catalog()["entries"]}
     view = {row["id"]: row for row in evaluation_catalog()["entries"]}
     assert main["lm_eval.minerva_math500"]["difficulty"] == "advanced"
+    assert main["lm_eval.minerva_math500"]["source_revision"] == "v0.4.13"
+    assert main["lm_eval.minerva_math500"]["source_url"].endswith(
+        "/blob/v0.4.13/lm_eval/tasks/minerva_math/minerva_math500.yaml"
+    )
     assert view["lm_eval:minerva_math500"]["difficulty"] == "advanced"
     assert view["lm_eval:minerva_math500"]["authority"] == "community_benchmark"
+    assert view["lm_eval:minerva_math500"]["source_revision"] == "v0.4.13"
     assert not view["lm_eval:minerva_math500"]["verified_on_live_model"]
 
 
