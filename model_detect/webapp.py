@@ -660,7 +660,7 @@ async def _run_audit_job(
         store.finish(
             job_id,
             report_path=str(root / "report.html"),
-            detail=f"{report.summary.final_verdict} / {report.summary.overall_score}",
+            detail="检测已结束，请查看逐项结果和证据（模型身份未独立认证）",
             meta={
                 "verdict": report.summary.final_verdict,
                 "score": report.summary.overall_score,

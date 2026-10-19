@@ -220,7 +220,8 @@ def test_history_shows_verdict_score_and_all_report_links(tmp_path):
 
     assert page.status_code == 200
     assert "MATCH" in page.text
-    assert "93.5" in page.text
+    assert "93.5" not in page.text
+    assert "身份未独立认证" in page.text
     assert 'href="/reports/audit_history"' in page.text
     assert 'href="/api/audits/audit_history/report"' in page.text
     assert 'href="/api/audits/audit_history/download"' in page.text
@@ -495,7 +496,8 @@ def test_local_e2e_audit_history_reports_filter_and_delete(tmp_path, monkeypatch
     assert history.status_code == 200
     assert job_id in history.text
     assert "可通过" in history.text
-    assert "97.5" in history.text
+    assert "97.5" not in history.text
+    assert "身份未独立认证" in history.text
 
     html_report = client.get(f"/reports/{job_id}")
     assert html_report.status_code == 200
