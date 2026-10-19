@@ -1,27 +1,16 @@
-"""Source-aware evaluation catalog; planning metadata, not certified scores.
+"""Compatibility view of the ONE canonical test catalog (test_catalog.py).
 
-The catalog deliberately distinguishes official verification suites from
-community benchmark tasks and native probes. It does not download datasets,
-execute models or pretend a task is a validated high-difficulty benchmark.
+Never register evaluation tasks here. No catalog is evidence of actual execution.
 """
 from __future__ import annotations
 
 from typing import Any, Literal
+from pydantic import BaseModel
 
-from pydantic import BaseModel, Field
+from .test_catalog import build_test_catalog
 
-from .adapters.lm_eval import load_builtin_profiles
-from .kimi_official import OFFICIAL_CASES, OFFICIAL_COMMIT, OFFICIAL_REPOSITORY
-
-EvidenceAuthority = Literal["official_suite", "community_benchmark", "local_probe"]
+EvidenceAuthority = Literal["official_suite", "community_benchmark", "candidate_unverified"]
 Difficulty = Literal["protocol", "foundation", "intermediate", "advanced", "unverified"]
-
-# Difficulty descriptions are editorial labels, NOT psychometric calibrations.
-_TASK_DIFFICULTY = {
-    "truthfulqa_gen": "foundation",
-    "gsm8k": "foundation",
-    "ifeval": "intermediate",
-}
 
 
 class EvaluationEntry(BaseModel):
@@ -34,42 +23,47 @@ class EvaluationEntry(BaseModel):
     source_revision: str | None = None
     task_version: str | None = None
     scorer_revision: str | None = None
-    samples_configured: int | None = Field(default=None, ge=1)
     verified_on_live_model: bool = False
+    integration: str
     coverage_note: str
 
 
 def evaluation_catalog() -> dict[str, Any]:
-    profiles = load_builtin_profiles()
-    task_names = profiles["tasks"]
-    entries: list[EvaluationEntry] = []
-    for name, cfg in sorted(task_names.items()):
-        entries.append(EvaluationEntry(
-            id=f"lm_eval:{name}", engine="lm-evaluation-harness",
-            authority="community_benchmark",
-            dimension=str(cfg.get("dimension") or "unknown"),
-            difficulty=_TASK_DIFFICULTY.get(name, "unverified"),
-            source="https://github.com/EleutherAI/lm-evaluation-harness",
-            source_revision=None, task_version=None, scorer_revision=None,
-            coverage_note=(
-                "Task exists in configured lm-eval profiles; actual dataset "
-                "revision, sample IDs and scorer hash must be recorded at execution."
-            ),
-        ))
-    for suite, cfg in OFFICIAL_CASES.items():
-        entries.append(EvaluationEntry(
-            id=f"kimi:{suite}", engine="kimi-vendor-verifier",
-            authority="official_suite", dimension=str(cfg["local_mapping"]),
-            difficulty="protocol", source=f"https://github.com/{OFFICIAL_REPOSITORY}",
-            source_revision=OFFICIAL_COMMIT,
-            coverage_note=(
-                "Pinned official source path " + cfg["path"] +
-                "; real execution and original-provenance confirmation pending."
-            ),
+    """Maintain old CLI shape while reading the authoritative registry."""
+    items: list[EvaluationEntry] = []
+    for row in build_test_catalog()["entries"]:
+        provenance = row["provenance"]
+        if provenance == "vendor_official_source_pinned":
+            authority: EvidenceAuthority = "official_suite"
+            engine = "kimi-vendor-verifier"
+            name = row["id"].removeprefix("kimi.official.")
+            legacy_id = f"kimi:{name}"
+        elif provenance == "community_benchmark_adapter":
+            authority = "community_benchmark"
+            engine = "lm-evaluation-harness"
+            name = row["id"].removeprefix("lm_eval.")
+            legacy_id = f"lm_eval:{name}"
+        else:
+            # In particular a mentioned, unintegrated vendor benchmark
+            # must not appear as executable or validated official coverage.
+            authority = "candidate_unverified"
+            engine = "not_integrated"
+            legacy_id = row["id"].replace("kimi.benchmark.", "kimi:benchmark:")
+        items.append(EvaluationEntry(
+            id=legacy_id, engine=engine, authority=authority,
+            dimension=row["title"],
+            difficulty=row["difficulty"] if row["difficulty"] in {
+                "protocol", "foundation", "intermediate", "advanced"
+            } else "unverified",
+            source=row["source_url"], source_revision=row["source_revision"],
+            verified_on_live_model=bool(row["run_verified"]),
+            integration=row["integration"],
+            coverage_note=row["authority_note"],
         ))
     return {
         "schema": "evaluation-catalog-v1",
-        "entries": [entry.model_dump(mode="json") for entry in entries],
+        "source_schema": "model-detect-test-catalog-v1",
+        "entries": [item.model_dump(mode="json") for item in items],
         "difficulty_policy": {
             "quick": "Protocol and cheap discriminators only; cannot certify intelligence.",
             "standard": "Representative public benchmarks; avoid ceiling effects.",
