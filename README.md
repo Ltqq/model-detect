@@ -139,6 +139,18 @@ model-detect compare-evaluation-dirs \
 
 当前**没有正式完成** Web/SQLite 统一对照、多套 Kimi 结果自动编组、困难题端到端实测及真实官方/供应商 API 验收。下一阶段唯一重点是把现有 Web/历史连入上述结果，不扩大底层评测框架。唯一执行计划见 [M0～R 主线](docs/design/17-engineering-closure-roadmap.md)。
 
+### M5 Deep 困难数学 Benchmark（Profile v2）
+
+`--benchmark-profile deep` 现在包含 `truthfulqa_gen`、`ifeval` 和
+`minerva_math500`，而不是简单把 GSM8K 抽样扩大到 100。
+新数学任务直接复用 EleutherAI 的**生成式**数学评分器，
+属于**公开社区 Benchmark**，不是模型厂商的官方身份认证。
+
+高难数学任务需额外的 `lm-eval[math]==0.4.13` 评测环境（含 SymPy）。
+请固定真实任务/数据集/评分器版本并记录样本 IDs；
+Profile v1 与 v2 的 Deep Reference **不能直接对照**。
+该配置有代码与 CI 检查，真实顶级模型的区分度及运行成本尚待单独实测。
+
 ## 快速开始
 
 ```bash
