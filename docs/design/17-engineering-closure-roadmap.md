@@ -54,8 +54,8 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
-| M4 | **进行中（Web 核心主链待真实核验）** | [#111](https://github.com/Ltqq/model-detect/pull/111)：离线对照→SQLite/中文报告/ZIP；本 PR：Web opt-in 留存原始 Benchmark、生成快照、一键设为官方/供应商 | **未偏移（待 CI）**：复用审计任务+Reference 快照，不开新表/调度/评测器 |
-| M5 | 待做 | 经实证选择困难任务 | 待判定 |
+| M4 | **当前已支持范围的 Web 工程主链已合并** | [#111](https://github.com/Ltqq/model-detect/pull/111)、[#113](https://github.com/Ltqq/model-detect/pull/113) CI 通过：Web 运行可选 Benchmark 并留存快照、复用官方/供应商结果对照、SQLite/中文报告/ZIP/删除。官方 Kimi 原始 Pytest 执行暂用现有 CLI，Web 可导入其结果。 | **未偏移（适用范围明确）**：未新建 Web、库表或调度；未宣称第三方实际验收已完成 |
+| M5 | **进行中（第一项高难任务，待 CI）** | 复用已有 GLM 专项里的 `minerva_math500`，在 Deep 替代重复的 GSM8K、将单任务 100 题降至 25 题，固定 lm-eval v0.4.13/MATH-500 与数学额外依赖 | **未偏移（待 CI）**：复用开源数据集与评分器、无新执行框架；尚缺真实顶级模型区分度实测 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
 
@@ -128,3 +128,11 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 用户确认后运行旧 audit、旧 lm-eval，并在 `state_dir/benchmark-runs/<audit_id>` 保存原始 JSON/逐题 sample；任务结束后基于相同任务版本清单生成 `snapshots/*.json`，原首页历史中可一键选作官方或供应商。真正网络调用/费用只在用户点击运行时发生，Mock E2E 不发付费请求。
 - SQLite 使用原 audit job `meta` 字段记录生成快照目录与状态；删除 job 连同原始日志/快照一并删除。原始日志不自动放进中文报告和 ZIP；含 Prompt/答案，请勿公开。清单数据仍为人工声明，`source_verified=false`。
 - **偏移检查**：推进“Web 评测 → 可保存 Reference → 官方/供应商对照 → 历史报告”；只扩展原审计配置与既有模板/删除逻辑，不另起后台服务/数据库。此前 #111 离线对照功能已合并；此次不会声称 Web 已经直接运行官方 Kimi 原始 Pytest 或深度 Benchmark，相关能力仍待 M5/R。
+
+
+### M4 阶段复核与 M5 第一项高难任务（2026-10-19）
+
+- M4 原 Web 已有普通审计；[#111](https://github.com/Ltqq/model-detect/pull/111) 将离线模型能力/官方 Kimi 子套件证据对照接入 SQLite、中文 HTML/JSON/ZIP；[#113](https://github.com/Ltqq/model-detect/pull/113) 将用户明确选择的现有 lm-eval Benchmark 运行、原始样本留存、可对照快照与 Web 历史选取接通。**无需第二套 Web、任务队列或数据库**。Kimi 官方 Pytest 原始运行仍经现有 `kimi-verifier run --execute` 命令，再导入 Web；未实现 Web 直接执行，也未完成真实 API 验收。
+- M5 第一项：`deep` 把重复低难数学 `gsm8k` 换成 **已有 GLM 专项使用的 `minerva_math500`**，`limit` 从 100 降至 25，以更难的公开数学题和较小的 Token 成本进行差异检测；`smoke/standard` 不变。此项来源 [lm-eval Minerva MATH](https://github.com/EleutherAI/lm-evaluation-harness/tree/v0.4.13/lm_eval/tasks/minerva_math)（需安装 `lm-eval[math]==0.4.13`）；实际 dataset/score 修订仍由记录合同要求，并非厂商官方认证。
+- Deep 不等于完整高级能力评测。代码、Agent、长上下文和多模态还需适用的开源套件及资源，再选择性接入；不得仅凭一组 MATH-500 分数判断模型身份。
+- **目标偏移检查**：直接复用现有运行器与官方/社区 task YAML，难度标签统一由同一 profile YAML 决定；减少简单题数量、没有新插件/CLI/评分器；标记 **未偏移（待 CI）**。
