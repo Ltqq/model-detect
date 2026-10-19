@@ -164,12 +164,23 @@ async def probe_stream(
     body = ev.response_body
     # A 200 response with an SSE Content-Type but no events is not proof
     # that the provider can stream model responses.
-    has_events = (isinstance(body, list) and bool(body)) or (
-        isinstance(call.text_body, str) and "data:" in call.text_body
+    has_chat_delta = (
+        isinstance(body, list)
+        and any(
+            isinstance(event, dict)
+            and isinstance(event.get("choices"), list)
+            and any(
+                isinstance(choice, dict)
+                and isinstance(choice.get("delta"), dict)
+                for choice in event["choices"]
+            )
+            for event in body
+        )
     )
-    looks_stream = ev.response_status == 200 and has_events and (
-        "text/event-stream" in content_type.lower()
-        or isinstance(body, list)
+    looks_stream = (
+        ev.response_status == 200
+        and "text/event-stream" in content_type.lower()
+        and has_chat_delta
     )
     return [
         ProbeResult(
