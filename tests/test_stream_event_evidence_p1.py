@@ -36,6 +36,9 @@ class StreamStub:
         ("text/event-stream", [], "", ProbeStatus.FAIL),
         ("text/event-stream", [{"choices": [{"delta": {"content": "ok"}}]}], "data: {}", ProbeStatus.PASS),
         ("text/html", "<!doctype html>", "data: unrelated", ProbeStatus.FAIL),
+        ("text/event-stream", ["invalid JSON SSE chunk"], "data: not-json", ProbeStatus.FAIL),
+        ("text/event-stream", [{"error": {"message": "failed"}}], "data: {}", ProbeStatus.FAIL),
+        ("text/event-stream", [{"choices": [{}]}], "data: {}", ProbeStatus.FAIL),
     ],
 )
 def test_stream_needs_events_not_just_sse_header(content_type, body, text, status):
