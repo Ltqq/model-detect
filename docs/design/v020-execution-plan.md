@@ -173,3 +173,26 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 ### 既有已合并成果
 
 #123、#125～#140 已完成各自小步（请以 GitHub PR/CI 记录为准），包括 wheel smoke、模型 Flash 配置/别名、Chat 结构与 SSE 错判修复；它们**不等于**上述全部产品级验收完成。
+
+
+## 执行检查点：2026-10-19 第二轮交付（P0/P1/P3/P4 并行收敛）
+
+已验收并合并，均经过 Python 3.11 / 3.12 CI：
+
+- [x] [#149](https://github.com/Ltqq/model-detect/pull/149)：v0.2.0 停止功能扩张的最终验收标准与顺序写入本计划。
+- [x] [#150](https://github.com/Ltqq/model-detect/pull/150)：五目标型号共享规则引擎，目录、来源与更新时间统一离线回归。
+- [x] [#151](https://github.com/Ltqq/model-detect/pull/151)：DeepSeek V4.1 Flash 1017 官方 HLE 42.6 / Terminal-Bench 4.0 42.3，背景参考，禁止同题未验证比较。
+- [x] [#152](https://github.com/Ltqq/model-detect/pull/152)：Z.ai 官方 GLM-5.3 / Flash 模型卡 DeepSWE 66.9 / 63.4 的公开背景参考。
+- [x] [#153](https://github.com/Ltqq/model-detect/pull/153)：DeepSeek V4 Pro 0813 官方 DeepSWE 62.7，和 V4.1 版本隔离。
+- [x] [#154](https://github.com/Ltqq/model-detect/pull/154)：Web 移除未校准的 proxy-sleuth 身份猜测和禁止上游指纹下拉框，旧后端历史格式保留。
+- [x] [#155](https://github.com/Ltqq/model-detect/pull/155)：wheel 内容与源码目录外安装后均校验五模型 YAML、公开成绩目录，双版本 CI 全绿。
+
+**现状及不可越界的验收判断**
+
+- 五型号初步规则、离线审计流水线、中文历史报告、官方公开背景参考现在均有实现和自动回归。已存在的五模型 HTTP MockTransport E2E 是**真实代码路径的模拟端点验证**，不是付费 API 的能力验证。
+- 目前公开参考目录具有 Kimi K3、GLM-5.3、Flash、DeepSeek V4 Pro 和 V4.1 Flash 的型号覆盖；公开 Benchmark 多数用不同 Harness 和不明样本条件，**不声称和本地 lm-eval 严格可比**。
+- P0 的剩余候选适配器（proxy-sleuth、fingerprint、promptfoo）还在后端/CLI：移除 Web 入口不等于物理删代码，必须先盘点独有能力、许可证、历史兼容和引用。
+- 真实端点的工具/推理细节、开源 lm-eval 完整原生运行和真实供应商复测缺授权测试环境/配置；**不标已通过，也不创建正式 Release**。无官方 API 不是阻断，真实供应商调用仍需用户自己提供渠道凭据及成本授权。
+- 下一优先：P0 代码全引用/OSS 独有价值审查与确定可删项；P2 评分引擎固定依赖和离线完整输出验收；P4 用户本机数据恢复和可控付费试验的最后一公里。没有证据时维持 UNKNOWN。
+
+此检查点是执行计划状态更新，不修改冻结产品宪章，不创造新的功能阶段。
