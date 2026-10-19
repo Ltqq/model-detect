@@ -13,8 +13,7 @@ from .kimi_official import OFFICIAL_CASES, OFFICIAL_COMMIT, OFFICIAL_REPOSITORY
 
 CATALOG_SCHEMA = "model-detect-test-catalog-v1"
 
-# Editorial task tiers only; do not imply independently calibrated difficulty.
-_TASK_DIFFICULTY = {"truthfulqa_gen": "foundation", "gsm8k": "foundation", "ifeval": "intermediate"}
+# Difficulty labels come only from the shared pinned task profile metadata.
 
 # Cost class expresses qualitative planning only, not a billed token estimate.
 _OFFICIAL_KIMI_BENCHMARKS: tuple[tuple[str, str, str], ...] = (
@@ -76,7 +75,7 @@ def build_test_catalog() -> dict[str, Any]:
             id=f"lm_eval.{name}", title=str(spec.get("dimension") or name),
             owner="EleutherAI/lm-evaluation-harness",
             source_url="https://github.com/EleutherAI/lm-evaluation-harness",
-            provenance="community_benchmark_adapter", difficulty=_TASK_DIFFICULTY.get(name, "unverified"),
+            provenance="community_benchmark_adapter", difficulty=str(spec.get("difficulty") or "unverified"),
             cost_class="variable", integration="local_lm_eval_adapter",
             task_path=name, authority_note=(
                 "Open-source benchmark adapter is not a model vendor's official verification suite; "
