@@ -112,3 +112,14 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 - [ ] **遗留**：Provider 禁止上游策略、评分模块内部加权以及身份/参考来源在其他报告子区块的表述仍需审查。P0 全仓路径和安全物理删减尚未完成。
 
 方向审查：未偏移。上述工作减少误导性主结论，保留历史存储格式，没有引入新引擎。冻结的产品宪章未修改。
+
+
+## P0/P1 进度检查点（2026-10-19）
+
+- [x] [#135](https://github.com/Ltqq/model-detect/pull/135)：Web 不再把官方端点 Reference 写成使用前提；3.11/3.12 CI 通过并合并。
+- [x] [#136](https://github.com/Ltqq/model-detect/pull/136)：新增独立 GLM-5.3-Flash / FlashX 和 DeepSeek V4.1-Flash-1017 的有来源规则及离线测试；通过双版本 CI 并合并。DeepSeek legacy Flash model ID 路由至 V4.1 的依据：官方 2026-10-17 changelog。
+- [x] [#137](https://github.com/Ltqq/model-detect/pull/137)：旧 DeepSeek V4 规则限定到 V4 Pro，不用宽泛通配捕捉 V4.1 Flash；双版本 CI 通过并合并。
+- [ ] P1 **不视为完成**：五型号配置已有初步规则，但全部官方参数与复杂工具/多模态行为未逐项验证，供应商真实运行尚缺；先完成单引擎离线回归和适用性校验。
+- [ ] P0 **不视为完成**：全仓引用和旧历史数据迁移回归、第三方候选模块物理删减仍未完成；这部分不能因 P1 有进展而跳过。
+
+本批 Review：**未偏移**。仅新增小型模型数据规则，复用已有 `rules.py`，未开发新引擎；没用官方 Key、没消耗模型 Token；产品宪章仍冻结。
