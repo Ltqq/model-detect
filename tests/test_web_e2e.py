@@ -131,7 +131,8 @@ def test_local_web_audit_history_report_filter_and_delete(
     )
     assert history.status_code == 200
     assert job_id in history.text
-    assert "MATCH" in history.text
+    assert "检测已结束，请查看逐项结果和证据" in history.text
+    assert "MATCH / 96.0" not in history.text
     assert "96.0" in history.text
 
     html = client.get(f"/reports/{job_id}")
