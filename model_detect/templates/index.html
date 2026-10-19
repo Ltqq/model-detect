@@ -82,13 +82,6 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
       <input id="context_tokens" type="number" placeholder="例如 32768">
       <div class="field-help">不知道就留空。Standard 会做基础长上下文检查，Deep 会覆盖更多档位。</div>
     </div>
-    <div>
-      <label>禁止上游 Provider（可多选）</label>
-      <select id="disallowed_upstreams" multiple size="5">
-        {% for p in provider_options %}<option value="{{ p.id }}">{{ p.label }}（{{ p.id }}）</option>{% endfor %}
-      </select>
-      <div class="field-help">例如客户明确要求“不允许 Fireworks”，这里选择 Fireworks。命中强指纹时会直接影响准入结论。</div>
-    </div>
   </div>
 
   <details class="advanced">
@@ -117,10 +110,6 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         <label for="benchmark_revisions_file" style="margin-top:8px">版本清单 YAML 路径（服务器本机）</label>
         <input id="benchmark_revisions_file" placeholder="./revisions-official.yaml">
         <div class="field-warn">勾选后保存的原始逐题日志可能含 Prompt 和回复；不要公开分享。实际来源未经独立认证。删除任务会一并删除这些日志与快照。</div>
-      </div>
-      <div>
-        <label>开源增强检测</label>
-        <div class="row"><input id="proxy" type="checkbox" style="width:auto"><span>按需运行 proxy-sleuth（第三方增强测试，默认关闭）</span></div>
       </div>
 
     </div>
@@ -276,12 +265,12 @@ q('run').onclick=async()=>{
     base_url:q('base_url').value.trim(),api_key:q('api_key').value,model:q('model').value.trim(),
     profile:q('profile').value,reference_id:q('reference_id').value||null,
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
-    proxy_sleuth:q('proxy').checked,
+    proxy_sleuth:false,
     benchmark_profile:q('benchmark_profile').value||null,
     retain_benchmark_reference:q('retain_benchmark_reference').checked,
     benchmark_revisions_file:q('benchmark_revisions_file').value.trim()||null,
     regression_suites:Array.from(q('regression_suites').selectedOptions).map(o=>o.value),
-    disallowed_upstreams:Array.from(q('disallowed_upstreams').selectedOptions).map(o=>o.value)
+    disallowed_upstreams:[]
   };
   if(!body.base_url||!body.api_key||!body.model){q('msg').textContent='请填写 Base URL、API Key 和模型 ID';return}
   if(body.retain_benchmark_reference&&(!body.benchmark_profile||!body.benchmark_revisions_file)){
