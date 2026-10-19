@@ -48,7 +48,7 @@ def test_review_without_strong_identity_explains_reference_gap():
     assert human["decision"] == "人工复核"
     assert human["identity"]["state"] == "missing"
     assert human["identity"]["label"] == "缺少强身份依据"
-    assert any("Reference" in action for action in human["actions"])
+    assert any("不影响已支持的协议与能力测试" in action for action in human["actions"])
 
 
 def test_strong_identity_match_can_be_explained_as_pass():
@@ -75,7 +75,7 @@ def test_strong_identity_match_can_be_explained_as_pass():
 
     assert human["decision"] == "可通过"
     assert human["identity"]["state"] == "match"
-    assert "统计行为指纹" in human["identity"]["text"]
+    assert "不能证明模型权重身份" in human["identity"]["text"]
 
 
 def test_upstream_policy_violation_becomes_plain_chinese_rejection():

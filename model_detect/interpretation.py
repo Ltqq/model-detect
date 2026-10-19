@@ -288,10 +288,10 @@ def _identity_summary(report: AuditReport) -> dict[str, Any]:
 
     if mismatch:
         state = "mismatch"
-        text = "强身份证据与可信参考不一致，不建议将该接口视为声明模型的可靠等价渠道。"
+        text = "本次行为指纹与所选参考出现差异；需检查参考来源、配置并重复测试，不能单凭此项判定换模。"
     elif match:
         state = "match"
-        text = "统计行为指纹与可信参考匹配，当前具备较强模型身份依据。"
+        text = "本次统计行为与所选参考较接近；这仅是辅助信号，不能证明模型权重身份。"
     elif strong:
         state = "uncertain"
         text = "已经运行强身份检测，但结果仍不确定，需要增加样本或重新采集可信参考。"
@@ -525,7 +525,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
             actions.insert(0, action)
 
     if identity["state"] == "missing":
-        action = "如果核心目标是判断“是不是官方同模型”，请先创建官方 / 可信 Reference，并启用 Statistical Fingerprint 对比。"
+        action = "本次没有可核验的同条件身份参考；不影响已支持的协议与能力测试。可结合公开资料与历史渠道结果解释差异。"
         if action not in actions:
             actions.insert(0, action)
     if not actions:
@@ -572,9 +572,9 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "limitations": [
             "综合分数是审计评分，不是“模型为真”的概率。",
             "Provider / Gateway 指纹来自可观测 Header、Body 和行为证据，不是密码学身份证明。",
-            "没有 Trusted Reference / Statistical Fingerprint 时，即使协议和能力全部通过，也不能证明模型身份。",
+            "无论是否存在 Reference 或统计指纹，黑盒测试均不能独立认证模型权重身份。",
             "HTTP 429 只代表限流现象，不能单独用来识别 Fireworks 或任何其他 Provider。",
             "质量退化只说明当前黑盒行为低于可信基准范围，不能据此确定 INT4、FP8、AWQ、GPTQ、蒸馏、GPU 型号或具体 Serving Engine。",
-            "厂商官网公布的排行榜成绩只有在 Dataset、Harness、Prompt、参数完全一致时才能直接比较；本工具的 Official Baseline 默认使用自己对官方端点的同套件实测。",
+            "官方公开成绩可以作为标注来源的背景参考；仅在 Dataset、Harness、Prompt、参数与样本条件核验一致时做严格比较，不要求用户提供官方 API。",
         ],
     }
