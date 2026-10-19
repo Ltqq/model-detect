@@ -35,3 +35,25 @@ def test_catalog_cli_reports_no_verified_official_scores():
     assert "official_suite" in result.output
     assert "community_benchmark" in result.output
     assert "ceiling_effect_rule" in result.output
+
+
+def test_every_presentation_entry_comes_from_one_canonical_registry():
+    from model_detect.test_catalog import build_test_catalog
+    canonical = build_test_catalog()["entries"]
+    actual = evaluation_catalog()["entries"]
+    assert len(actual) == len(canonical)
+    assert len({item["id"] for item in actual}) == len(actual)
+    assert actual[0]["source"] == canonical[0]["source_url"]
+    for canonical_row, view in zip(canonical, actual):
+        assert view["source_revision"] == canonical_row["source_revision"]
+        assert view["integration"] == canonical_row["integration"]
+        assert view["coverage_note"] == canonical_row["authority_note"]
+        assert view["verified_on_live_model"] is False
+
+
+def test_unimplemented_benchmark_never_becomes_official_pass():
+    candidates = [row for row in evaluation_catalog()["entries"]
+                  if row["authority"] == "candidate_unverified"]
+    assert candidates
+    assert all(row["integration"] == "not_integrated" for row in candidates)
+    assert all(not row["verified_on_live_model"] for row in candidates)
