@@ -116,3 +116,24 @@ def test_explicit_reasoning_effort_is_generation_kwarg_not_model_constructor(tmp
             tasks=["gsm8k"], output_path=tmp_path,
             reasoning_effort="unknown", binary="/fake/venv/lm_eval",
         )
+
+
+def test_deepseek_none_reasoning_effort_is_allowed_only_for_sourced_model(tmp_path):
+    command = lm_eval.build_command(
+        base_url="https://relay.example/v1",
+        model="deepseek-flash",
+        tasks=["gsm8k"],
+        output_path=tmp_path,
+        reasoning_effort="none",
+        binary="/fake/venv/lm_eval",
+    )
+    assert command[command.index("--gen_kwargs") + 1] == "reasoning_effort=none"
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        lm_eval.build_command(
+            base_url="https://relay.example/v1",
+            model="glm-5.3",
+            tasks=["gsm8k"],
+            output_path=tmp_path,
+            reasoning_effort="none",
+            binary="/fake/venv/lm_eval",
+        )
