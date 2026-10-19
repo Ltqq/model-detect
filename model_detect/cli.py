@@ -64,7 +64,7 @@ def audit(
     ),
     benchmark_profile: Optional[str] = typer.Option(
         None, "--benchmark-profile",
-        help="Opt-in lm-eval profile: smoke (5), standard (25), deep (100 items/task).",
+        help="Opt-in lm-eval profile: smoke (5), standard (25), deep (100/task, advanced MATH-500; math extra required).",
     ),
     benchmark_evidence_dir: Optional[Path] = typer.Option(
         None, "--benchmark-evidence-dir",

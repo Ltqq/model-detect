@@ -17,7 +17,9 @@ def test_deep_profile_is_not_just_more_easy_standard_tasks():
     task = deep["task_metadata"]["minerva_math500"]
     assert task["difficulty"] == "advanced"
     assert task["output_type"] == "generate_until"
-    assert task["requires_extra"] == "lm-eval[math]"
+    assert task["requires_extra"] == "lm-eval[math]==0.4.13"
+    assert task["source_tag"] == "v0.4.13"
+    assert task["source_dataset"] == "HuggingFaceH4/MATH-500"
     assert deep["limit"] == 100
 
 
@@ -30,6 +32,8 @@ def test_source_catalog_and_engine_share_task_difficulty():
         assert row["provenance"] == "community_benchmark_adapter"
         assert not row["results_attested"]
     assert "lm_eval.minerva_math500" in catalog
+    assert catalog["lm_eval.minerva_math500"]["source_revision"] == "v0.4.13"
+    assert catalog["lm_eval.minerva_math500"]["source_url"].endswith("/blob/v0.4.13/lm_eval/tasks/minerva_math/minerva_math500.yaml")
 
 
 def test_deep_engine_remains_opt_in_and_not_model_identity_proof():

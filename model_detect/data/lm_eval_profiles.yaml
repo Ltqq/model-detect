@@ -22,7 +22,11 @@ tasks:
     dimension: advanced_math_reasoning
     difficulty: advanced
     native_overlap: false
-    requires_extra: "lm-eval[math]"
+    requires_extra: "lm-eval[math]==0.4.13"
+    source_repo: EleutherAI/lm-evaluation-harness
+    source_tag: v0.4.13
+    source_task: lm_eval/tasks/minerva_math/minerva_math500.yaml
+    source_dataset: HuggingFaceH4/MATH-500
     official_scoring: false
 
 profiles:
