@@ -23,6 +23,10 @@ from .references import ReferenceRegistry
 from .probes.provider import load_provider_rule_set
 from .rules import match_model_rule
 from .reporting import write_report
+from .evaluation_batch_report import (
+    compare_directories, compare_kimi_official_protocol_summaries,
+    write_comparison_report,
+)
 from .storage import JobStore
 
 
@@ -52,6 +56,14 @@ class WebReferenceRequest(BaseModel):
     benchmark_profile: str | None = None
     overwrite: bool = False
 
+
+
+class WebComparisonRequest(BaseModel):
+    model: str = Field(min_length=1, max_length=128)
+    official_snapshots_dir: str | None = None
+    vendor_snapshots_dir: str | None = None
+    kimi_official_summary: str | None = None
+    kimi_vendor_summary: str | None = None
 
 
 def _validated_benchmark_profile(value: str | None) -> str | None:
@@ -226,7 +238,7 @@ def create_app(
         if item["status"] in {"queued", "running"}:
             raise HTTPException(409, "运行中的任务不能删除")
 
-        if item["kind"] == "audit":
+        if item["kind"] in {"audit", "comparison"}:
             report_root = (app.state.output_dir / job_id).resolve()
             output_root = app.state.output_dir.resolve()
             if report_root.is_relative_to(output_root) and report_root.exists():
@@ -245,6 +257,72 @@ def create_app(
         if not store.delete(job_id):
             raise HTTPException(404, "任务不存在")
         return {"ok": True, "id": job_id}
+
+    @app.post("/api/comparisons")
+    async def create_comparison_job(payload: WebComparisonRequest):
+        """Import local, previously saved evidence into existing SQLite history."""
+        benchmark = bool(payload.official_snapshots_dir and payload.vendor_snapshots_dir)
+        kimi = bool(payload.kimi_official_summary and payload.kimi_vendor_summary)
+        if (
+            not (benchmark or kimi)
+            or bool(payload.official_snapshots_dir) != bool(payload.vendor_snapshots_dir)
+            or bool(payload.kimi_official_summary) != bool(payload.kimi_vendor_summary)
+        ):
+            raise HTTPException(400, "请提供官方与供应商的成对结果目录或 Kimi 测试汇总")
+
+        try:
+            # No model API calls. Paths are for the server's local filesystem;
+            # never echo the paths, source files, or parser errors to clients.
+            if benchmark:
+                comparison = await asyncio.to_thread(
+                    compare_directories,
+                    Path(payload.official_snapshots_dir),
+                    Path(payload.vendor_snapshots_dir),
+                )
+            else:
+                comparison = {
+                    "schema": "evaluation-batch-report-v1",
+                    "tasks": [], "total_tasks": 0, "comparable_tasks": 0,
+                    "unknown_or_incompatible_tasks": 0,
+                    "official_provenance_attested": False,
+                    "model_identity_proven": False,
+                }
+            if kimi:
+                comparison["kimi_official_protocol"] = await asyncio.to_thread(
+                    compare_kimi_official_protocol_summaries,
+                    Path(payload.kimi_official_summary),
+                    Path(payload.kimi_vendor_summary),
+                )
+        except (OSError, ValueError, TypeError, KeyError):
+            raise HTTPException(400, "本地评测文件缺失、格式错误或版本不兼容") from None
+
+        job_id = "compare_" + uuid.uuid4().hex[:12]
+        root = app.state.output_dir / job_id
+        try:
+            await asyncio.to_thread(write_comparison_report, comparison, root)
+        except (OSError, ValueError, TypeError):
+            raise HTTPException(400, "本地对照报告生成失败") from None
+        store.create(
+            job_id=job_id, kind="comparison", model=payload.model.strip(),
+            base_url="", profile="offline", meta={
+                "comparable_tasks": comparison["comparable_tasks"],
+                "unknown_or_incompatible_tasks": comparison["unknown_or_incompatible_tasks"],
+                "kimi_protocol_status": comparison.get("kimi_official_protocol", {}).get("status"),
+                "source_attested": False,
+                "model_identity_proven": False,
+            },
+        )
+        return store.finish(
+            job_id, report_path=str(root / "comparison.html"),
+            detail=f"离线对照：{comparison['comparable_tasks']} 项可比",
+            meta={
+                "comparable_tasks": comparison["comparable_tasks"],
+                "unknown_or_incompatible_tasks": comparison["unknown_or_incompatible_tasks"],
+                "kimi_protocol_status": comparison.get("kimi_official_protocol", {}).get("status"),
+                "source_attested": False,
+                "model_identity_proven": False,
+            },
+        )
 
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
@@ -357,7 +435,8 @@ def create_app(
             raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
             raise HTTPException(404, "报告尚未生成")
-        path = Path(item["report_path"]).with_name("report.json")
+        report_name = "comparison.json" if item["kind"] == "comparison" else "report.json"
+        path = Path(item["report_path"]).with_name(report_name)
         if not path.exists():
             raise HTTPException(404, "报告 JSON 不存在")
         return JSONResponse(json.loads(path.read_text(encoding="utf-8")))
