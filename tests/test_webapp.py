@@ -18,7 +18,9 @@ def test_web_pages_and_reference_api(tmp_path):
     assert r.status_code == 200
     assert "model-detect" in r.text
     assert "综合分 ≠ 模型为真的概率" in r.text
-    assert "禁止上游 Provider" in r.text
+    assert "禁止上游 Provider" not in r.text
+    assert "按需运行 proxy-sleuth" not in r.text
+    assert "proxy_sleuth:false" in r.text
 
     r = client.get("/references")
     assert r.status_code == 200
