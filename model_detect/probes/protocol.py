@@ -63,6 +63,8 @@ async def probe_basic(
         and isinstance(body, dict)
         and isinstance(body.get("choices"), list)
         and len(body["choices"]) > 0
+        and isinstance(body["choices"][0], dict)
+        and isinstance(body["choices"][0].get("message"), dict)
     )
     results = [
         ProbeResult(
