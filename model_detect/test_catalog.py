@@ -71,15 +71,25 @@ def build_test_catalog() -> dict[str, Any]:
         ))
     profiles = load_builtin_profiles()
     for name, spec in profiles["tasks"].items():
+        source_repo = str(spec.get("source_repo") or "EleutherAI/lm-evaluation-harness")
+        source_tag = spec.get("source_tag")
+        source_task = spec.get("source_task")
+        source_url = (
+            f"https://github.com/{source_repo}/blob/{source_tag}/{source_task}"
+            if source_tag and source_task else f"https://github.com/{source_repo}"
+        )
         items.append(_entry(
             id=f"lm_eval.{name}", title=str(spec.get("dimension") or name),
-            owner="EleutherAI/lm-evaluation-harness",
-            source_url="https://github.com/EleutherAI/lm-evaluation-harness",
-            provenance="community_benchmark_adapter", difficulty=str(spec.get("difficulty") or "unverified"),
-            cost_class="variable", integration="local_lm_eval_adapter",
+            owner=source_repo,
+            source_url=source_url,
+            source_revision=str(source_tag) if source_tag else None,
+            provenance="community_benchmark_adapter",
+            difficulty=str(spec.get("difficulty") or "unverified"),
+            cost_class="high" if spec.get("difficulty") == "advanced" else "variable",
+            integration="local_lm_eval_adapter",
             task_path=name, authority_note=(
-                "Open-source benchmark adapter is not a model vendor's official verification suite; "
-                "pin package revision and dataset revision per evaluation."
+                "Community benchmark source is referenced, not independently validated at runtime. "
+                "Record local harness, scorer and dataset revisions before comparing endpoints."
             ),
         ))
     return {
