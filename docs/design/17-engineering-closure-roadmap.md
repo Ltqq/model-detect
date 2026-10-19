@@ -55,7 +55,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
 | M4 | **工程闭环已合并；待 R 实测** | [#111](https://github.com/Ltqq/model-detect/pull/111) Web 离线对照及历史；[#113](https://github.com/Ltqq/model-detect/pull/113) Web 审计保留快照；本批校验 Web 所选模型与原始证据一致 | **偏移已修正**：关闭重复 #112，未新增 Web/SQLite/评分器；真实官方身份与题集验证仍属 R |
-| M5 | 待做 | 经实证选择困难任务 | 待判定 |
+| M5 | **第一项困难评测已开发，待 CI 与实际运行** | Deep 任务配置从 GSM8K 基础数学替换为原版 lm-eval `minerva_math500`，Profile v2；沿用上游生成式评分器，Kimi 高成本多模态/Agent 未接入 | **未偏移（待 CI）**：只调整既有档位/目录，不自研判分、不增加新引擎 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
 
@@ -136,3 +136,12 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 检查发现提交到 Web 的显示用 `model` 尚未和本地 Benchmark Snapshot / Kimi 官方 JUnit 内实际记录的模型严格匹配。此问题可能把 GLM 的显示标签套在 Kimi 的成绩上，属于 P0 证据真实性问题。
 - 本批在现有比较逻辑增加 **可选 expected_model** 校验；只有 Web 端强制提供，保持原有 CLI 无显式模型参数时的兼容性。模型不一致时请求失败、不会保存误导性 SQLite 历史。
 - **偏移判定：偏移已修正**。不新增用户命令、API、存储表、评测器。真实官方数据来源仍不得由 Snapshot 自声明标记“已认证”。
+
+
+### M5-A 解决 Deep 只有简单题的天花板问题（2026-10-19）
+
+- 经核对 EleutherAI `lm-evaluation-harness v0.4.13` 的公开任务清单，`minerva_math500` 是生成式数学评测，与现有 `local-chat-completions` Adapter 及 GLM-5.3 专项一致；不引入不受支持的多选 loglikelihood 评测。
+- `deep` 正式任务调整为 `truthfulqa_gen`、`ifeval`、`minerva_math500`；`standard` 仍保留 GSM8K。**这里是更高难的任务类型，而不仅仅多抽样 100 道基础题**，但这不证明当前顶级模型一定被有效区分。
+- 评测版本 bump 为 `lm_eval_profiles.yaml version: 2`，使旧 Reference 不会与新 Deep 任务合同混比；依赖 `lm-eval[math]` 提供 SymPy 评分支持，不自动安装或下载收费模型。
+- 统一从 YAML 读取任务难度（不重复写 Python 评分规则）；来源标记依然是 `community_benchmark_adapter`、`results_attested=false`，并非 Kimi 官方测试。
+- **偏移复核：未偏移**——只改变一个现有深度档位的实际任务覆盖，复用官方上游评分器；复杂推理/代码与真实样本成本校准仍列 M5/R，待进一步实证选择。

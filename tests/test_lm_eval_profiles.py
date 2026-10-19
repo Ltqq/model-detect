@@ -9,7 +9,7 @@ from model_detect.adapters.lm_eval import (
 def test_builtin_lm_eval_tasks_are_chat_generation_tasks():
     data = load_builtin_profiles()
 
-    assert set(data["tasks"]) == {"truthfulqa_gen", "gsm8k", "ifeval"}
+    assert set(data["tasks"]) == {"truthfulqa_gen", "gsm8k", "ifeval", "minerva_math500"}
     assert all(
         item["output_type"] == "generate_until"
         for item in data["tasks"].values()
