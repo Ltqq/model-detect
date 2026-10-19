@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from html import escape
 import json
 import re
 import shutil
@@ -38,6 +39,15 @@ class WebAuditRequest(BaseModel):
     benchmark_profile: str | None = None
     regression_suites: list[str] = Field(default_factory=list)
     disallowed_upstreams: list[str] = Field(default_factory=list)
+
+
+class WebComparisonRequest(BaseModel):
+    """Compare existing locally saved evidence; this NEVER executes model APIs."""
+    model: str = Field(min_length=1, max_length=128)
+    official_run: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
+    vendor_run: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
+    include_benchmark: bool = True
+    include_kimi: bool = False
 
 
 class WebReferenceRequest(BaseModel):
@@ -135,6 +145,7 @@ def create_app(
     app.state.output_dir = Path(output_dir)
     app.state.state_dir = state_root
     app.state.regression_dir = regression_root
+    app.state.evaluation_root = state_root / "evaluation-runs"
 
     @app.get("/", response_class=HTMLResponse)
     async def index(
@@ -226,7 +237,7 @@ def create_app(
         if item["status"] in {"queued", "running"}:
             raise HTTPException(409, "运行中的任务不能删除")
 
-        if item["kind"] == "audit":
+        if item["kind"] in {"audit", "comparison"}:
             report_root = (app.state.output_dir / job_id).resolve()
             output_root = app.state.output_dir.resolve()
             if report_root.is_relative_to(output_root) and report_root.exists():
@@ -245,6 +256,80 @@ def create_app(
         if not store.delete(job_id):
             raise HTTPException(404, "任务不存在")
         return {"ok": True, "id": job_id}
+
+    def _run_evidence_dir(run_name: str) -> Path:
+        root = app.state.evaluation_root.resolve()
+        run = root / run_name
+        # Reject symlinks and parent escapes: API users can only choose
+        # existing named runs from the local evaluation-runs workspace.
+        if run.is_symlink() or not run.is_dir() or not run.resolve().is_relative_to(root):
+            raise HTTPException(400, "未找到有效的本地评测目录")
+        return run
+
+    @app.post("/api/evaluation-comparisons")
+    async def create_evaluation_comparison(payload: WebComparisonRequest):
+        from .evaluation_batch_report import (
+            compare_directories, compare_kimi_official_protocol_summaries,
+            write_comparison_report,
+        )
+        if payload.official_run == payload.vendor_run:
+            raise HTTPException(400, "官方与供应商目录不能相同")
+        if not payload.include_benchmark and not payload.include_kimi:
+            raise HTTPException(400, "请至少选择一项对照")
+        official = _run_evidence_dir(payload.official_run)
+        vendor = _run_evidence_dir(payload.vendor_run)
+        try:
+            if payload.include_benchmark:
+                report = compare_directories(
+                    official / "snapshots", vendor / "snapshots",
+                    expected_model=payload.model,
+                )
+            else:
+                report = {
+                    "schema": "evaluation-batch-report-v1",
+                    "tasks": [], "total_tasks": 0, "comparable_tasks": 0,
+                    "unknown_or_incompatible_tasks": 0,
+                    "official_provenance_attested": False,
+                    "model_identity_proven": False,
+                }
+            if payload.include_kimi:
+                report["kimi_official_protocol"] = compare_kimi_official_protocol_summaries(
+                    official / "kimi-summary.json", vendor / "kimi-summary.json",
+                )
+                kimi_model = report["kimi_official_protocol"].get("model")
+                if kimi_model is not None and kimi_model != payload.model:
+                    raise ValueError("Kimi summary model differs from request")
+        except (OSError, ValueError, TypeError, KeyError):
+            raise HTTPException(400, "评测产物无效、不完整或模型不匹配") from None
+        job_id = "cmp_" + uuid.uuid4().hex[:12]
+        dest = app.state.output_dir / job_id
+        # Comparison is local and deterministic. Only validated, sanitized
+        # result JSON/Markdown enter the existing JobStore and downloads.
+        try:
+            write_comparison_report(report, dest)
+            store.create(
+                job_id=job_id, kind="comparison", model=payload.model,
+                base_url="", profile="offline",
+                meta={
+                    "official_run": payload.official_run,
+                    "vendor_run": payload.vendor_run,
+                    "source_attested": False,
+                },
+            )
+            return store.finish(
+                job_id, report_path=str(dest / "comparison.md"),
+                detail=f"可比 {report['comparable_tasks']} 项；未知/不可比 {report['unknown_or_incompatible_tasks']} 项",
+                meta={
+                    "comparable_tasks": report["comparable_tasks"],
+                    "unknown_or_incompatible_tasks": report["unknown_or_incompatible_tasks"],
+                    "kimi_status": report.get("kimi_official_protocol", {}).get("status"),
+                    "source_attested": False,
+                },
+            )
+        except (OSError, ValueError, TypeError):
+            if dest.exists():
+                shutil.rmtree(dest, ignore_errors=True)
+            raise HTTPException(500, "保存对照报告失败") from None
 
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
@@ -335,7 +420,9 @@ def create_app(
         if not path.exists():
             raise HTTPException(404, "报告文件不存在")
         content = path.read_text(encoding="utf-8")
-        content = re.sub(
+        if item["kind"] == "comparison":
+            return HTMLResponse("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><title>模型能力对照</title><body><main style=\"max-width:960px;margin:2rem auto;font-family:sans-serif\"><pre style=\"white-space:pre-wrap;overflow-wrap:anywhere\">" + escape(content) + "</pre></main></body></html>")
+        content = re.sub;
             r'href="evidence/(ev_[A-Za-z0-9_-]+)\\.json"',
             lambda m: f'href="/api/audits/{job_id}/evidence/{m.group(1)}"',
             content,
@@ -357,7 +444,9 @@ def create_app(
             raise HTTPException(404, "任务不存在")
         if not item.get("report_path"):
             raise HTTPException(404, "报告尚未生成")
-        path = Path(item["report_path"]).with_name("report.json")
+        path = Path(item["report_path"]).with_name(
+            "comparison.json" if item["kind"] == "comparison" else "report.json"
+        )
         if not path.exists():
             raise HTTPException(404, "报告 JSON 不存在")
         return JSONResponse(json.loads(path.read_text(encoding="utf-8")))
