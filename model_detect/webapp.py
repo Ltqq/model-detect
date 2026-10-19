@@ -38,7 +38,7 @@ class WebAuditRequest(BaseModel):
     profile: str = "standard"
     reference_id: str | None = None
     declared_context_tokens: int | None = None
-    proxy_sleuth: bool = True
+    proxy_sleuth: bool = False
     coding_sandbox: bool = False
     benchmark_profile: str | None = None
     retain_benchmark_reference: bool = False
