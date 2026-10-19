@@ -6,6 +6,7 @@ officially attested solely because a provider_role string says 'official'.
 from __future__ import annotations
 
 import json
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,16 @@ def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
                 "task": task, "status": "missing_pair",
                 "missing": "official" if task not in official else "vendor",
                 "score_delta_vendor_minus_official": None,
+            })
+            continue
+        # Folder names do not establish official identity: require the
+        # stored roles to agree with the direction the user selected.
+        if official[task].provider_role != "official" or vendor[task].provider_role != "vendor":
+            rows.append({
+                "task": task, "status": "not_comparable",
+                "mismatch_fields": ["provider_role"],
+                "score_delta_vendor_minus_official": None,
+                "reason": "source_role_mismatch",
             })
             continue
         comparison = compare_snapshots(official[task], vendor[task])
@@ -159,4 +170,21 @@ def write_comparison_report(report: dict[str, Any], output_dir: Path) -> None:
     (target / "comparison.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    (target / "comparison.md").write_text(render_comparison_markdown(report), encoding="utf-8")
+    markdown = render_comparison_markdown(report)
+    (target / "comparison.md").write_text(markdown, encoding="utf-8")
+    # Reuse the already validated Chinese report and HTML-escape every character.
+    # A readable offline view, NOT a separate scoring/templating engine.
+    html = (
+        '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>模型能力对照 · model-detect</title>'
+        '<style>body{background:#0b0f14;color:#eaf2f8;font:15px/1.8 system-ui,sans-serif;'
+        'margin:auto;max-width:1000px;padding:30px 18px}'
+        'pre{white-space:pre-wrap;overflow-wrap:anywhere;'
+        'background:#151e28;border:1px solid #263241;padding:24px;border-radius:12px;'
+        'font:inherit}p{color:#91abc2}</style></head><body>'
+        '<h1>模型能力与官方协议对照</h1>'
+        '<p>离线证据；来源未经独立认证；相同分数不等于模型身份相同。</p>'
+        '<pre>' + escape(markdown) + '</pre></body></html>'
+    )
+    (target / "comparison.html").write_text(html, encoding="utf-8")
