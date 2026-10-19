@@ -55,7 +55,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
 | M4 | **工程闭环已合并；待 R 实测** | [#111](https://github.com/Ltqq/model-detect/pull/111) Web 离线对照及历史；[#113](https://github.com/Ltqq/model-detect/pull/113) Web 审计保留快照；本批校验 Web 所选模型与原始证据一致 | **偏移已修正**：关闭重复 #112，未新增 Web/SQLite/评分器；真实官方身份与题集验证仍属 R |
-| M5 | **第一项困难评测已开发，待 CI 与实际运行** | Deep 任务配置从 GSM8K 基础数学替换为原版 lm-eval `minerva_math500`，Profile v2；沿用上游生成式评分器，Kimi 高成本多模态/Agent 未接入 | **未偏移（待 CI）**：只调整既有档位/目录，不自研判分、不增加新引擎 |
+| M5 | **Deep 数学困难任务代码已合并；等待完整实证** | [#117](https://github.com/Ltqq/model-detect/pull/117) v2 Deep 包含 `minerva_math500`；本批补充固定上游源码/数据集、CLI/Web 提示，未接入昂贵多模态/Agent | **未偏移**：复用 lm-eval 原始生成式评分，未新建引擎或重复考题 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
 
@@ -145,3 +145,11 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 评测版本 bump 为 `lm_eval_profiles.yaml version: 2`，使旧 Reference 不会与新 Deep 任务合同混比；依赖 `lm-eval[math]` 提供 SymPy 评分支持，不自动安装或下载收费模型。
 - 统一从 YAML 读取任务难度（不重复写 Python 评分规则）；来源标记依然是 `community_benchmark_adapter`、`results_attested=false`，并非 Kimi 官方测试。
 - **偏移复核：未偏移**——只改变一个现有深度档位的实际任务覆盖，复用官方上游评分器；复杂推理/代码与真实样本成本校准仍列 M5/R，待进一步实证选择。
+
+
+### M5-B 来源与依赖可追溯（2026-10-19）
+
+- 经 GitHub 官方仓库 **`EleutherAI/lm-evaluation-harness@v0.4.13`** 实际文件核对：`lm_eval/tasks/minerva_math/minerva_math500.yaml` 指向 `HuggingFaceH4/MATH-500`，是生成式任务；不是声称厂商正式认证。
+- 在同一份 `lm_eval_profiles.yaml` 中声明任务源码 Tag、原始任务路径、数据集来源和 `lm-eval[math]==0.4.13` 可选依赖；唯一 `test_catalog` 从 YAML 投影，不重复抄入第二张任务表。Web/CLI Deep 描述提示额外数学依赖和更高成本。
+- 真正执行时的数据集修订、题目 ID、评分器版本仍必须由 M2/R 的评测环境固定并核验；`source_tag` 只说明计划使用的上游实现，不能替代实装取证。代码配置已核对来源，**实际顶级模型区分度未验收**。
+- 本项目标偏移：**未偏移**，属于困难任务可追溯要求，未添加运行器、身份分数或重复抽象。剩余困难代码/Agent 基准按成本和真实需求再评估，不能凭新增题名宣称全量覆盖。
