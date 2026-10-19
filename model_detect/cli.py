@@ -53,7 +53,7 @@ def audit(
     coding_sandbox: Optional[bool] = typer.Option(
         None,
         "--coding-sandbox/--no-coding-sandbox",
-        help="Explicitly enable/disable Docker-isolated executable coding evaluation.",
+        help="Retired: --coding-sandbox now fails before paid requests; use --benchmark-profile (lm-eval).",,
     ),
     regression_suite: list[Path] = typer.Option(
         [],
