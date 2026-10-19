@@ -99,3 +99,38 @@ def test_job_store_delete(tmp_path):
         pass
     else:
         raise AssertionError("deleted job should not exist")
+
+
+def test_sqlite_backup_restore_preserves_legacy_history_and_json_metadata(tmp_path):
+    """SQLite native backup is consistent even if a writer connection is open.
+
+    Does not touch user files, external APIs or assume schema migrations.
+    """
+    import sqlite3
+
+    original = JobStore(tmp_path / "active" / "jobs.sqlite3")
+    original.create(
+        job_id="legacy_1", kind="audit", model="glm-5.3",
+        base_url="https://private.example/v1", profile="quick",
+        meta={"score": 88.5, "provider_hypotheses": [{"provider": "unknown"}]},
+    )
+    original.finish("legacy_1", report_path="/old/report.html",
+                    meta={"score": 88.5, "verdict": "review"})
+
+    backup = tmp_path / "backup" / "jobs.sqlite3"
+    backup.parent.mkdir(parents=True)
+    with sqlite3.connect(original.path) as source:
+        with sqlite3.connect(backup) as target:
+            source.backup(target)
+    assert backup.exists()
+
+    recovered = JobStore(backup)
+    assert len(recovered.list()) == 1
+    row = recovered.get("legacy_1")
+    assert row["model"] == "glm-5.3"
+    assert row["status"] == "done"
+    assert row["report_path"] == "/old/report.html"
+    assert row["meta"]["score"] == 88.5
+    assert row["meta"]["verdict"] == "review"
+    assert recovered.delete("legacy_1") is True
+    assert original.get("legacy_1")["status"] == "done"
