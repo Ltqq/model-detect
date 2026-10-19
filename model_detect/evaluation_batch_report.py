@@ -58,6 +58,56 @@ def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
     }
 
 
+def compare_kimi_official_protocol_summaries(
+    official_file: Path, vendor_file: Path,
+) -> dict[str, Any]:
+    """Compare the SAME pinned Kimi cases; do not re-score official pytest."""
+    from .kimi_report import _validated_summary
+
+    def read(path: Path) -> dict[str, Any]:
+        if path.is_symlink() or path.stat().st_size > 16 * 1024 * 1024:
+            raise ValueError("invalid or oversized Kimi summary")
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        body = raw.get("report") if isinstance(raw, dict) and "report" in raw else raw
+        if not isinstance(body, dict) or not isinstance(body.get("model"), str):
+            raise ValueError("invalid model in Kimi summary")
+        return _validated_summary(raw, body["model"], include_case_index=True)
+
+    official = read(official_file)
+    vendor = read(vendor_file)
+    same = all(
+        official[key] == vendor[key]
+        for key in ("model", "suite", "source_commit")
+    )
+    same_cases = set(official["case_index"]) == set(vendor["case_index"])
+    if not same or not same_cases:
+        return {
+            "status": "not_comparable",
+            "reason": "model_suite_source_or_testcase_mismatch",
+            "official_source_attested": False,
+            "model_identity_proven": False,
+        }
+    total = len(official["case_index"])
+    newly_failed = sum(
+        value == "pass" and vendor["case_index"][key] != "pass"
+        for key, value in official["case_index"].items()
+    )
+    return {
+        "status": "comparable",
+        "suite": official["suite"], "model": official["model"],
+        "source_commit": official["source_commit"],
+        "total_cases": total,
+        "official_passed": official["counts"]["pass"],
+        "vendor_passed": vendor["counts"]["pass"],
+        "newly_failed_cases": newly_failed,
+        "official_incomplete": bool(official["counts"]["error"] or official["counts"]["skipped"]),
+        "vendor_incomplete": bool(vendor["counts"]["error"] or vendor["counts"]["skipped"]),
+        "official_source_attested": False,
+        "model_identity_proven": False,
+        "warning": "Pinned official code is claimed by input summaries, not independently authenticated.",
+    }
+
+
 def render_comparison_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# 模型能力基准对照（离线）", "",
@@ -80,6 +130,20 @@ def render_comparison_markdown(report: dict[str, Any]) -> str:
         task = "".join(c if c.isascii() and (c.isalnum() or c in "._-") else "_" for c in str(row["task"]))[:128]
         lines.append(f"| {task} | {status} | {left} | {right} | {delta} |")
     lines += ["", f'可比任务：{report["comparable_tasks"]}；未知或不可比：{report["unknown_or_incompatible_tasks"]}。', ""]
+    kimi = report.get("kimi_official_protocol")
+    if isinstance(kimi, dict):
+        lines += ["", "## Kimi 官方协议专项（与能力分数分开）", ""]
+        if kimi.get("status") == "comparable":
+            lines += [
+                f'- 套件：{kimi["suite"]}；模型：{kimi["model"]}',
+                f'- 同一测试用例数：{kimi["total_cases"]}',
+                f'- 官方端点通过：{kimi["official_passed"]}；供应商通过：{kimi["vendor_passed"]}',
+                f'- 官方端点通过但供应商未通过：{kimi["newly_failed_cases"]}',
+                f'- 不完整测试：官方={kimi["official_incomplete"]}，供应商={kimi["vendor_incomplete"]}',
+            ]
+        else:
+            lines.append("- 不可比：模型、套件、源码版本或测试用例集合不一致")
+        lines.append("- 来源未经独立认证；协议通过率不能证明模型权重身份。")
     return "\n".join(lines)
 
 
