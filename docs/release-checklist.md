@@ -1,46 +1,48 @@
-# model-detect v0.2.0 发布检查（单用户、已支持范围）
+# model-detect v0.2.0 交付测试与发布门槛
 
-> **截至 2026-10-19：仅工程与离线 CI 已通过，真实端点验收 R 未完成；尚未打正式 Git Tag / Release。** `pyproject.toml` 的 `0.2.0` 是项目开发版本，不代表厂商官方认证。
+> 2026-10-19。产品定位与范围以 [冻结宪章](design/product-charter-v1.md) 为准；任务状态以 [唯一执行计划](design/v020-execution-plan.md) 为准。本清单只描述**如何验证**，不新增功能方向。0.2.0 是开发版本号，未通过本清单前不应宣称正式 Release。
 
-## A. 工程交付（CI 已验证 ≠ 实机已验收）
+## A. 无 API Key 即可执行的工程交付测试
 
-- [x] Python 3.11 / 3.12 的 GitHub CI 执行全量 pytest、编译、CLI Smoke，并构建 wheel/sdist；已合并的 M1～M6 PR 各按绿灯门槛合并。
-- [x] 一个测试来源目录（`test_catalog`），既有 Kimi 固定官方协议套件 + lm-eval 公开能力任务，未接入任务标明范围。
-- [x] Web/CLI 产生报告、SQLite 历史、JSON/HTML/ZIP；官方端点与供应商快照合同不一致时标不可比；离线导入明确不调用模型。
-- [x] 默认不启动可选 proxy-sleuth、Coding Sandbox、lm-eval 深度任务；用户显式 opt-in 才执行第三方工具。
-- [x] Web 审计与 Reference 后台异常只存固定错误分类，不把原始含 API Key / Prompt 的第三方错误写入 SQLite、JSON、HTML（[#121](https://github.com/Ltqq/model-detect/pull/121)）。
-- [x] 简化 README 和唯一 M0～R 看板，保留真实验证与来源范围的明确说明。
-- [ ] **在实际部署的单机环境**完成依赖安装、Web 启停、旧 SQLite/Reference/报告恢复；CI 的 Mock 不代替实机演练。
-
-## B. R：真实官方/供应商端点验收（尚未进行）
-
-- [ ] Kimi K3 官方固定 Pytest 子套件在独立 Python >=3.12 环境真实运行，官方/供应商同套用例，对比 JUnit 摘要和原始证据。
-- [ ] GLM-5.3 官方与供应商协议/思考参数和标准能力同配置运行，验证实际请求内容及服务端响应。
-- [ ] lm-eval 原生公开评分（含适用时的 MATH-500）在固定依赖、数据集与评分版本/样本 ID 下实际运行，确认快照可比；不适用/缺环境项目明确标未覆盖。
-- [ ] 真实 Web 使用路线验收：报告、历史、下载、删除、401/429/超时/中断 SSE，检查 API Key/Token/Prompt 泄露及费用未知标注。
-- [ ] 在正式发布前由用户核定测试预算、可执行范围、最终功能说明、数据备份及 Release 版本/标签。
-
-**重要**：`oss-status` 只能说明工具是否可调用，不代表运行结果可信。非核心 promptfoo/proxy-sleuth/fingerprint 等辅助适配器无须逐个完成昂贵实测才能发布**明确标注覆盖范围**的自用版本；开启过的功能必须如实标注真实验收状态，不能把未测试的功能宣称认证通过。高成本 OCRBench/MMMU/BEAM/DeepSWE、通用 Agent/多模态/长上下文能力未完整接入，不能暗示已覆盖。
-
-## 只读/低成本检查
+在 Python 3.11 / 3.12 环境：
 
 ```bash
+python -m pip install -e ".[dev]"
 python -m pytest -q
+python -m compileall -q model_detect
 model-detect version
-model-detect oss-status
-model-detect glm53 doctor --benchmark standard
-model-detect kimi-verifier --help
+model-detect oss-status --json
 model-detect web --help
+model-detect reference --help
 ```
 
-这部分**不应自动调用付费模型**。真实测试必须单独确认用户授权、API 环境变量、名义请求/Token 预算，才使用相应命令的显式执行开关；不要在代码测试或 CI 中默认运行付费 Benchmark。
+GitHub CI 的 wheel + sdist 构建及**在源码目录以外安装 wheel**验证为必须通过的发布门槛，内容至少包含：五个目标型号的 YAML 规则、公开背景参考、Web 模板。未安装外部 OSS 工具时 `oss-status` 必须说明缺失或未验收，绝不能当通过。
 
-## 必须诚实保留的结论边界
+- [x] 五型号 OpenAI Chat Completions 模拟 HTTP 服务全审计、报告写入、敏感信息脱敏的离线测试已有自动化覆盖。
+- [x] HTTP 200 缺 message、SSE 头但没有 Delta、畸形 SSE、JSON 错误响应等反例均应失败。
+- [x] SQLite `JobStore` 历史备份与恢复后的旧 JSON/报告路径兼容回归（#158）。
+- [x] 五型号公开汇总参考和来源级别均通过确定性测试，只作背景，不得做未经同条件核验的分数差。
+- [ ] 在**用户实际部署环境**完成完整 wheel 安装、Web 启停、历史保存/查看/下载/删除、Reference 和报告目录备份及恢复演练。GitHub CI 不能替代这一步。
 
-- Mock/CI 成功不能证明厂商实测准确率、参数确实生效或身份认证。
-- 能力相近、协议相同不能证明同一模型权重；混路由结论依赖独立真值。
-- 用户输入的 `official` 角色和 `source_verified=true` 不会自动构成独立来源认证。
-- Token 费用仅在有实际 Usage/可信单价时可估算；外部子进程成本可能未知。
-- 历史版本 Deep Reference 与不同任务/评分器修订版本不得直接比较。
+## B. 真实供应商 API 测试（只需要待测渠道，不需要官方 API）
 
-**唯一 M0～R 执行状态**：[17 号路线](design/17-engineering-closure-roadmap.md)。单机升级/备份/恢复见 [升级指南](upgrade-and-restore.md)。
+用户手动提供本人有权使用的单个供应商 `Base URL`、`API Key`、`Model ID`，从 Quick 开始，再按需要开启 Standard/Deep。真实调用会产生费用，**必须由执行人主动确认预算、请求上限、并验证渠道稳定性；软 Token 限额不是账单硬限额**。
+
+验收每个目标型号时记录：日期、网关实际 Model ID、供应商地址的脱敏版本、档位、实际请求/Token 使用、协议 PASS/FAIL/UNKNOWN/不适用、错误和失败详情、报告文件。只测试已有的必要官方规则，未知行为不能写成 PASS。
+
+- [ ] 五目标型号各至少一个授权供应商端点执行基础/流式/错误响应检查，并将费用及限制写进非公开验收记录。
+- [ ] 按需执行第三方工具：固定版本的 EleutherAI lm-evaluation-harness 原生评分器，以及 Kimi-K3 官方 Pytest 子套件（适用时）；依赖未安装、题集不可用和成本不明时明确不执行，不显示通过。
+- [ ] 使用者审阅一份真实中文报告、历史复测及导出，确认没有 API Key/完整私有 Prompt 泄漏。
+- [ ] 不要求官方模型 API、不要求模型权重认证、不要求 Agent/视觉大型 Benchmark；无同题同参数逐样本 Reference 时官方公开分数为背景参考。
+
+## C. 发布判定
+
+- [ ] 当前产品范围内的安装/恢复和授权渠道测试有可复核证据。
+- [ ] P0 冗余 OSS 适配/评分器经引用、许可证和历史兼容评估，已删除或隔离并形成明确的保留理由；不能将只隐藏 Web 控件算作物理删除。
+- [ ] 主流程 401/403/429/超时/无效 SSE、原始秘密脱敏和缺乏证据的 UNKNOWN 状态回归完整通过。
+- [ ] 运行结果/第三方评测的未覆盖项有明确标识；没有虚假“模型权重认证率”。
+- [ ] 在用户实际本地环境做数据备份并演练恢复后，再执行 git tag / GitHub Release；未达到不得提前宣布正式发布。
+
+## 结论边界
+
+CI / Mock 通过只表明软件路径满足离线合约，**不证明任何特定供应商的真实性、模型权重、能力分数或费用**。其他模型、型号与新的 API 版本需独立核实。Kimi 官方验证器建议在 Python >=3.12 独立虚拟环境运行。见 [备份与恢复](upgrade-and-restore.md)。
