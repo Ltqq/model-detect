@@ -124,11 +124,48 @@ def test_web_comparison_kimi_only_and_html_escaping(tmp_path):
         state_dir=tmp_path/"state", reference_dir=tmp_path/"refs",
         output_dir=tmp_path/"out",
     ))
-    result = client.post("/api/comparisons", json={
+    # A UI label must not silently override the real model recorded in JUnit.
+    invalid = client.post("/api/comparisons", json={
         "model": "kimi-k3<script>bad</script>",
+        "kimi_official_summary": str(kp), "kimi_vendor_summary": str(kv),
+    })
+    assert invalid.status_code == 400
+    assert client.get("/api/jobs").json()["jobs"] == []
+
+    result = client.post("/api/comparisons", json={
+        "model": "kimi-k3",
         "kimi_official_summary": str(kp), "kimi_vendor_summary": str(kv),
     })
     assert result.status_code == 200, result.text
     html = client.get(f'/reports/{result.json()["id"]}').text
-    assert "<script>bad</script>" not in html
     assert "官方协议专项" in html
+
+
+def test_web_comparison_refuses_displayed_model_mismatch_in_benchmark(tmp_path):
+    official, vendor = tmp_path/"official", tmp_path/"vendor"
+    _snapshot(official,"official",.91)
+    _snapshot(vendor,"vendor",.86)
+    client = TestClient(create_app(
+        state_dir=tmp_path/"state", reference_dir=tmp_path/"refs",
+        output_dir=tmp_path/"out",
+    ))
+    result = client.post("/api/comparisons", json={
+        "model": "glm-5.3",
+        "official_snapshots_dir": str(official),
+        "vendor_snapshots_dir": str(vendor),
+    })
+    assert result.status_code == 400
+    assert client.get("/api/jobs").json()["jobs"] == []
+
+
+def test_direct_comparison_cli_remains_backward_compatible(tmp_path):
+    from model_detect.evaluation_batch_report import compare_directories
+    official, vendor = tmp_path/"official", tmp_path/"vendor"
+    _snapshot(official,"official",.91)
+    _snapshot(vendor,"vendor",.86)
+    assert compare_directories(official,vendor)["comparable_tasks"] == 1
+    try:
+        compare_directories(official,vendor,expected_model="glm-5.3")
+        assert False, "mismatched actual model must fail"
+    except ValueError:
+        pass
