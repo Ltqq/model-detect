@@ -43,7 +43,7 @@ def test_identity_mismatch_hard_caps_total():
     )
     assert summary.hard_cap == 40.0
     assert summary.overall_score <= 40.0
-    assert summary.final_verdict == "mismatch"
+    assert summary.final_verdict == "review"
 
 
 def test_critical_protocol_failure_caps_score():
@@ -56,7 +56,7 @@ def test_critical_protocol_failure_caps_score():
     assert summary.hard_cap == 60.0
 
 
-def test_weak_identity_cannot_produce_verified_pass():
+def test_weak_identity_does_not_block_protocol_admission():
     summary = build_summary(
         [
             r("protocol.chat.basic", "protocol", 1.0),
@@ -66,7 +66,7 @@ def test_weak_identity_cannot_produce_verified_pass():
         ]
     )
     assert summary.overall_score is not None
-    assert summary.final_verdict == "review"
+    assert summary.final_verdict == "pass"
     assert summary.confidence in {"medium", "low"}
 
 
@@ -127,3 +127,34 @@ def test_benchmark_scores_do_not_change_authenticity_admission_score():
     ])
     assert with_benchmark.overall_score == original.overall_score
     assert with_benchmark.final_verdict == original.final_verdict
+
+
+def test_no_protocol_evidence_is_insufficient_even_with_high_identity_score():
+    summary = build_summary([
+        r("identity.fp", "identity", 1.0, identity_strength="strong")
+    ])
+    assert summary.final_verdict == "insufficient"
+
+
+def test_protocol_transport_error_cannot_be_admitted():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 0.0, ProbeStatus.ERROR),
+        r("identity.fp", "identity", 1.0, identity_strength="strong"),
+    ])
+    assert summary.final_verdict == "insufficient"
+
+
+def test_critical_protocol_failure_is_not_masked_by_capability():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 0.0, ProbeStatus.FAIL),
+        r("capability.reasoning", "capability", 1.0),
+    ])
+    assert summary.final_verdict == "fail"
+
+
+def test_noncritical_protocol_failure_requires_review():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.json_mode", "protocol", 0.0, ProbeStatus.FAIL),
+    ])
+    assert summary.final_verdict == "review"
