@@ -4,11 +4,10 @@ id: deepseek-v4
 family: deepseek
 model_version: "v4"
 patterns:
-  - "deepseek-v4-*"
-  - "deepseek-v4.1-*"
-  - "deepseek-flash"
+  - "deepseek-v4-pro"
+  - "deepseek-v4-pro-*"
 aliases: []
-updated_at: "2026-10-08"
+updated_at: "2026-10-19"
 
 sources:
   - id: deepseek-thinking-mode
@@ -112,3 +111,6 @@ notes:
   - "Thinking-mode tool calls require preserving reasoning_content across tool-call turns."
   - "The current rule intentionally does not claim JSON Schema support from JSON-object mode documentation."
   - "The rule is non-strict because third-party gateways may transform request parameters or response fields."
+
+  - "Do not match retired V4 Flash aliases with this rule: the current deepseek-flash and legacy V4 Flash aliases use the versioned DeepSeek V4.1 Flash rule."
+  - "Third-party model labels alone cannot establish whether a V4 Pro endpoint serves the claimed original weights; consult the official update history for the query date."
