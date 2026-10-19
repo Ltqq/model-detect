@@ -4,6 +4,17 @@
 
 > 当前为代码开发进展，不代表已完成官方与供应商真实测试、身份真值校准或客户验收。正式版本号和 Release Tag 在统一验收后确定。
 
+### M0～M6：权威评测轻量主线（仅工程/CI，未完成 R 实测）
+
+- 统一测试来源目录，继续复用固定版本 Kimi 官方协议 Pytest、lm-evaluation-harness 的原始评分器。
+- 按需保留 lm-eval 原始结果与样本日志、自动生成不可覆盖的 Reference 快照；来源数据集/评分器修订由用户提供时保持未独立认证状态。
+- 已支持任务的官方/供应商同条件分数及 Kimi 协议用例分栏对照，接入已有 Web/SQLite、中文 HTML/JSON/ZIP、历史与删除。
+- 可选 Deep 包含现成 MATH-500 高难数学任务；Kimi OCRBench/MMMU/BEAM/DeepSWE 等高级能力仍未完整接入。
+- [#119](https://github.com/Ltqq/model-detect/pull/119)：第三方 proxy-sleuth 默认关闭、手动启用仍支持。
+- [#120](https://github.com/Ltqq/model-detect/pull/120)：合并过时 README 与排期，保留一份 M0～R 开发/验收状态表。
+- [#121](https://github.com/Ltqq/model-detect/pull/121)：Web 审计/Reference 失败异常不再将 Key、Prompt、内部错误原文持久化到 SQLite 或显示到历史。
+- **后续只执行 R 真实 API/目标机验收后再决定正式版本 Release，不因为 Mock/CI 通过就宣称模型身份验证准确率。**
+
 ### 可信对照与 GLM53 实测链路
 
 - G0：版本化任务比较契约、历史证据离线回放与可解释能力评分。
