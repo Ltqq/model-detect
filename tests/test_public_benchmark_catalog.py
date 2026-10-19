@@ -71,3 +71,25 @@ def test_zai_glm_model_cards_are_background_references_not_live_verification():
         assert item["source"]["publisher"] == "Z.ai"
         assert item["comparison_status"] == "background_only"
         assert item["conditions"]["sample_count"] is None
+
+
+def test_deepseek_v4_pro_and_v41_flash_public_results_are_distinct():
+    entries = yaml.safe_load(
+        files("model_detect").joinpath("data/public_benchmarks.yaml").read_text(
+            encoding="utf-8"
+        )
+    )["entries"]
+    record = next(
+        item for item in entries
+        if item["id"] == "deepseek-v4-pro-0813-deepswe-published"
+    )
+    assert record["model"] == "deepseek-v4"
+    assert record["model_variant"] == "DeepSeek-V4-Pro-0813"
+    assert record["value"] == 62.7
+    assert record["source"]["publisher"] == "DeepSeek"
+    assert record["comparison_status"] == "background_only"
+    assert record["conditions"]["sample_count"] is None
+    assert all(
+        item["model"] != "deepseek-v4.1"
+        for item in entries if item["id"] == record["id"]
+    )
