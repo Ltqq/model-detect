@@ -162,10 +162,14 @@ async def probe_stream(
         return [_error_result(probe_id, "protocol", call)], [ev]
     content_type = ev.response_headers.get("content-type", "")
     body = ev.response_body
-    looks_stream = ev.response_status == 200 and (
+    # A 200 response with an SSE Content-Type but no events is not proof
+    # that the provider can stream model responses.
+    has_events = (isinstance(body, list) and bool(body)) or (
+        isinstance(call.text_body, str) and "data:" in call.text_body
+    )
+    looks_stream = ev.response_status == 200 and has_events and (
         "text/event-stream" in content_type.lower()
         or isinstance(body, list)
-        or "data:" in call.text_body
     )
     return [
         ProbeResult(
