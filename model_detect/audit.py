@@ -224,6 +224,19 @@ async def run_audit(
             "other protocols can still be inspected through proxy-sleuth."
         )
 
+    revision_manifest = None
+    if config.benchmark_revisions_file is not None:
+        if not config.benchmark_profile or not config.benchmark_evidence_dir:
+            raise ValueError("benchmark revisions require persistent benchmark profile/output")
+        from .lmeval_run_import import load_revision_manifest
+        profile_spec = lm_eval.resolve_builtin_profile(
+            config.benchmark_profile, include_native_overlap=True
+        )
+        revision_manifest = load_revision_manifest(
+            Path(config.benchmark_revisions_file),
+            expected_tasks=list(profile_spec["tasks"]),
+        )
+
     # Refuse an occupied evidence destination BEFORE sending any billable requests.
     persistent_benchmark = None
     if config.benchmark_evidence_dir is not None:
@@ -456,6 +469,24 @@ async def run_audit(
                 "artifacts_retained": persistent_benchmark is not None,
                 "sample_log_requested": persistent_benchmark is not None,
             }
+            if revision_manifest is not None:
+                from .lmeval_run_import import import_run_snapshots
+                try:
+                    report.adapters["lm_eval_benchmark"]["snapshot_import"] = import_run_snapshots(
+                        run_dir=persistent_benchmark,
+                        output_dir=persistent_benchmark / "snapshots",
+                        model=config.target.model,
+                        manifest=revision_manifest,
+                    )
+                except (OSError, ValueError, TypeError, KeyError) as exc:
+                    report.adapters["lm_eval_benchmark"]["snapshot_import"] = {
+                        "status": "incomplete",
+                        "reason": f"{type(exc).__name__}: source details withheld",
+                    }
+            elif persistent_benchmark is not None:
+                report.adapters["lm_eval_benchmark"]["snapshot_import"] = {
+                    "status": "manual_revision_input_required",
+                }
         except Exception as exc:
             report.results.append(
                 ProbeResult(
