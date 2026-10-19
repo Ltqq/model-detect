@@ -269,6 +269,8 @@ def create_app(
     @app.post("/api/comparisons")
     async def create_comparison_job(payload: WebComparisonRequest):
         """Import local, previously saved evidence into existing SQLite history."""
+        if not payload.model.strip():
+            raise HTTPException(400, "模型 ID 不能为空")
         benchmark = bool(payload.official_snapshots_dir and payload.vendor_snapshots_dir)
         kimi = bool(payload.kimi_official_summary and payload.kimi_vendor_summary)
         if (
@@ -286,6 +288,7 @@ def create_app(
                     compare_directories,
                     Path(payload.official_snapshots_dir),
                     Path(payload.vendor_snapshots_dir),
+                    expected_model=payload.model.strip(),
                 )
             else:
                 comparison = {
@@ -300,6 +303,7 @@ def create_app(
                     compare_kimi_official_protocol_summaries,
                     Path(payload.kimi_official_summary),
                     Path(payload.kimi_vendor_summary),
+                    expected_model=payload.model.strip(),
                 )
         except (OSError, ValueError, TypeError, KeyError):
             raise HTTPException(400, "本地评测文件缺失、格式错误或版本不兼容") from None
