@@ -54,7 +54,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
-| M4 | **下一阶段** | 利用既有 FastAPI、JobStore、index.html 将评测快照、Kimi 汇总接入历史/查看/下载 | **前置检查**：不新造 Web、数据库或调度器 |
+| M4 | **进行中，待 CI/合并** | 现有 Web 按本地运行目录比较 Benchmark/Kimi，结果写入现有 SQLite jobs、查看 HTML/JSON/ZIP、历史可删 | **未偏移（待验证）**：一个 POST 入口，原比对函数、JobStore、模板，无新数据库或评测执行器 |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
@@ -111,3 +111,12 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 5. **阶段退出**：离线工程代码已合并且 CI 通过；当前 CLI 可提供一个 Kimi 官方协议子套件的配对比较，Web/SQLite、多个子套件自动编组和真实环境兼容性未交付，归 M4/R，不能宣称全部产品完成。
 
 **最终判定：未偏移目标。** 从 M4 起只有能推进现有 Web 的持久化/查看/导出才进入当前开发，不继续新增报告辅助工具。
+
+
+### M4-A Web/SQLite 同一路径（2026-10-19，本批偏移审计）
+
+- 只增加 `POST /api/evaluation-comparisons`：以 `model`、`official_run`、`vendor_run` 和两类布尔选项选择本地评测对照；在**现有 Web 首页**增加简短表单，不新增第二套页面/SPA。
+- 数据放在本地 `<state-dir>/evaluation-runs/<run-name>/snapshots/*.json`，Kimi 官方协议汇总可选 `<run-name>/kimi-summary.json`；只接收不包含斜杠的目录名，阻止路径穿越及符号链接。该对比接口**不会运行模型或第三方工具，不消耗 Token**。
+- 自动复用 `compare_directories` 和 Kimi JUnit 比较，检查两端 **model 一致、role 分别是 official/vendor**，写入已有的 `JobStore`（`kind=comparison`）。中文报告由 `/reports/<job>` 查看，现有 JSON/ZIP 下载与历史删除也支持 comparison。
+- 结果来源尚未经独立认证，不可用 `role=official` 标签证明上游真实身份。任务文件必须事先由 CLI 真实运行或可信导入生成。
+- **目标偏移检查**：符合 M4 的已有 Web/SQLite/对照报告三者直接连通；没有加后台调度器、评测框架、账号体系或第二张历史表。最终 CI 和 Web E2E 通过后才标本环节合并；之后仍需审查是否有 M4 整体未解决的关键断点。
