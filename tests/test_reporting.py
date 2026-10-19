@@ -241,5 +241,7 @@ def test_unrelated_model_does_not_inherit_kimi_published_score(tmp_path):
     )
     root = write_report(report, tmp_path / "deepseek")
     page = (root / "report.html").read_text(encoding="utf-8")
-    assert "官方已发布成绩 · 仅背景参考" not in page
-    assert "GPQA Diamond" not in page
+    assert "官方已发布成绩 · 仅背景参考" in page
+    assert "DeepSeek-V4.1-Flash-1017" in page
+    assert "Terminal-Bench 4.0" in page
+    assert "GPQA Diamond" not in page  # no cross-model Kimi score leakage
