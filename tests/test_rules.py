@@ -211,8 +211,8 @@ def test_strict_v2_rule_rejects_only_low_confidence_community_sources():
         ("qwen3.8-max", "qwen3.8"),
         ("qwen3.8-flash", "qwen3.8"),
         ("deepseek-v4-pro", "deepseek-v4"),
-        ("deepseek-v4.1-flash", "deepseek-v4"),
-        ("deepseek-flash", "deepseek-v4"),
+        ("deepseek-v4.1-flash", "deepseek-v4.1"),
+        ("deepseek-flash", "deepseek-v4.1"),
     ],
 )
 def test_first_formal_model_rules_match(model, rule_id):

@@ -1,0 +1,40 @@
+schema_version: 3
+id: deepseek-v4.1
+family: deepseek
+model_version: "v4.1-flash-1017"
+patterns:
+  - "deepseek-flash"
+  - "deepseek-v4.1-*"
+  - "deepseek-v4-flash"
+  - "deepseek-v4-flash-vision-exp"
+aliases:
+  - "DeepSeek-V4.1-Flash-1017"
+updated_at: "2026-10-19"
+sources:
+  - id: deepseek-first-call
+    type: official_doc
+    title: "DeepSeek API - Your First API Call"
+    url: "https://api-docs.deepseek.com/guides/harness"
+    collected_at: "2026-10-19"
+    confidence: high
+  - id: deepseek-updates
+    type: official_doc
+    title: "DeepSeek API - 2026-10-17 V4.1 Flash update"
+    url: "https://api-docs.deepseek.com/updates/"
+    collected_at: "2026-10-19"
+    confidence: high
+strict: false
+features:
+  reasoning_effort:
+    expected: null
+  disable_thinking:
+    expected: null
+  tools:
+    expected: null
+  json_schema:
+    expected: null
+notes:
+  - "Official deepseek-flash is served by DeepSeek-V4.1-Flash-1017 as of 2026-10-17."
+  - "Legacy deepseek-v4-flash and deepseek-v4-flash-vision-exp IDs route to V4.1 Flash, not original V4 weights."
+  - "Exact effort/tool/JSON constraints must be sourced independently before enabling strict per-model assertions."
+  - "The model id sent to a third-party gateway does not independently prove the deployed weight version."
