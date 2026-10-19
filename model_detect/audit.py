@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 import uuid
@@ -223,6 +224,16 @@ async def run_audit(
             "other protocols can still be inspected through proxy-sleuth."
         )
 
+    # Refuse an occupied evidence destination BEFORE sending any billable requests.
+    persistent_benchmark = None
+    if config.benchmark_evidence_dir is not None:
+        if not config.benchmark_profile:
+            raise ValueError("benchmark_evidence_dir requires benchmark_profile")
+        persistent_benchmark = Path(config.benchmark_evidence_dir).expanduser()
+        if persistent_benchmark.exists() or persistent_benchmark.is_symlink():
+            raise ValueError("benchmark evidence destination already exists; refusing overwrite")
+        persistent_benchmark.mkdir(parents=True, exist_ok=False)
+
     profile = (config.profile or "quick").lower()
     api_key = get_api_key(config.target, api_key_override)
     native_budget = (
@@ -414,7 +425,10 @@ async def run_audit(
         if progress:
             progress("strong-benchmark", 1, 1)
         try:
-            with tempfile.TemporaryDirectory(prefix="model-detect-lm-eval-") as work:
+            with (
+                nullcontext(str(persistent_benchmark)) if persistent_benchmark is not None
+                else tempfile.TemporaryDirectory(prefix="model-detect-lm-eval-")
+            ) as work:
                 bench_results, bench_meta = await asyncio.to_thread(
                     lm_eval.run_builtin_profile_results,
                     profile_name=config.benchmark_profile,
@@ -424,6 +438,7 @@ async def run_audit(
                     output_path=Path(work),
                     include_native_overlap=True,
                     num_concurrent=1,
+                    log_samples=persistent_benchmark is not None,
                 )
             # Raw benchmark scores are descriptive quality evidence, not
             # identity/capability audit scores. Keep them outside weighted
@@ -438,6 +453,8 @@ async def run_audit(
                 "limit": bench_meta.get("limit"),
                 "harness": "EleutherAI/lm-evaluation-harness",
                 "scored_tasks": sum(r.score is not None for r in bench_results),
+                "artifacts_retained": persistent_benchmark is not None,
+                "sample_log_requested": persistent_benchmark is not None,
             }
         except Exception as exc:
             report.results.append(
@@ -454,6 +471,7 @@ async def run_audit(
                 "status": "error",
                 "profile": config.benchmark_profile,
                 "reason": f"{type(exc).__name__}: raw error hidden",
+                "artifacts_retained": persistent_benchmark is not None,
             }
     else:
         report.adapters["lm_eval_benchmark"] = {"status": "disabled"}
