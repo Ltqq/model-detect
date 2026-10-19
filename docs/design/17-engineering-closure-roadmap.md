@@ -54,7 +54,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
-| M4 | **进行中（Web 离线对照切片，待 CI）** | 原 Web 首页本地官方/供应商快照配对、可选 Kimi 同套 JUnit 汇总；原 SQLite 记录与 HTML/JSON/ZIP/删除接口复用 | **未偏移（待 CI）**：没有新数据库、任务调度或新的评测器；Web 直接运行官方测试仍待做 |
+| M4 | **Web 离线闭环已合并；整阶段仍在收尾** | [#111](https://github.com/Ltqq/model-detect/pull/111)：原 Web、SQLite、HTML/JSON/ZIP 复用；本批修正展示模型与实际评测证据的一致性 | **偏移已修正**：主动关闭重复 #112，未新建另一套 Web/存储；真实模型执行归 R |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
@@ -120,3 +120,10 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 现有 `JobStore` 记录 `kind=comparison`，沿用 `/api/jobs` 历史、`/reports/{job_id}` 中文 HTML、`/api/audits/{job_id}/report` JSON、ZIP 下载与删除。仅将既有中文 Markdown 安全 HTML 转义成预览，不新造报表算法。输出目录归原报告根目录，历史删除同步清理文件。
 - 现实边界：文件路径由**本地单用户**提供、对应服务端磁盘；请勿公网暴露本地 Web 或存储敏感 JSON。已保存 lm-eval 运行目录需要先生成快照；接下来还需 Web 内选择评测执行方式/真实 Kimi 引擎。
 - **偏移判定：未偏移（待 CI）**。直接推进 Reference→官方/供应商对照→历史→报告与下载，修改既有三个模块和相关回归，无数据库迁移、不引入新 Web/任务系统。
+
+
+### M4-B 正确性和去重审查（2026-10-19）
+
+- #111 已将已保存的 Benchmark 快照和可选 Kimi Pytest JUnit 对比放入现有 Web 与 SQLite 历史。并行提交的 [#112](https://github.com/Ltqq/model-detect/pull/112) 与 #111 功能重复且发生合并冲突，按「减少重复实现」原则主动关闭，未合并。
+- 复核发现 #111 原 API 的 `model` 只用于显示，未与快照/JUnit 中实际记录模型核验，可能出现“用户选 GLM，文件其实来自 Kimi”的误导性报告。此次修正：API 在写入历史前要求两侧评测证据的模型与用户选择完全相同；原 CLI 无显式选择时仍支持已验证的同条件离线比较。
+- 目标偏移判定：**偏移已修正**（放弃重复 PR，聚焦一个实际 P0 准确性问题）。无新基础设施、评测器、数据库、普通用户命令；仍不能把来源自行声明视为官方认证。
