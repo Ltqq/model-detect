@@ -14,7 +14,7 @@ from .models import AuditReport
 from .reporting import write_report
 
 
-def _validated_summary(raw: Any, model: str) -> dict[str, Any]:
+def _validated_summary(raw: Any, model: str, *, include_case_index: bool = False) -> dict[str, Any]:
     if isinstance(raw, dict) and "report" in raw:
         raw = raw["report"]
     if not isinstance(raw, dict):
@@ -37,8 +37,24 @@ def _validated_summary(raw: Any, model: str) -> dict[str, Any]:
     cases = raw.get("cases")
     if not isinstance(cases, list) or len(cases) != total or total < 1:
         raise ValueError("inconsistent official testcase count")
+    # Case index is only used for cross-endpoint protocol comparisons.
+    # Attachment reports intentionally omit even hashed testcase identifiers.
+    index: dict[str, str] = {}
+    if include_case_index:
+        import re
+        for case in cases:
+            if not isinstance(case, dict):
+                raise ValueError("invalid official testcase")
+            key, status = case.get("testcase_sha256"), case.get("status")
+            if not isinstance(key, str) or not re.fullmatch("[0-9a-f]{64}", key):
+                raise ValueError("invalid official testcase digest")
+            if key in index or status not in {"pass", "fail", "error", "skipped"}:
+                raise ValueError("duplicate or invalid official testcase")
+            index[key] = status
+        if any(sum(v == k for v in index.values()) != counts[k] for k in ("pass", "fail", "error", "skipped")):
+            raise ValueError("official testcase count mismatch")
     # Reconstruct an allow-listed payload, not raw user-supplied paths/messages.
-    return {
+    normalized = {
         "source_repository": "MoonshotAI/Kimi-Vendor-Verifier",
         "source_commit": OFFICIAL_COMMIT,
         "suite": raw["suite"],
@@ -53,6 +69,9 @@ def _validated_summary(raw: Any, model: str) -> dict[str, Any]:
         ),
         "warning": "Official test outcomes are separate from model identity and audit score.",
     }
+    if include_case_index:
+        normalized["case_index"] = index
+    return normalized
 
 
 def merge_official_summary(
