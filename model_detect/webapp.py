@@ -527,6 +527,21 @@ def create_app(
     return app
 
 
+def _safe_job_error(exc: Exception) -> str:
+    """Safe status for SQLite, JSON and HTML; never serialize exception messages.
+
+    External transports, subprocesses and parsers may include credentials,
+    request bodies, model output or private local paths in str(exc).
+    """
+    if isinstance(exc, TimeoutError):
+        return "任务超时，错误详情已隐藏"
+    if isinstance(exc, (FileNotFoundError, PermissionError)):
+        return "任务所需文件或访问权限不可用，错误详情已隐藏"
+    if isinstance(exc, (ValueError, TypeError)):
+        return "任务配置或结果数据无效，错误详情已隐藏"
+    return "后台任务执行失败，错误详情已隐藏"
+
+
 def _progress_label(name: str) -> str:
     if name.startswith("protocol:"):
         return "正在检查协议兼容"
@@ -677,7 +692,7 @@ async def _run_audit_job(
             },
         )
     except Exception as exc:
-        store.fail(job_id, f"{type(exc).__name__}: {exc}")
+        store.fail(job_id, _safe_job_error(exc))
 
 
 async def _run_reference_job(
@@ -818,4 +833,4 @@ async def _run_reference_job(
             },
         )
     except Exception as exc:
-        store.fail(job_id, f"{type(exc).__name__}: {exc}")
+        store.fail(job_id, _safe_job_error(exc))
