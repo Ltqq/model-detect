@@ -449,9 +449,9 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         tone = "bad"
         headline = "不通过：检测到被禁止的上游 Provider 证据。"
     elif identity_mismatch:
-        decision = "拒绝准入"
-        tone = "bad"
-        headline = "不通过：强模型身份信号与可信参考不一致。"
+        decision = "人工复核"
+        tone = "warn"
+        headline = "观察到统计行为与所选参考不一致；先核验来源和测试条件，不以此单项证明换模或拒绝准入。"
     elif quality["state"] == "regression":
         decision = "人工复核"
         tone = "warn"
