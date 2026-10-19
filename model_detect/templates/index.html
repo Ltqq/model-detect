@@ -175,7 +175,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
   </form>
 
   <div class="table-wrap"><table>
-    <thead><tr><th>时间 / 模型</th><th>结论</th><th>分数 / 可信度</th><th>重点解读</th><th>任务状态</th><th>报告</th><th>操作</th></tr></thead>
+    <thead><tr><th>时间 / 模型</th><th>结论</th><th>结果证据</th><th>重点解读</th><th>任务状态</th><th>报告</th><th>操作</th></tr></thead>
     <tbody id="jobs">
     {% for j in jobs %}
       {% set h = j.meta.get('human_summary', {}) %}
@@ -194,8 +194,8 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         </td>
         <td>
           {% if j.kind == 'audit' %}
-            <b>{{ j.meta.get('score') if j.meta.get('score') is not none else '—' }}</b>
-            <div class="job-sub">可信度：{{ h.get('confidence_label','—') }}</div>
+            <b>查看逐项检测</b>
+            <div class="job-sub">身份未独立认证</div>
           {% elif j.kind == 'comparison' %}<b>{{ j.meta.get('comparable_tasks',0) }} 项可比</b>
           {% else %}—{% endif %}
         </td>
