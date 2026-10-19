@@ -18,7 +18,7 @@
 | **M3 官方与供应商对比** | 代码/离线 CI 已合并 | [#109](https://github.com/Ltqq/model-detect/pull/109)、[#110](https://github.com/Ltqq/model-detect/pull/110)：固定源码 Kimi JUnit 同用例比较，lm-eval 任务成绩同合同分差，中文分栏报告 | **未偏移**：官方评分器原样使用 |
 | **M4 Web/SQLite 主线** | **当前支持范围工程闭环已合并，待真实复现** | [#111](https://github.com/Ltqq/model-detect/pull/111)、[#113](https://github.com/Ltqq/model-detect/pull/113)、[#115](https://github.com/Ltqq/model-detect/pull/115)：Web 运行可选评测并保存快照，一键选官方/供应商、离线对比、中文报告/JSON/ZIP、SQLite 历史和删除；核对展示模型 | **偏移已修正**：未新建数据库/后台系统 |
 | **M5 高难公开评测** | **首项已合并，完整高难覆盖与实证待后续** | [#117](https://github.com/Ltqq/model-detect/pull/117)、[#118](https://github.com/Ltqq/model-detect/pull/118)：Deep 不再只加低难题数，使用现成 Minerva MATH-500 开源任务/评分器，记录固定来源与依赖；高成本仍需明确启用 | **未偏移**：没有重写 Benchmarks |
-| **M6 轻量化与交付检查** | **进行中** | [#119](https://github.com/Ltqq/model-detect/pull/119)：proxy-sleuth CLI/Web 默认关闭但仍可 opt-in；本批 README/计划压缩为实际操作与退出条件，待 CI | **未偏移（待 CI）**：删除文档冗余，不删核心证据和官方测试 |
+| **M6 轻量化与交付检查** | **进行中：安全回归待 CI** | [#119](https://github.com/Ltqq/model-detect/pull/119) 第三方默认关闭；[#120](https://github.com/Ltqq/model-detect/pull/120) README/计划收敛；本批修复后台原始异常泄露 | **未偏移（待 CI）**：安全阻断修复，没有扩张功能 |
 | **R 真实端点验收与发布决策** | **未开始** | 需要有权官方/供应商 API、明确预算、保留原始证据；无真实官方认证记录 | **待判定**：不得把 Mock 当实测 |
 
 ## R 的最小必验收项（没有真实结果不得勾选）
@@ -34,8 +34,8 @@
 ## M6 收尾工程条件
 
 - [x] 日常模式默认关闭可选外部 OSS（[#119](https://github.com/Ltqq/model-detect/pull/119)），显式开启的原行为保留。
-- [ ] 将过长、已过时的 README 和此计划精简成**一份真正可用的执行流程与状态表**（本批 PR）。
-- [ ] 检查代表性协议/能力评分、Reference 合同、Kimi 规则、Web/SQLite、HTML/JSON/ZIP、API Key 脱敏、错误/未知结果的现有 CI；只补风险缺口，不新增形式主义测试。
+- [x] 已将 README 与唯一执行计划简化为实际使用、已实现范围、未实测及 R 清单（[#120](https://github.com/Ltqq/model-detect/pull/120)，CI 通过）。
+- [ ] 核查协议/能力评分、Reference、Kimi、Web/SQLite、HTML/JSON/ZIP 和敏感信息的现有 CI；本批已定位 Web 后台原始异常入库泄露风险，并新增回归，待本 PR CI。
 - [ ] 确认当前 `pyproject.toml` 开发版与发布检查清单一致，注明真实模型验收 R 尚未完成、不可宣称官方认证。
 - [ ] 阶段结束做一次目标漂移判断，合并 CI 绿的 PR 后停止继续增加无关功能。
 
@@ -60,3 +60,10 @@
 **范围限制**：只改文档，不声称获得任何真实官方认证；R 仍未执行，不打正式 Release。
 
 **偏移判断**：**未偏移（待 CI）**，该项直接服务于单用户实际操作与阶段退出，减少维护工作，不增加测试/执行/计费功能。
+
+
+### M6 隐私阻断复核：后台异常不得进入 SQLite（2026-10-19）
+
+- **确定性风险**：原 `_run_audit_job`、`_run_reference_job` 使用 `store.fail(job_id, f"{type(exc).__name__}: {exc}")`；第三方 HTTP/子进程异常可能包含密钥、Prompt、响应片段或本地敏感路径，通过 `/api/jobs` 和 Web 历史显示。
+- **修正**：保留任务失败状态与超时/文件/配置等固定中文错误类型，彻底避免把未经信任的异常原文入库。模拟第三方异常含假 API Key 与 Prompt，覆盖审计、Reference、SQLite、Web 历史与 API JSON。
+- **偏移检查**：未偏移（待 CI）。该改动是 M6 必须处理的真实泄露阻断项，不增删评测规则、评分器、命令或数据表；真实模型实测仍在 R。
