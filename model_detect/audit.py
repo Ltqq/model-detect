@@ -449,13 +449,16 @@ async def run_audit(
             for item in bench_results:
                 item.category = "benchmark"
             report.results.extend(bench_results)
+            scored_tasks = sum(r.score is not None for r in bench_results)
+            # A subprocess invocation is not a benchmark result. Report missing
+            # scored tasks as incomplete instead of silently calling it success.
             report.adapters["lm_eval_benchmark"] = {
-                "status": "completed",
+                "status": "completed" if scored_tasks else "incomplete",
                 "profile": config.benchmark_profile,
                 "tasks": bench_meta.get("tasks") or [],
                 "limit": bench_meta.get("limit"),
                 "harness": "EleutherAI/lm-evaluation-harness",
-                "scored_tasks": sum(r.score is not None for r in bench_results),
+                "scored_tasks": scored_tasks,
                 "artifacts_retained": persistent_benchmark is not None,
                 "sample_log_requested": persistent_benchmark is not None,
             }
