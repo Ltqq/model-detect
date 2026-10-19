@@ -41,6 +41,16 @@ def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
                 "score_delta_vendor_minus_official": None,
             })
             continue
+        # Folder names do not establish official identity: require the
+        # stored roles to agree with the direction the user selected.
+        if official[task].provider_role != "official" or vendor[task].provider_role != "vendor":
+            rows.append({
+                "task": task, "status": "not_comparable",
+                "mismatch_fields": ["provider_role"],
+                "score_delta_vendor_minus_official": None,
+                "reason": "source_role_mismatch",
+            })
+            continue
         comparison = compare_snapshots(official[task], vendor[task])
         rows.append({
             "task": task,
