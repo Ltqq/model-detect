@@ -65,6 +65,7 @@ class AuditConfig(BaseModel):
     capability_enabled: bool = True
     # An opt-in, bounded academic benchmark; never part of the default audit.
     benchmark_profile: Literal["smoke", "standard", "deep"] | None = None
+    benchmark_evidence_dir: str | None = None
     proxy_sleuth_enabled: bool = True
     coding_sandbox_enabled: bool = False
     coding_sandbox_auto_pull: bool = True
@@ -94,6 +95,8 @@ def load_config(path: str | Path) -> AuditConfig:
     cfg = AuditConfig.model_validate(raw)
 
     base = source.resolve().parent
+    if cfg.benchmark_evidence_dir:
+        cfg.benchmark_evidence_dir = _resolve_relative_path(base, cfg.benchmark_evidence_dir)
     cfg.regression.suites = [
         _resolve_relative_path(base, value)
         for value in cfg.regression.suites
