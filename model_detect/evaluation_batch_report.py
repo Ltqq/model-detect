@@ -12,7 +12,7 @@ from typing import Any
 from .evaluation_snapshots import EvaluationSnapshot, compare_snapshots
 
 
-def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
+def _load_directory(root: Path, *, expected_role: str, expected_model: str | None = None) -> dict[str, EvaluationSnapshot]:
     if not root.is_dir() or root.is_symlink():
         raise ValueError("snapshot directory not found")
     records: dict[str, EvaluationSnapshot] = {}
@@ -20,6 +20,10 @@ def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
         if path.is_symlink() or path.stat().st_size > 1024 * 1024:
             raise ValueError("invalid snapshot file")
         record = EvaluationSnapshot.model_validate_json(path.read_text(encoding="utf-8"))
+        if record.provider_role != expected_role:
+            raise ValueError("snapshot provider role mismatches directory")
+        if expected_model is not None and record.model != expected_model:
+            raise ValueError("snapshot model mismatches requested model")
         if record.task_id in records:
             raise ValueError("duplicate task in snapshot directory")
         records[record.task_id] = record
@@ -28,9 +32,11 @@ def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
     return records
 
 
-def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
-    official = _load_directory(official_dir)
-    vendor = _load_directory(vendor_dir)
+def compare_directories(
+    official_dir: Path, vendor_dir: Path, *, expected_model: str | None = None,
+) -> dict[str, Any]:
+    official = _load_directory(official_dir, expected_role="official", expected_model=expected_model)
+    vendor = _load_directory(vendor_dir, expected_role="vendor", expected_model=expected_model)
     rows: list[dict[str, Any]] = []
     for task in sorted(set(official) | set(vendor)):
         if task not in official or task not in vendor:
