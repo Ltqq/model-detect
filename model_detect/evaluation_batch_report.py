@@ -13,7 +13,7 @@ from typing import Any
 from .evaluation_snapshots import EvaluationSnapshot, compare_snapshots
 
 
-def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
+def _load_directory(root: Path, *, expected_model: str | None = None) -> dict[str, EvaluationSnapshot]:
     if not root.is_dir() or root.is_symlink():
         raise ValueError("snapshot directory not found")
     records: dict[str, EvaluationSnapshot] = {}
@@ -21,6 +21,8 @@ def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
         if path.is_symlink() or path.stat().st_size > 1024 * 1024:
             raise ValueError("invalid snapshot file")
         record = EvaluationSnapshot.model_validate_json(path.read_text(encoding="utf-8"))
+        if expected_model is not None and record.model != expected_model:
+            raise ValueError("artifact model differs from requested model")
         if record.task_id in records:
             raise ValueError("duplicate task in snapshot directory")
         records[record.task_id] = record
@@ -29,9 +31,11 @@ def _load_directory(root: Path) -> dict[str, EvaluationSnapshot]:
     return records
 
 
-def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
-    official = _load_directory(official_dir)
-    vendor = _load_directory(vendor_dir)
+def compare_directories(
+    official_dir: Path, vendor_dir: Path, *, expected_model: str | None = None,
+) -> dict[str, Any]:
+    official = _load_directory(official_dir, expected_model=expected_model)
+    vendor = _load_directory(vendor_dir, expected_model=expected_model)
     rows: list[dict[str, Any]] = []
     for task in sorted(set(official) | set(vendor)):
         if task not in official or task not in vendor:
@@ -70,7 +74,7 @@ def compare_directories(official_dir: Path, vendor_dir: Path) -> dict[str, Any]:
 
 
 def compare_kimi_official_protocol_summaries(
-    official_file: Path, vendor_file: Path,
+    official_file: Path, vendor_file: Path, *, expected_model: str | None = None,
 ) -> dict[str, Any]:
     """Compare the SAME pinned Kimi cases; do not re-score official pytest."""
     from .kimi_report import _validated_summary
@@ -82,7 +86,10 @@ def compare_kimi_official_protocol_summaries(
         body = raw.get("report") if isinstance(raw, dict) and "report" in raw else raw
         if not isinstance(body, dict) or not isinstance(body.get("model"), str):
             raise ValueError("invalid model in Kimi summary")
-        return _validated_summary(raw, body["model"], include_case_index=True)
+        summary = _validated_summary(raw, body["model"], include_case_index=True)
+        if expected_model is not None and summary["model"] != expected_model:
+            raise ValueError("Kimi protocol model differs from requested model")
+        return summary
 
     official = read(official_file)
     vendor = read(vendor_file)
