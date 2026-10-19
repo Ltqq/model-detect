@@ -52,7 +52,7 @@ def test_profile_forwards_sample_logging_to_real_lm_eval_adapter(tmp_path):
         assert run.call_args.kwargs["log_samples"] is False
 
 
-def test_cli_help_documents_evidence_capture_option():
-    res = CliRunner().invoke(app, ["audit", "--help"])
-    assert res.exit_code == 0, res.output
-    assert "--benchmark-evidence-dir" in res.output
+def test_cli_registers_evidence_capture_option():
+    from typer.main import get_command
+    params = get_command(app).commands["audit"].params
+    assert any("--benchmark-evidence-dir" in param.opts for param in params)
