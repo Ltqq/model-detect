@@ -188,12 +188,25 @@ def audit(
     root = write_report(report, target_dir)
 
     console.print()
-    console.print(f"Verdict: [bold]{report.summary.final_verdict}[/bold]")
-    console.print(f"Score: {report.summary.overall_score}")
-    if report.provider_hypotheses:
-        console.print("Provider hypotheses:")
-        for item in report.provider_hypotheses[:5]:
-            console.print(f"  - {item.provider}: {item.confidence:.0%}")
+    # Historical weighted scores/provider guesses remain inside archived report data
+    # for backward compatibility, but are not calibrated model identity proofs.
+    # Show the actionable per-probe evidence rather than leading with a single
+    # misleading percentage.
+    from collections import Counter
+    from .models import ProbeStatus
+    counts = Counter(result.status for result in report.results)
+    console.print(
+        "Checks: "
+        + "  ".join(
+            f"{status.value}={counts[status]}"
+            for status in (ProbeStatus.PASS, ProbeStatus.FAIL, ProbeStatus.WARN,
+                           ProbeStatus.ERROR, ProbeStatus.INSUFFICIENT, ProbeStatus.SKIPPED)
+        )
+    )
+    console.print(
+        "[yellow]Model identity is not independently certified; "
+        "review individual evidence and comparison conditions.[/yellow]"
+    )
     console.print(f"JSON: {root / 'report.json'}")
     console.print(f"HTML: {root / 'report.html'}")
 
