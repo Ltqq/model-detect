@@ -47,6 +47,9 @@ jobs:
           model-detect compare --help
           python -m model_detect version
 
+      - name: Offline handoff acceptance self-check (no model API)
+        run: python scripts/acceptance_check.py
+
       - name: Build wheel and sdist
         run: |
           pip install build
