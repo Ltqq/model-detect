@@ -5,8 +5,12 @@ import json
 import re
 import shutil
 from pathlib import Path
+from importlib.resources import files
+
+import yaml
 
 from .models import AuditReport, ProbeStatus
+from .rules import match_model_rule
 from .interpretation import (
     build_report_interpretation,
     category_label,
@@ -381,6 +385,57 @@ def _quality_section(quality: dict) -> str:
 """
 
 
+
+def _public_published_benchmarks_section(model_id: str) -> str:
+    """Render sourced published aggregates as background, never comparisons."""
+    path = files("model_detect").joinpath("data/public_benchmarks.yaml")
+    try:
+        catalog = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except FileNotFoundError:
+        return ""
+    rule_id = match_model_rule(model_id).id
+    entries = [
+        item for item in (catalog.get("entries") or [])
+        if isinstance(item, dict)
+        and item.get("model") == rule_id
+        and item.get("evidence_type") == "official_published_aggregate"
+        and item.get("comparison_status") == "background_only"
+    ]
+    if not entries:
+        return ""
+    rows = []
+    for item in entries:
+        source = item.get("source") or {}
+        raw_url = str(source.get("url") or "")
+        if not raw_url.startswith("https://"):
+            continue
+        conditions = item.get("conditions") or {}
+        label = html.escape(str(item.get("benchmark") or "未知任务"))
+        variant = html.escape(str(item.get("model_variant") or ""))
+        points = html.escape(str(item.get("value") if item.get("value") is not None else "—"))
+        effort = html.escape(str(conditions.get("effort") or "未知"))
+        publisher = html.escape(str(source.get("publisher") or "未知"))
+        when = html.escape(str(source.get("retrieved_at") or "未知"))
+        href = html.escape(raw_url, quote=True)
+        rows.append(
+            f"<tr><td>{label}</td><td>{variant}</td><td>{points}</td>"
+            f"<td>{effort}</td><td><a href='{href}'>{publisher}</a>"
+            f"<small>采集：{when}</small></td></tr>"
+        )
+    if not rows:
+        return ""
+    return (
+        "<section class='card'><div class='section-head'><h2>官方已发布成绩 · 仅背景参考</h2></div>"
+        "<p class='notice'>下表来自官方公开材料，不是本次 API 实测；"
+        "数据集、样本、提示词和评分器可能不同，不能直接与本次分数相减，"
+        "不能据此认定模型身份或渠道质量达标。</p>"
+        "<div class='table-wrap'><table><thead><tr>"
+        "<th>任务</th><th>官方模型配置</th><th>公布分数</th>"
+        "<th>思考档位</th><th>出处</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table></div></section>"
+    )
+
+
 def _render_html(report: AuditReport) -> str:
     human = build_report_interpretation(report)
     tone_class = {
@@ -521,6 +576,7 @@ def _render_html(report: AuditReport) -> str:
     usage_cost_section = _usage_cost_section(report)
     kimi_official_section = _kimi_official_section(report)
     quality_section = _quality_section(quality)
+    public_benchmarks_section = _public_published_benchmarks_section(str(report.target.get('model', '')))
     regression_section = _regression_section(report)
     copy_text_json = json.dumps(
         "准入建议：" + str(human["decision"]) + "\n"
@@ -590,6 +646,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 </section>
 
 {quality_section}
+{public_benchmarks_section}
 
 <section class="card">
   <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与异常数量</h2></div></div>
