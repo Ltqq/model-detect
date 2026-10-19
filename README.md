@@ -135,6 +135,25 @@ model-detect compare-evaluation-dirs \
 
 如果已经分别用固定源码运行 Kimi 官方协议子套件（`kimi-verifier run --execute`）并保存了 `summary.json`，还可以在同一 `compare-evaluation-dirs` 命令附加 `--kimi-official <官方summary.json> --kimi-vendor <供应商summary.json>`。协议只对照同模型、同源码 Commit、同套件、同测试用例集合的结果；不可比、未运行及部分失败不会变成通过。
 
+### 在现有 Web 页面查看官方与供应商对照（M4）
+
+使用 CLI 生成带完整 Benchmark 样本证据的两组运行结果时，直接将
+`--benchmark-evidence-dir` 设置为 `.model-detect/evaluation-runs/kimi-official-01`
+及 `.model-detect/evaluation-runs/kimi-vendor-01`（其余模型按需更换名字）。
+这是本地运行目录，**不是官方认证凭据**。两个目录内的
+`snapshots/*.json` 必须已由保存的 lm-eval 运行结果转换完成。
+
+如果还要加入同套 Kimi 官方协议比较，将两个
+`kimi-verifier run` 的 `summary.json` 分别复制为对应目录下的
+`kimi-summary.json`（不需要上传原始 JUnit、Prompt 或 Key）。
+
+打开 `model-detect web`，在「比较已保存的评测结果」中选择模型、
+官方运行目录名与供应商运行目录名，勾选 Benchmark 和/或 Kimi，
+即可在 **现有 SQLite 历史**中查看/下载一次性的中文报告。
+Web 此步骤只读取本地产物，不发送模型请求；对来源、样本或参数不符的数据
+显式报错/标记不可比。Web 默认使用 `.model-detect` 作为 `state-dir`，
+非默认目录需保持 CLI 与 Web 的目录一致。
+
 **安全与成本**：`--benchmark-evidence-dir` 目录含原始样本日志，可能存在完整 Prompt/响应，禁止公开上传；必须使用全新路径防止重复覆盖；导出的 `snapshots/*.json` 只包含哈希、版本与分数，且 `source_verified=false`。CLI 软 Token 限制不保证整个外部 lm-eval 子进程的费用硬上限。
 
 当前**没有正式完成** Web/SQLite 统一对照、多套 Kimi 结果自动编组、困难题端到端实测及真实官方/供应商 API 验收。下一阶段唯一重点是把现有 Web/历史连入上述结果，不扩大底层评测框架。唯一执行计划见 [M0～R 主线](docs/design/17-engineering-closure-roadmap.md)。
