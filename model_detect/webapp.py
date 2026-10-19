@@ -422,7 +422,7 @@ def create_app(
         content = path.read_text(encoding="utf-8")
         if item["kind"] == "comparison":
             return HTMLResponse("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><title>模型能力对照</title><body><main style=\"max-width:960px;margin:2rem auto;font-family:sans-serif\"><pre style=\"white-space:pre-wrap;overflow-wrap:anywhere\">" + escape(content) + "</pre></main></body></html>")
-        content = re.sub;
+        content = re.sub(
             r'href="evidence/(ev_[A-Za-z0-9_-]+)\\.json"',
             lambda m: f'href="/api/audits/{job_id}/evidence/{m.group(1)}"',
             content,
