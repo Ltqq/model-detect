@@ -91,6 +91,54 @@ SQLite 保存历史
 
 **权威后续任务入口：[工程收尾与最终验收路线](docs/design/17-engineering-closure-roadmap.md)**。旧开发计划保留作为历史记录，不再照其中“下一批”重复开发。坚持单机自用，不加入压测或重型平台化能力。
 
+## 官方/供应商标准能力对照（M2/M3 已开发；真实验收未完成）
+
+当前工作流继续使用原生 `audit` 和已有对照报告命令。**不会自动下载权威题集，也不会凭用户输入就宣称成绩得到官方认证**。先准备双方相同版本的 lm-eval 任务/环境和两个不同 API Key。
+
+为每个执行档位准备一份本地 YAML 修订标签。以下仅表示人工声明，值必须换成从实际评测环境确认的真实修订标识，不是官方认证：
+
+```yaml
+schema: benchmark-revisions-v1
+provider_role: official
+tasks:
+  truthfulqa_gen:
+    dataset_revision: REPLACE_WITH_REAL_REVISION
+    scorer_revision: REPLACE_WITH_REAL_SCORER
+  gsm8k:
+    dataset_revision: REPLACE_WITH_REAL_REVISION
+    scorer_revision: REPLACE_WITH_REAL_SCORER
+  ifeval:
+    dataset_revision: REPLACE_WITH_REAL_REVISION
+    scorer_revision: REPLACE_WITH_REAL_SCORER
+```
+
+供应商 YAML 应将 `provider_role` 改为 `vendor`，**其它对应任务修订必须与官方端点一致**。此示例对应 `--benchmark-profile standard`；其它档位以 profile 实际任务集合为准。
+
+```bash
+# 注意：真实模型调用会收费。请在知悉价格、可接受预算后主动执行。
+model-detect audit --base-url https://official.example/v1 --model kimi-k3 \
+  --api-key-env OFFICIAL_API_KEY --profile standard \
+  --benchmark-profile standard --benchmark-evidence-dir ./runs/official \
+  --benchmark-revisions ./revisions-official.yaml --without-proxy-sleuth
+
+model-detect audit --base-url https://vendor.example/v1 --model kimi-k3 \
+  --api-key-env VENDOR_API_KEY --profile standard \
+  --benchmark-profile standard --benchmark-evidence-dir ./runs/vendor \
+  --benchmark-revisions ./revisions-vendor.yaml --without-proxy-sleuth
+
+# 仅读取已有快照，零模型 API 调用。
+model-detect compare-evaluation-dirs \
+  --official-dir ./runs/official/snapshots \
+  --vendor-dir ./runs/vendor/snapshots \
+  --output-dir ./comparisons/first
+```
+
+如果已经分别用固定源码运行 Kimi 官方协议子套件（`kimi-verifier run --execute`）并保存了 `summary.json`，还可以在同一 `compare-evaluation-dirs` 命令附加 `--kimi-official <官方summary.json> --kimi-vendor <供应商summary.json>`。协议只对照同模型、同源码 Commit、同套件、同测试用例集合的结果；不可比、未运行及部分失败不会变成通过。
+
+**安全与成本**：`--benchmark-evidence-dir` 目录含原始样本日志，可能存在完整 Prompt/响应，禁止公开上传；必须使用全新路径防止重复覆盖；导出的 `snapshots/*.json` 只包含哈希、版本与分数，且 `source_verified=false`。CLI 软 Token 限制不保证整个外部 lm-eval 子进程的费用硬上限。
+
+当前**没有正式完成** Web/SQLite 统一对照、多套 Kimi 结果自动编组、困难题端到端实测及真实官方/供应商 API 验收。下一阶段唯一重点是把现有 Web/历史连入上述结果，不扩大底层评测框架。唯一执行计划见 [M0～R 主线](docs/design/17-engineering-closure-roadmap.md)。
+
 ## 快速开始
 
 ```bash

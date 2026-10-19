@@ -53,8 +53,8 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M0 | **代码已合并** | [#105](https://github.com/Ltqq/model-detect/pull/105)，CI 成功，文档替代旧排期 | **未偏移**：只冻结主链、退出标准及复用边界 |
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
-| M3 | **进行中，待 CI/合并** | 原多任务 Benchmark 报告追加 Kimi 同套官方 Pytest JUnit 用例比较，沿用已有 CLI | **未偏移（待复核）**：不重新执行/评分官方套件 |
-| M4 | 待做 | Web/SQLite 主路径 | 待判定 |
+| M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
+| M4 | **下一阶段** | 利用既有 FastAPI、JobStore、index.html 将评测快照、Kimi 汇总接入历史/查看/下载 | **前置检查**：不新造 Web、数据库或调度器 |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
@@ -100,3 +100,14 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - Pytest 的原始通过/失败由 Kimi 官方代码产生；本项目不重复判题，只对已有状态进行对照。skip/error 显示「不完整」，用例/版本不一致显示「不可比」，不污染 Benchmark 综合分或宣称权重认证。
 - 单独 Kimi JUnit 也可生成中文 JSON/Markdown；有 Benchmark 时与分数对照共用一份文件。来源真实性仍记「输入声明、未独立认证」。
 - 偏移复核：直接使用已有 `kimi_report` JUnit 校验与 `evaluation_batch_report`、原 CLI；未新增命令/框架。尚需 M4 统一 Web/SQLite 与整条真实端点验收。
+
+
+### M3 阶段结束复核（2026-10-19）
+
+1. **业务目标**：已有一份同时报告官方 Pytest 协议差异与公开 Benchmark 分数差异的 JSON/中文 Markdown（CLI），没有重新解释官方评分规则。
+2. **复用**：`kimi_report._validated_summary`、`evaluation_batch_report`、`compare-evaluation-dirs`；未另建报告格式或评分引擎。
+3. **可证实边界**：同模型/源码/套件/用例 SHA 集合才对照；执行 skip/error 为不完整；来源标 `attested=false`，权重身份永不由分数自动确认。
+4. **复杂度**：**没有新增 CLI 命令或 Python 模块**；扩展已有命令以支持 Kimi 结果作为可选输入。
+5. **阶段退出**：离线工程代码已合并且 CI 通过；当前 CLI 可提供一个 Kimi 官方协议子套件的配对比较，Web/SQLite、多个子套件自动编组和真实环境兼容性未交付，归 M4/R，不能宣称全部产品完成。
+
+**最终判定：未偏移目标。** 从 M4 起只有能推进现有 Web 的持久化/查看/导出才进入当前开发，不继续新增报告辅助工具。
