@@ -56,7 +56,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
 | M4 | **工程闭环已合并；待 R 实测** | [#111](https://github.com/Ltqq/model-detect/pull/111) Web 离线对照及历史；[#113](https://github.com/Ltqq/model-detect/pull/113) Web 审计保留快照；本批校验 Web 所选模型与原始证据一致 | **偏移已修正**：关闭重复 #112，未新增 Web/SQLite/评分器；真实官方身份与题集验证仍属 R |
 | M5 | **Deep 数学困难任务代码已合并；等待完整实证** | [#117](https://github.com/Ltqq/model-detect/pull/117) v2 Deep 包含 `minerva_math500`；本批补充固定上游源码/数据集、CLI/Web 提示，未接入昂贵多模态/Agent | **未偏移**：复用 lm-eval 原始生成式评分，未新建引擎或重复考题 |
-| M6 | 待做 | 精简、文档和安全回归 | 待判定 |
+| M6 | **进行中：轻量默认值与必要回归** | 默认关闭第三方 proxy-sleuth subprocess；保留明确 opt-in；核对双版本 CI、真实对照报告与 README | **未偏移（待 CI）**：减少非核心开销，没有删协议/能力/Reference/证据 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
 
 ### 既有完成资产（不作为阶段验收）
@@ -153,3 +153,11 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 在同一份 `lm_eval_profiles.yaml` 中声明任务源码 Tag、原始任务路径、数据集来源和 `lm-eval[math]==0.4.13` 可选依赖；唯一 `test_catalog` 从 YAML 投影，不重复抄入第二张任务表。Web/CLI Deep 描述提示额外数学依赖和更高成本。
 - 真正执行时的数据集修订、题目 ID、评分器版本仍必须由 M2/R 的评测环境固定并核验；`source_tag` 只说明计划使用的上游实现，不能替代实装取证。代码配置已核对来源，**实际顶级模型区分度未验收**。
 - 本项目标偏移：**未偏移**，属于困难任务可追溯要求，未添加运行器、身份分数或重复抽象。剩余困难代码/Agent 基准按成本和真实需求再评估，不能凭新增题名宣称全量覆盖。
+
+
+### M6-A 精简入口与默认开销的目标偏移复核（2026-10-19）
+
+- 原 `AuditConfig.proxy_sleuth_enabled=true`、WebRequest 默认 true，Web 复选框默认 checked；普通审计会无意启用外部 OSS 子进程，与单用户轻量目标不符。改为 CLI 默认关闭、Web 默认关闭，已有 `--with-proxy-sleuth` 与 Web 显式勾选保持有效；兼容显式 YAML true，不需要新命令/新框架。
+- **保留**原生协议/模型能力/Reference、可选官方 Kimi、lm-eval、SQLite/报告、错误分类、安全脱敏。不是删掉 OSS 功能，仅调整默认；成本未知依然标 unknown。
+- 回归以选项模型与现有 Web 页面为准；执行后必须 CI 3.11/3.12 全绿，否则不合并。
+- **漂移判断**：减少不必要的运行路径，不新建引擎、评分器、持久化，未偏移。M6 尚需功能说明/交付命令梳理和最终工程审查；真实端点属 R，不能冒充通过。
