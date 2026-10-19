@@ -15,6 +15,7 @@ from typing import Any
 
 from ..models import ProbeResult, ProbeStatus
 from ..benchmark_contract import CONTRACT_VERSION, task_contract_sha256
+from ..rules import feature_spec_for
 
 
 def resolve_lm_eval_executable() -> str | None:
@@ -104,8 +105,13 @@ def build_command(
     if log_samples:
         cmd.append("--log_samples")
     if reasoning_effort is not None:
-        if reasoning_effort not in {"low", "high", "max"}:
-            raise ValueError("reasoning_effort must be low, high or max")
+        documented = feature_spec_for(model, "reasoning_effort")
+        valid = set(documented.get("values") or ("low", "high", "max"))
+        if reasoning_effort not in valid:
+            raise ValueError(
+                f"reasoning_effort {reasoning_effort!r} is not supported by "
+                f"the configured model rule; allowed: {', '.join(sorted(valid))}"
+            )
         # lm-eval 0.4.13's evaluator applies --gen_kwargs to each
         # generate_until task; local-chat-completions forwards it to the
         # Chat Completions JSON payload.
