@@ -235,3 +235,24 @@ def test_quality_baseline_match_is_kept_separate_from_identity():
     assert human["quality"]["state"] == "match"
     assert human["identity"]["state"] == "missing"
     assert human["decision"] == "人工复核"
+
+
+def test_fingerprint_mismatch_is_not_automatic_model_rejection():
+    report = AuditReport(
+        target={"base_url": "https://example.com/v1", "model": "kimi-k3"},
+        summary=AuditSummary(final_verdict="mismatch", confidence="high"),
+        results=[
+            result(
+                "identity.fingerprint.reference_compare",
+                "identity",
+                status=ProbeStatus.FAIL,
+                score=0.0,
+                identity_strength="strong",
+                verdict="mismatch",
+            )
+        ],
+    )
+    human = build_report_interpretation(report)
+    assert human["identity"]["state"] == "mismatch"
+    assert human["decision"] == "人工复核"
+    assert "不以此单项证明换模" in human["headline"]
