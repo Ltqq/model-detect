@@ -69,3 +69,21 @@ jobs:
           assert not missing, f"missing package data: {missing}"
           print("wheel package data OK")
           PY
+
+      - name: R1 installed wheel smoke (outside checkout, no paid API)
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/model-detect-installed"
+          "$RUNNER_TEMP/model-detect-installed/bin/python" -m pip install --disable-pip-version-check dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/model-detect-installed/bin/model-detect" version
+          "$RUNNER_TEMP/model-detect-installed/bin/model-detect" web --help
+          "$RUNNER_TEMP/model-detect-installed/bin/model-detect" reference --help
+          "$RUNNER_TEMP/model-detect-installed/bin/python" - <<'PY'
+          from importlib.resources import files
+          import model_detect
+          root = files("model_detect")
+          for path in ("templates/index.html", "templates/references.html", "data/providers.yaml"):
+              assert root.joinpath(path).is_file(), f"wheel missing runtime asset: {path}"
+          print("installed wheel CLI and runtime assets OK")
+          PY
