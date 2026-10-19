@@ -62,6 +62,10 @@ jobs:
               "model_detect/data/models/default.yaml",
               "model_detect/data/models/kimi-k3.yaml",
               "model_detect/data/models/glm-5.3.yaml",
+              "model_detect/data/models/glm-5.3-flash.yaml",
+              "model_detect/data/models/deepseek-v4.yaml",
+              "model_detect/data/models/deepseek-v4.1.yaml",
+              "model_detect/data/public_benchmarks.yaml",
               "model_detect/templates/index.html",
               "model_detect/templates/references.html",
           }
@@ -83,7 +87,13 @@ jobs:
           from importlib.resources import files
           import model_detect
           root = files("model_detect")
-          for path in ("templates/index.html", "templates/references.html", "data/providers.yaml"):
+          for path in (
+              "templates/index.html", "templates/references.html",
+              "data/providers.yaml", "data/public_benchmarks.yaml",
+              "data/models/glm-5.3.yaml", "data/models/glm-5.3-flash.yaml",
+              "data/models/kimi-k3.yaml", "data/models/deepseek-v4.yaml",
+              "data/models/deepseek-v4.1.yaml",
+          ):
               assert root.joinpath(path).is_file(), f"wheel missing runtime asset: {path}"
           print("installed wheel CLI and runtime assets OK")
           PY
