@@ -54,7 +54,7 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 | M1 | **代码已合并** | [#106](https://github.com/Ltqq/model-detect/pull/106)：两目录共用唯一注册表，CI 通过 | **未偏移**：复用已有目录，旧命令仅兼容展示 |
 | M2 | **代码已合并** | [#107](https://github.com/Ltqq/model-detect/pull/107)、[#108](https://github.com/Ltqq/model-detect/pull/108)：运行结果保留、清单预检、自动生成多任务快照，CI 通过；真实评测器验收属于 R | **未偏移**：只复用 audit、lm_eval、snapshot 导入器，未新增引擎 |
 | M3 | **离线核心代码已合并** | [#109](https://github.com/Ltqq/model-detect/pull/109) CI 成功：已有 CLI 将同套 Kimi 官方 JUnit 与多任务 Benchmark 分栏汇总；多套自动编组/历史归档归 M4 | **未偏移**：沿用原测试、原对照报告，不重复评分 |
-| M4 | **进行中（Web 核心主链待真实核验）** | [#111](https://github.com/Ltqq/model-detect/pull/111)：离线对照→SQLite/中文报告/ZIP；本 PR：Web opt-in 留存原始 Benchmark、生成快照、一键设为官方/供应商 | **未偏移（待 CI）**：复用审计任务+Reference 快照，不开新表/调度/评测器 |
+| M4 | **工程闭环已合并；待 R 实测** | [#111](https://github.com/Ltqq/model-detect/pull/111) Web 离线对照及历史；[#113](https://github.com/Ltqq/model-detect/pull/113) Web 审计保留快照；本批校验 Web 所选模型与原始证据一致 | **偏移已修正**：关闭重复 #112，未新增 Web/SQLite/评分器；真实官方身份与题集验证仍属 R |
 | M5 | 待做 | 经实证选择困难任务 | 待判定 |
 | M6 | 待做 | 精简、文档和安全回归 | 待判定 |
 | R | 待真实账号及成本授权 | Kimi/GLM 真实 API 与独立真值 | 待判定 |
@@ -128,3 +128,11 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 - 用户确认后运行旧 audit、旧 lm-eval，并在 `state_dir/benchmark-runs/<audit_id>` 保存原始 JSON/逐题 sample；任务结束后基于相同任务版本清单生成 `snapshots/*.json`，原首页历史中可一键选作官方或供应商。真正网络调用/费用只在用户点击运行时发生，Mock E2E 不发付费请求。
 - SQLite 使用原 audit job `meta` 字段记录生成快照目录与状态；删除 job 连同原始日志/快照一并删除。原始日志不自动放进中文报告和 ZIP；含 Prompt/答案，请勿公开。清单数据仍为人工声明，`source_verified=false`。
 - **偏移检查**：推进“Web 评测 → 可保存 Reference → 官方/供应商对照 → 历史报告”；只扩展原审计配置与既有模板/删除逻辑，不另起后台服务/数据库。此前 #111 离线对照功能已合并；此次不会声称 Web 已经直接运行官方 Kimi 原始 Pytest 或深度 Benchmark，相关能力仍待 M5/R。
+
+
+### M4-C 一致性与去重验收（2026-10-19）
+
+- #111 和 #113 已经分别提供了 Web 离线对照历史与 Web 审计保存真实 Benchmark 产物的工程主链，因此并行 PR #112 属于**重复开发**，按本计划明确关闭，不合并。
+- 检查发现提交到 Web 的显示用 `model` 尚未和本地 Benchmark Snapshot / Kimi 官方 JUnit 内实际记录的模型严格匹配。此问题可能把 GLM 的显示标签套在 Kimi 的成绩上，属于 P0 证据真实性问题。
+- 本批在现有比较逻辑增加 **可选 expected_model** 校验；只有 Web 端强制提供，保持原有 CLI 无显式模型参数时的兼容性。模型不一致时请求失败、不会保存误导性 SQLite 历史。
+- **偏移判定：偏移已修正**。不新增用户命令、API、存储表、评测器。真实官方数据来源仍不得由 Snapshot 自声明标记“已认证”。
