@@ -392,13 +392,18 @@ def _render_html(report: AuditReport) -> str:
 
     category_cards = []
     for item in human["categories"]:
-        value = item["score"]
-        score_text = "未覆盖" if value is None else f"{value:.1f}"
+        category_results = [r for r in report.results if r.category == item["id"]]
+        observed = sum(r.status not in {ProbeStatus.SKIPPED} for r in category_results)
+        abnormal = sum(
+            r.status in {ProbeStatus.FAIL, ProbeStatus.WARN, ProbeStatus.ERROR,
+                         ProbeStatus.INSUFFICIENT}
+            for r in category_results
+        )
+        coverage_text = f"已测 {observed} 项 · 异常/不确定 {abnormal} 项" if observed else "本次未覆盖"
         category_cards.append(
             f"""
             <div class="category-card">
-              <div class="category-top"><b>{html.escape(item['label'])}</b><span>{html.escape(score_text)}</span></div>
-              <div class="bar"><i style="width:{0 if value is None else max(0,min(100,value))}%"></i></div>
+              <div class="category-top"><b>{html.escape(item['label'])}</b><span>{html.escape(coverage_text)}</span></div>
               <p>{html.escape(item['help'])}</p>
             </div>
             """
@@ -587,7 +592,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 {quality_section}
 
 <section class="card">
-  <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与得分</h2></div></div>
+  <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与异常数量</h2></div></div>
   <div class="category-grid">{''.join(category_cards)}</div>
 </section>
 
