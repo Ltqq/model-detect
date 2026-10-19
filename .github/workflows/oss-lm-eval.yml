@@ -46,3 +46,5 @@ jobs:
               assert "local-chat-completions" in cmd
               print("Pinned upstream CLI interface/adapter build validated; no model calls")
           PY
+      - name: Run original upstream task/scorer against local mock API (zero vendor calls)
+        run: python scripts/oss_lm_eval_loopback_smoke.py
