@@ -217,3 +217,17 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 - [ ] 上述真实证据与安全门槛满足后，才标记“正式 Release”；本检查点阶段可称“离线工程测试可交付”。
 
 产品方向审核：**未偏移**，没有修改冻结宪章，也未新增评分引擎、企业服务、性能压测或收费模型自动调用。
+
+## OSS 原始链路与交付测试检查点（2026-10-19）
+- [x] #164 lm-eval 无实际有效评分任务不得标完成。
+- [x] #165 官方 EleutherAI lm_eval[api]==0.4.13 已在 GitHub Actions 原生安装并启动。
+- [x] #166 OSS 取舍与兼容隔离决策，见 [开源适配审计](../oss-adoption-decisions-v020.md)：promptfoo 保留旧 YAML 回归，proxy-sleuth / fingerprint 标为实验性，默认不启用；未证实无引用不得物理删掉，避免破坏历史。
+- [x] #167 真正运行 EleutherAI 原版评分器：本地 JSONL 任务、localhost OpenAI 兼容 Mock、原版 exact_match 分数及 results JSON，零付费 API。
+- [x] #168 删除废弃的 Web provider-guess 模板数据构造。
+- [x] #169 真正 checkout Moonshot Kimi-Vendor-Verifier 固定提交并检查四组官方 Pytest 源目录，零付费 API。
+
+**工程交付判定**：原始 OSS 可执行性 / 合成评分链路、五型号模拟审计、SQLite 备份恢复、wheel 安装和离线自检均有 CI 证据；可交付人工测试。合成分数不是任何厂商的能力实测，Kimi 官方代码校验也不等于真实供应商通过协议测试。
+
+**仍需真实凭据的门槛**：使用者在授权环境完成单供应商 API Quick / Standard，记录用量、费用、参数与异常；如要能力 Benchmark 则在限额和隐私审核后选择 Deep / 原版 Kimi 子套件。没有授权 API 与预算，本项目不能代替用户在真实渠道产生该证据。正式 Release 之前还应实机验证备份恢复与交付报告。无官方模型 API 要求。
+
+冻结宪章不变；不新建大阶段、不重写功能方向。
