@@ -15,7 +15,6 @@ from .http_client import AuditHttpClient
 from .models import AuditReport, AuditSummary, ProbeResult, ProbeStatus
 from .probes.capability import derived_capability_results, run_capability_suite
 from .probes.context import run_context_suite
-from .probes.coding import run_coding_suite
 from .probes.integrity import run_integrity_suite
 from .probes.protocol import DEEP_PROBES, QUICK_PROBES, STANDARD_PROBES
 from .probes.provider import detect_provider_hypotheses, evaluate_upstream_policy
@@ -218,6 +217,13 @@ async def run_audit(
     regression_files: list[str | Path] | None = None,
     regression_output_dir: str | Path | None = None,
 ) -> AuditReport:
+    # The self-built Docker evaluator is retired in v0.2: use the maintained
+    # lm-evaluation-harness integration. Refuse legacy opt-in before any API call.
+    if config.coding_sandbox_enabled:
+        raise ValueError(
+            "Coding Sandbox was removed; use --benchmark-profile with "
+            "lm-evaluation-harness instead"
+        )
     if config.target.protocol != "openai":
         raise NotImplementedError(
             "V1 native probes currently target OpenAI-compatible APIs; "
@@ -410,27 +416,10 @@ async def run_audit(
         if profile != "quick":
             report.results.extend(derived_capability_results(report.results))
 
-        if config.coding_sandbox_enabled and profile != "quick":
-            if progress:
-                progress("coding-sandbox", 6, 8)
-            coding_results, coding_evidence, coding_meta = await run_coding_suite(
-                client,
-                config.target.model,
-                profile=profile,
-                auto_pull=config.coding_sandbox_auto_pull,
-            )
-            report.results.extend(coding_results)
-            report.evidences.extend(coding_evidence)
-            report.adapters["coding_sandbox"] = coding_meta
-        else:
-            report.adapters["coding_sandbox"] = {
-                "status": "disabled",
-                "reason": (
-                    "quick profile"
-                    if profile == "quick"
-                    else "coding_sandbox_enabled=false"
-                ),
-            }
+        report.adapters["coding_sandbox"] = {
+            "status": "retired",
+            "reason": "Use the existing lm-evaluation-harness benchmark adapter",
+        }
 
     # Strong Benchmark is expensive and must be explicitly requested.
     # Its scores are independent of the lightweight audit score.

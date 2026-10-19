@@ -338,6 +338,10 @@ def create_app(
 
     @app.post("/api/audits")
     async def create_audit_job(payload: WebAuditRequest):
+        if payload.coding_sandbox:
+            raise HTTPException(
+                400, "内置 Docker Coding Sandbox 已移除；代码能力请使用开源 lm-eval 深入评测"
+            )
         if payload.profile not in {"quick", "standard", "deep"}:
             raise HTTPException(400, "检测档位只能是 quick、standard 或 deep")
         try:

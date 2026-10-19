@@ -53,7 +53,7 @@ def audit(
     coding_sandbox: Optional[bool] = typer.Option(
         None,
         "--coding-sandbox/--no-coding-sandbox",
-        help="Explicitly enable/disable Docker-isolated executable coding evaluation.",
+        help="Retired: --coding-sandbox now fails before paid requests; use --benchmark-profile (lm-eval).",
     ),
     regression_suite: list[Path] = typer.Option(
         [],
@@ -432,10 +432,6 @@ def oss_status(
             else "unknown" if item["version_compatible"] is None else "matched",
             "NOT live verified",
         )
-    from .sandbox import availability as sandbox_availability
-    sb = sandbox_availability()
-    table.add_row("Docker coding sandbox", "yes" if sb["available"] else "no",
-                  "separate optional executable sandbox", "NOT live verified")
     console.print(table)
     console.print("[yellow]CLI presence does not mean integrated or trusted results.[/yellow]")
 
