@@ -1,37 +1,46 @@
-# Release Candidate 发布门槛（F）
+# model-detect v0.2.0 发布检查（单用户、已支持范围）
 
-当前仅准备发布工程资产，不执行正式 Release。所有项目按照 `代码已开发 / CI 已通过 / 真实验收通过 / 未覆盖` 四级记录。
+> **截至 2026-10-19：仅工程与离线 CI 已通过，真实端点验收 R 未完成；尚未打正式 Git Tag / Release。** `pyproject.toml` 的 `0.2.0` 是项目开发版本，不代表厂商官方认证。
 
-## 发布前必须核对
+## A. 工程交付（CI 已验证 ≠ 实机已验收）
 
-- [ ] Python 3.11、3.12 全量 CI 通过；不允许失败或未评估的必需单测。
-- [ ] 在指定机器安装依赖，验证 CLI 和单用户 Web 启动/退出/历史清理。
-- [ ] 从旧版备份复制 SQLite、Reference、Report，验证旧文件不会因升级被覆盖；演练失败回滚和恢复。
-- [ ] 检查 `Authorization`、Cookie、URL Query Token、插件 stdout/stderr、用户回答等路径不会把密钥写入报告/ZIP/日志。
-- [ ] 用用户持有的 GLM-5.3、Kimi-K3 官方和供应商 API，在明确授权和预算下执行单次受控 Smoke，复核实际发包、参数、缓存、协议和版本。
-- [ ] 第三方四个 Adapter 固定版本、命令、真实结果合同与失败映射逐一留存脱敏验收记录；未验证者在产品中展示限制。
-- [ ] Reference 官方来源、独立真值、受控路由变体、正负例与留出数据集检查；校准统计必须区分独立 case 与重复 run。
-- [ ] 报告中文结论、未知用量、费用、历史、CLI/Web/JSON/HTML/ZIP 全链路与新旧数据兼容性。
-- [ ] 只有符合客户事先明确同意的准入阈值，才对外发布正式供应商结论。
-- [ ] 修改并冻结版本号、更新 CHANGELOG 与 README；确认 Git Tag/Release 内容与已验收范围一致。
+- [x] Python 3.11 / 3.12 的 GitHub CI 执行全量 pytest、编译、CLI Smoke，并构建 wheel/sdist；已合并的 M1～M6 PR 各按绿灯门槛合并。
+- [x] 一个测试来源目录（`test_catalog`），既有 Kimi 固定官方协议套件 + lm-eval 公开能力任务，未接入任务标明范围。
+- [x] Web/CLI 产生报告、SQLite 历史、JSON/HTML/ZIP；官方端点与供应商快照合同不一致时标不可比；离线导入明确不调用模型。
+- [x] 默认不启动可选 proxy-sleuth、Coding Sandbox、lm-eval 深度任务；用户显式 opt-in 才执行第三方工具。
+- [x] Web 审计与 Reference 后台异常只存固定错误分类，不把原始含 API Key / Prompt 的第三方错误写入 SQLite、JSON、HTML（[#121](https://github.com/Ltqq/model-detect/pull/121)）。
+- [x] 简化 README 和唯一 M0～R 看板，保留真实验证与来源范围的明确说明。
+- [ ] **在实际部署的单机环境**完成依赖安装、Web 启停、旧 SQLite/Reference/报告恢复；CI 的 Mock 不代替实机演练。
 
-## 统一验收命令模板（执行前必须确认成本与授权）
+## B. R：真实官方/供应商端点验收（尚未进行）
+
+- [ ] Kimi K3 官方固定 Pytest 子套件在独立 Python >=3.12 环境真实运行，官方/供应商同套用例，对比 JUnit 摘要和原始证据。
+- [ ] GLM-5.3 官方与供应商协议/思考参数和标准能力同配置运行，验证实际请求内容及服务端响应。
+- [ ] lm-eval 原生公开评分（含适用时的 MATH-500）在固定依赖、数据集与评分版本/样本 ID 下实际运行，确认快照可比；不适用/缺环境项目明确标未覆盖。
+- [ ] 真实 Web 使用路线验收：报告、历史、下载、删除、401/429/超时/中断 SSE，检查 API Key/Token/Prompt 泄露及费用未知标注。
+- [ ] 在正式发布前由用户核定测试预算、可执行范围、最终功能说明、数据备份及 Release 版本/标签。
+
+**重要**：`oss-status` 只能说明工具是否可调用，不代表运行结果可信。非核心 promptfoo/proxy-sleuth/fingerprint 等辅助适配器无须逐个完成昂贵实测才能发布**明确标注覆盖范围**的自用版本；开启过的功能必须如实标注真实验收状态，不能把未测试的功能宣称认证通过。高成本 OCRBench/MMMU/BEAM/DeepSWE、通用 Agent/多模态/长上下文能力未完整接入，不能暗示已覆盖。
+
+## 只读/低成本检查
 
 ```bash
 python -m pytest -q
-model-detect oss-status --json
-model-detect glm53 doctor --benchmark standard --verify-task-cache
-model-detect glm53 compare --official-url <official> --customer-url <provider> --benchmark smoke
-model-detect validation doctor --manifest ./controlled-cases.yaml --strict-reports
+model-detect version
+model-detect oss-status
+model-detect glm53 doctor --benchmark standard
+model-detect kimi-verifier --help
+model-detect web --help
 ```
 
-上面 `compare` **没有** `--execute`，仅生成预算预览。真实 API 调用须另行显式指定参数，不在代码开发阶段运行。
+这部分**不应自动调用付费模型**。真实测试必须单独确认用户授权、API 环境变量、名义请求/Token 预算，才使用相应命令的显式执行开关；不要在代码测试或 CI 中默认运行付费 Benchmark。
 
-## 必须保留的未覆盖说明
+## 必须诚实保留的结论边界
 
-- Mock CI ≠ 真正在线能力合格。
-- 模型能力相近 ≠ 同一模型权重真实性证明。
-- 未获官方凭据、独立网关日志或可信标签时不宣称 TP/FP 检测准确率。
-- Token 费用只是可见用量和配置价格，未上报的第三方任务可能产生未知费用。
+- Mock/CI 成功不能证明厂商实测准确率、参数确实生效或身份认证。
+- 能力相近、协议相同不能证明同一模型权重；混路由结论依赖独立真值。
+- 用户输入的 `official` 角色和 `source_verified=true` 不会自动构成独立来源认证。
+- Token 费用仅在有实际 Usage/可信单价时可估算；外部子进程成本可能未知。
+- 历史版本 Deep Reference 与不同任务/评分器修订版本不得直接比较。
 
-最终准入状态由实际证据决定，不根据 TODO 数量或 PR 数量自动判定。
+**唯一 M0～R 执行状态**：[17 号路线](design/17-engineering-closure-roadmap.md)。单机升级/备份/恢复见 [升级指南](upgrade-and-restore.md)。

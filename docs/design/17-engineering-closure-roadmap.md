@@ -18,7 +18,7 @@
 | **M3 官方与供应商对比** | 代码/离线 CI 已合并 | [#109](https://github.com/Ltqq/model-detect/pull/109)、[#110](https://github.com/Ltqq/model-detect/pull/110)：固定源码 Kimi JUnit 同用例比较，lm-eval 任务成绩同合同分差，中文分栏报告 | **未偏移**：官方评分器原样使用 |
 | **M4 Web/SQLite 主线** | **当前支持范围工程闭环已合并，待真实复现** | [#111](https://github.com/Ltqq/model-detect/pull/111)、[#113](https://github.com/Ltqq/model-detect/pull/113)、[#115](https://github.com/Ltqq/model-detect/pull/115)：Web 运行可选评测并保存快照，一键选官方/供应商、离线对比、中文报告/JSON/ZIP、SQLite 历史和删除；核对展示模型 | **偏移已修正**：未新建数据库/后台系统 |
 | **M5 高难公开评测** | **首项已合并，完整高难覆盖与实证待后续** | [#117](https://github.com/Ltqq/model-detect/pull/117)、[#118](https://github.com/Ltqq/model-detect/pull/118)：Deep 不再只加低难题数，使用现成 Minerva MATH-500 开源任务/评分器，记录固定来源与依赖；高成本仍需明确启用 | **未偏移**：没有重写 Benchmarks |
-| **M6 轻量化与交付检查** | **进行中：安全回归待 CI** | [#119](https://github.com/Ltqq/model-detect/pull/119) 第三方默认关闭；[#120](https://github.com/Ltqq/model-detect/pull/120) README/计划收敛；本批修复后台原始异常泄露 | **未偏移（待 CI）**：安全阻断修复，没有扩张功能 |
+| **M6 轻量化与交付检查** | **已支持范围工程收尾已合并；目标实机/R 验收待做** | [#119](https://github.com/Ltqq/model-detect/pull/119) 可选 OSS 关闭默认；[#120](https://github.com/Ltqq/model-detect/pull/120) README/计划简化；[#121](https://github.com/Ltqq/model-detect/pull/121) 后台异常密钥脱敏；本批统一发行门槛 | **未偏移**：修真实泄露、移除无关强制门槛，没有增加模型测试系统 |
 | **R 真实端点验收与发布决策** | **未开始** | 需要有权官方/供应商 API、明确预算、保留原始证据；无真实官方认证记录 | **待判定**：不得把 Mock 当实测 |
 
 ## R 的最小必验收项（没有真实结果不得勾选）
@@ -35,9 +35,9 @@
 
 - [x] 日常模式默认关闭可选外部 OSS（[#119](https://github.com/Ltqq/model-detect/pull/119)），显式开启的原行为保留。
 - [x] 已将 README 与唯一执行计划简化为实际使用、已实现范围、未实测及 R 清单（[#120](https://github.com/Ltqq/model-detect/pull/120)，CI 通过）。
-- [ ] 核查协议/能力评分、Reference、Kimi、Web/SQLite、HTML/JSON/ZIP 和敏感信息的现有 CI；本批已定位 Web 后台原始异常入库泄露风险，并新增回归，待本 PR CI。
-- [ ] 确认当前 `pyproject.toml` 开发版与发布检查清单一致，注明真实模型验收 R 尚未完成、不可宣称官方认证。
-- [ ] 阶段结束做一次目标漂移判断，合并 CI 绿的 PR 后停止继续增加无关功能。
+- [x] 已在 CI 上回归核心审计、Reference、Kimi、Web/SQLite、报告/ZIP 和错误脱敏；[#121](https://github.com/Ltqq/model-detect/pull/121) 阻断第三方异常泄露。外部实际执行仍属 R。
+- [x] 已确认 `pyproject.toml` 开发版本 0.2.0 及 [发布检查表](../release-checklist.md)：区分工程 CI、实机安装和 R 真实 API 验收；未打 Release。
+- [x] 当前支持范围的 M6 做偏移复核：未新增 OSS 引擎、持久化系统、Agent、调度或重复评分器；停止继续增加与主线无关的基础设施。
 
 **必要能力仍存在**：Kimi 固定四组协议套件，lm-eval/Minerva MATH-500 等社区 Benchmark，内置协议/能力/路由审计，Reference/Fingerprint 辅助，单机 Web/SQLite 和中文报告。第三方 OSS 未安装/无法运行时标记未知，不以猜测代替结果。
 
@@ -62,8 +62,17 @@
 **偏移判断**：**未偏移（待 CI）**，该项直接服务于单用户实际操作与阶段退出，减少维护工作，不增加测试/执行/计费功能。
 
 
-### M6 隐私阻断复核：后台异常不得进入 SQLite（2026-10-19）
+### M6 隐私阻断复核：后台异常不得进入 SQLite（2026-10-19，CI 通过 #121）
 
 - **确定性风险**：原 `_run_audit_job`、`_run_reference_job` 使用 `store.fail(job_id, f"{type(exc).__name__}: {exc}")`；第三方 HTTP/子进程异常可能包含密钥、Prompt、响应片段或本地敏感路径，通过 `/api/jobs` 和 Web 历史显示。
 - **修正**：保留任务失败状态与超时/文件/配置等固定中文错误类型，彻底避免把未经信任的异常原文入库。模拟第三方异常含假 API Key 与 Prompt，覆盖审计、Reference、SQLite、Web 历史与 API JSON。
-- **偏移检查**：未偏移（待 CI）。该改动是 M6 必须处理的真实泄露阻断项，不增删评测规则、评分器、命令或数据表；真实模型实测仍在 R。
+- **偏移检查**：未偏移，Python 3.11/3.12 CI 通过并合并 #121。仅属于真实隐私阻断修复，不增加评测器或数据表；外部 Kimi/lm-eval 实测仍属 R。
+
+
+## M6 完结 → R 交接判定（2026-10-19）
+
+**交付证据**：[#119](https://github.com/Ltqq/model-detect/pull/119) 可选 OSS 默认为关闭；[#120](https://github.com/Ltqq/model-detect/pull/120) 简化使用说明与唯一计划；[#121](https://github.com/Ltqq/model-detect/pull/121) Web/SQLite 异常脱敏。原项目 CI 在 Python 3.11/3.12 上覆盖 pytest、编译、CLI Smoke 与构建，均在合并前检查通过。
+
+**偏移复核**：目标直接服务于 Web/协议/能力/官方 Reference/报告，已优先复用旧引擎和存储，不扩大 OSS 集成范围；不能因为额外高成本套件未覆盖就重开新工程阶段。结论：**未偏移，M6 离线工程结束**。
+
+**R 开始前的阻断信息**：当前没有在本阶段得到 Kimi/GLM 真实官方与供应商端点、合法授权、清晰付费上限和实际部署环境证据。因此 R 保持**未完成**，不能声称模型身份识别准确率已验证、全部官方能力 Benchmark 已接入或 v0.2.0 已正式发布。目标实机安装/备份恢复需在 R 中验证。请使用 [发布清单](../release-checklist.md) 按已有功能范围集中执行一次实测，不再追加新的 G/K/M 并行规划。
