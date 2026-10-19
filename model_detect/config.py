@@ -67,7 +67,8 @@ class AuditConfig(BaseModel):
     benchmark_profile: Literal["smoke", "standard", "deep"] | None = None
     benchmark_evidence_dir: str | None = None
     benchmark_revisions_file: str | None = None
-    proxy_sleuth_enabled: bool = True
+    # Optional third-party subprocess is off unless the user explicitly enables it.
+    proxy_sleuth_enabled: bool = False
     coding_sandbox_enabled: bool = False
     coding_sandbox_auto_pull: bool = True
     regression: RegressionAuditConfig = Field(
