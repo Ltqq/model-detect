@@ -103,22 +103,44 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
 
     if not strong_identity:
         warnings.append(
-            "strong model-identity evidence is missing; configure a trusted statistical "
-            "fingerprint/reference or enable an equivalent strong identity detector"
+            "model weight identity is not certified by this black-box audit; "
+            "official API or fingerprint references are optional for protocol checks"
         )
 
-    if overall is None:
-        verdict = "insufficient"
-    elif identity_mismatch:
-        verdict = "mismatch"
-    elif upstream_policy_violation:
+    # Admission is now evidence-first: an old arbitrary weighted score or
+    # uncalibrated fingerprint may not turn functional API compliance into
+    # an identity failure. Preserve numeric fields for archived report readers.
+    core = [
+        r for r in results
+        if r.probe_id in {"protocol.chat.basic", "protocol.chat.stream"}
+    ]
+    core_fail = any(r.status == ProbeStatus.FAIL for r in core)
+    core_uncertain = any(
+        r.status in {ProbeStatus.ERROR, ProbeStatus.INSUFFICIENT, ProbeStatus.SKIPPED}
+        for r in core
+    )
+    other_protocol_fail = any(
+        r.category in {"protocol", "integrity"}
+        and r.status == ProbeStatus.FAIL
+        and r not in core
+        for r in results
+    )
+    any_warning = any(
+        r.status in {ProbeStatus.FAIL, ProbeStatus.WARN, ProbeStatus.ERROR,
+                     ProbeStatus.INSUFFICIENT}
+        for r in results
+    )
+
+    if upstream_policy_violation:
         verdict = "fail"
-    elif overall >= 85 and strong_identity:
-        verdict = "pass"
-    elif overall >= 70:
+    elif core_fail:
+        verdict = "fail"
+    elif not core or core_uncertain or not any(r.status == ProbeStatus.PASS for r in core):
+        verdict = "insufficient"
+    elif identity_mismatch or mixed_routing or other_protocol_fail or any_warning:
         verdict = "review"
     else:
-        verdict = "fail"
+        verdict = "pass"
 
     return AuditSummary(
         overall_score=overall,
