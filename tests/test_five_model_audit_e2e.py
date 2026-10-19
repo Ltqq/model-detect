@@ -43,7 +43,7 @@ def test_five_models_run_single_provider_audit_pipeline(monkeypatch, tmp_path, m
             return httpx.Response(
                 200,
                 headers={"content-type": "text/event-stream"},
-                text=f"data: {event}\\n\\ndata: [DONE]\\n\\n",
+                text=f"data: {event}\n\ndata: [DONE]\n\n",
             )
         return httpx.Response(
             200,
