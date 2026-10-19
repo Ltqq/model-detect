@@ -122,11 +122,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
         <label>开源增强检测</label>
         <div class="row"><input id="proxy" type="checkbox" style="width:auto"><span>按需运行 proxy-sleuth（第三方增强测试，默认关闭）</span></div>
       </div>
-      <div>
-        <label>代码执行能力</label>
-        <div class="row"><input id="coding_sandbox" type="checkbox" style="width:auto"><span>运行 Docker Coding Sandbox</span></div>
-        <div class="field-help">只在需要代码能力准入时开启；不会回退到宿主机直接执行。</div>
-      </div>
+
     </div>
   </details>
 
@@ -280,7 +276,7 @@ q('run').onclick=async()=>{
     base_url:q('base_url').value.trim(),api_key:q('api_key').value,model:q('model').value.trim(),
     profile:q('profile').value,reference_id:q('reference_id').value||null,
     declared_context_tokens:q('context_tokens').value?Number(q('context_tokens').value):null,
-    proxy_sleuth:q('proxy').checked,coding_sandbox:q('coding_sandbox').checked,
+    proxy_sleuth:q('proxy').checked,
     benchmark_profile:q('benchmark_profile').value||null,
     retain_benchmark_reference:q('retain_benchmark_reference').checked,
     benchmark_revisions_file:q('benchmark_revisions_file').value.trim()||null,
