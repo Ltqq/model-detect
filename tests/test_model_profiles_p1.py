@@ -59,3 +59,25 @@ def test_deepseek_flash_unsupported_json_schema_not_inferred_as_failure():
     )
     assert "json_schema" not in {item["feature"] for item in checks}
     assert any(item["feature"] == "tools" and item["status"] == "pass" for item in checks)
+
+
+def test_all_five_target_models_have_distinct_sourced_rules():
+    """P1 catalog smoke: no profile silently falls through to generic defaults."""
+    expected = {
+        "glm-5.3": "glm-5.3",
+        "glm-5.3-flash": "glm-5.3-flash",
+        "kimi-k3": "kimi-k3",
+        "deepseek-v4-pro": "deepseek-v4",
+        "deepseek-flash": "deepseek-v4.1",
+    }
+    for supplied_id, rule_id in expected.items():
+        rule = match_model_rule(supplied_id)
+        assert rule.id == rule_id, f"{supplied_id} unexpectedly used {rule.id}"
+        assert rule.sources, f"{supplied_id} has no provenance"
+        assert rule.updated_at, f"{supplied_id} has no source review date"
+        assert any(source.url for source in rule.sources), (
+            f"{supplied_id} has no source URL"
+        )
+        assert rule.strict is False, (
+            "Do not turn uncertain third-party gateway behavior into a hard failure"
+        )
