@@ -122,7 +122,7 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     other_protocol_fail = any(
         r.category in {"protocol", "integrity"}
         and r.status == ProbeStatus.FAIL
-        and r not in core
+        and r.probe_id not in {"protocol.chat.basic", "protocol.chat.stream"}
         for r in results
     )
     any_warning = any(
