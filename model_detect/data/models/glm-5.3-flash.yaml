@@ -1,0 +1,47 @@
+schema_version: 3
+id: glm-5.3-flash
+family: glm
+model_version: "5.3-flash"
+patterns:
+  - "glm-5.3-flash"
+  - "glm-5.3-flashx"
+aliases:
+  - "GLM-5.3-Flash"
+updated_at: "2026-10-19"
+sources:
+  - id: zai-glm-5-series
+    type: official_doc
+    title: "Z.ai GLM-5 series model README"
+    url: "https://github.com/zai-org/GLM-5/blob/main/README.md"
+    collected_at: "2026-10-19"
+    confidence: high
+  - id: zai-glm53-flash-model
+    type: official_doc
+    title: "Official GLM-5.3-Flash model card"
+    url: "https://huggingface.co/zai-org/GLM-5.3-Flash"
+    collected_at: "2026-10-19"
+    confidence: high
+strict: false
+features:
+  reasoning_effort:
+    expected: true
+    source_refs: [zai-glm-5-series]
+  disable_thinking:
+    expected: false
+    source_refs: [zai-glm-5-series]
+  tools:
+    expected: true
+    source_refs: [zai-glm53-flash-model]
+  json_schema:
+    expected: null
+protocol_features:
+  chat_completions:
+    reasoning_effort:
+      values: [low, high, max]
+      default: max
+      native_parameter: reasoning_effort
+      source_refs: [zai-glm-5-series]
+notes:
+  - "Dedicated model rule, not an alias for GLM-5.3 flagship."
+  - "Native visual understanding is a separate capability: text-only probes do not validate vision."
+  - "Open-weight chat-template fallback does not necessarily prove first-party API error behavior."
