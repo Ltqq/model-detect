@@ -220,3 +220,26 @@ def test_report_renders_official_quality_baseline_comparison(tmp_path):
     assert "明显退化" in rendered
     assert "具体量化格式" in rendered
     assert data["human_interpretation"]["quality"]["state"] == "regression"
+
+
+def test_published_official_aggregates_are_labeled_background_only(tmp_path):
+    report = AuditReport(
+        target={"base_url": "https://example.invalid/v1", "model": "kimi-k3"},
+    )
+    root = write_report(report, tmp_path / "kimi")
+    page = (root / "report.html").read_text(encoding="utf-8")
+    assert "官方已发布成绩 · 仅背景参考" in page
+    assert "GPQA Diamond" in page
+    assert "93.5" in page
+    assert "不是本次 API 实测" in page
+    assert "https://github.com/MoonshotAI/Kimi-K3/blob/main/README.md" in page
+
+
+def test_unrelated_model_does_not_inherit_kimi_published_score(tmp_path):
+    report = AuditReport(
+        target={"base_url": "https://example.invalid/v1", "model": "deepseek-flash"},
+    )
+    root = write_report(report, tmp_path / "deepseek")
+    page = (root / "report.html").read_text(encoding="utf-8")
+    assert "官方已发布成绩 · 仅背景参考" not in page
+    assert "GPQA Diamond" not in page
