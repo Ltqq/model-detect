@@ -92,8 +92,10 @@ def compare_kimi_official_protocol_summaries(
         value == "pass" and vendor["case_index"][key] != "pass"
         for key, value in official["case_index"].items()
     )
+    incomplete = bool(official["counts"]["error"] or official["counts"]["skipped"] or
+                      vendor["counts"]["error"] or vendor["counts"]["skipped"])
     return {
-        "status": "comparable",
+        "status": "incomplete" if incomplete else "comparable",
         "suite": official["suite"], "model": official["model"],
         "source_commit": official["source_commit"],
         "total_cases": total,
@@ -133,7 +135,9 @@ def render_comparison_markdown(report: dict[str, Any]) -> str:
     kimi = report.get("kimi_official_protocol")
     if isinstance(kimi, dict):
         lines += ["", "## Kimi 官方协议专项（与能力分数分开）", ""]
-        if kimi.get("status") == "comparable":
+        if kimi.get("status") in {"comparable", "incomplete"}:
+            if kimi["status"] == "incomplete":
+                lines.append("- 存在执行错误或跳过用例，不能认定完整通过。")
             lines += [
                 f'- 套件：{kimi["suite"]}；模型：{kimi["model"]}',
                 f'- 同一测试用例数：{kimi["total_cases"]}',
