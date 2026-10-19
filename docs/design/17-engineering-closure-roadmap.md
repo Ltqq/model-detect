@@ -50,8 +50,8 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 
 | 阶段 | 状态 | 代码/验收证据 | 目标偏移判断 |
 |---|---|---|---|
-| M0 | 进行中 | 本计划文档 PR 待合并 | 待判定 |
-| M1 | 待做 | 将两套目录统一 | 待判定 |
+| M0 | **代码已合并** | [#105](https://github.com/Ltqq/model-detect/pull/105)，CI 成功，文档替代旧排期 | **未偏移**：只冻结主链、退出标准及复用边界 |
+| M1 | **进行中，待 CI/合并** | 将 `evaluation_catalog` 改为 `test_catalog` 派生视图，兼容旧 CLI，补来源一致性回归 | **未偏移（待核对）**：不新增第三套目录、评分器或新的命令 |
 | M2 | 待做 | 修临时产物丢失、自动快照导入 | 待判定 |
 | M3 | 待做 | 官方结果与供应商能力差异汇总 | 待判定 |
 | M4 | 待做 | Web/SQLite 主路径 | 待判定 |
@@ -66,3 +66,12 @@ PR 完成后强制逐项回答（写入本表最后日志）：
 [#98](https://github.com/Ltqq/model-detect/pull/98)～[#102](https://github.com/Ltqq/model-detect/pull/102) 快照和导入；
 [#103](https://github.com/Ltqq/model-detect/pull/103) 多任务报告；
 [#104](https://github.com/Ltqq/model-detect/pull/104) 证据来源边界。
+
+
+### 本批 M1 目标偏移核对（2026-10-19，提交前）
+
+- 目标：唯一目录让未来执行计划只依赖 `test_catalog`；现有 `evaluation-catalog` 命令仅提供兼容视图，不独立维护任何测试清单。
+- 复用：直接读取 `build_test_catalog()`；保留已存在的 benchmark comparability 校验。
+- 来源：官方固定 Commit、社区任务、未接入的高成本候选分别标识；所有 `run_verified/results_attested` 仍是 false。
+- 复杂度：修改 2 个已有代码模块 + 1 份断言；**没有添加新模块、数据库或 CLI**。
+- 退出：目录数量和来源完全一致，相关 CI 通过后填「代码已合并」；否则继续修复，禁止跳到 M2。
