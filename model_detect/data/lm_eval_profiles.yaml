@@ -1,17 +1,31 @@
-version: 1
+version: 2
 tasks:
   truthfulqa_gen:
     output_type: generate_until
     dimension: truthfulness
+    difficulty: foundation
     native_overlap: false
   gsm8k:
     output_type: generate_until
     dimension: math
+    difficulty: foundation
     native_overlap: true
   ifeval:
     output_type: generate_until
     dimension: instruction_following
+    difficulty: intermediate
     native_overlap: true
+  minerva_math500:
+    output_type: generate_until
+    dimension: advanced_math
+    difficulty: advanced
+    native_overlap: false
+    source_repo: EleutherAI/lm-evaluation-harness
+    source_tag: v0.4.13
+    source_task: lm_eval/tasks/minerva_math/minerva_math500.yaml
+    source_dataset: HuggingFaceH4/MATH-500
+    optional_dependency: "lm-eval[math]==0.4.13"
+    caution: Requires source and dataset revision confirmation; not an official vendor certification.
 
 profiles:
   smoke:
@@ -25,8 +39,10 @@ profiles:
       - ifeval
     limit: 25
   deep:
+    # 25 selected samples per task: harder math replaces duplicate GSM8K.
+    # This is not comprehensive coverage of top-model ability.
     tasks:
       - truthfulqa_gen
-      - gsm8k
       - ifeval
-    limit: 100
+      - minerva_math500
+    limit: 25
