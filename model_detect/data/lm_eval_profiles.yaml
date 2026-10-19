@@ -1,17 +1,29 @@
-version: 1
+# Each task delegates scoring to lm-evaluation-harness (never model-detect).
+# Changing profile definitions invalidates older benchmark Reference contracts.
+version: 2
 tasks:
   truthfulqa_gen:
     output_type: generate_until
     dimension: truthfulness
+    difficulty: foundation
     native_overlap: false
   gsm8k:
     output_type: generate_until
     dimension: math
+    difficulty: foundation
     native_overlap: true
   ifeval:
     output_type: generate_until
     dimension: instruction_following
+    difficulty: intermediate
     native_overlap: true
+  minerva_math500:
+    output_type: generate_until
+    dimension: advanced_math_reasoning
+    difficulty: advanced
+    native_overlap: false
+    requires_extra: "lm-eval[math]"
+    official_scoring: false
 
 profiles:
   smoke:
@@ -25,8 +37,9 @@ profiles:
       - ifeval
     limit: 25
   deep:
+    # Deep must include a harder task, not just sample more foundation tasks.
     tasks:
       - truthfulqa_gen
-      - gsm8k
       - ifeval
+      - minerva_math500
     limit: 100
