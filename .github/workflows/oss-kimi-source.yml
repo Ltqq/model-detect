@@ -1,0 +1,38 @@
+name: Official Kimi verifier source contract
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "model_detect/kimi_official.py"
+      - "model_detect/kimi_runner.py"
+      - ".github/workflows/oss-kimi-source.yml"
+      - "tests/test_kimi_official_import.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch original Moonshot official source at pinned commit
+        run: |
+          git clone --filter=blob:none https://github.com/MoonshotAI/Kimi-Vendor-Verifier.git "$RUNNER_TEMP/kimi-official"
+          git -C "$RUNNER_TEMP/kimi-official" checkout --detach 66092cf444c97356c0e11c5078c67116390615d9
+          test "$(git -C "$RUNNER_TEMP/kimi-official" rev-parse HEAD)" = "66092cf444c97356c0e11c5078c67116390615d9"
+          for suite in params k3_features tool_call_json_schema prompt_tokens; do
+            test -d "$RUNNER_TEMP/kimi-official/tests/$suite"
+          done
+      - name: Verify adapter pins precisely the original official checkout
+        run: |
+          python - <<'PY'
+          from model_detect.kimi_official import OFFICIAL_COMMIT, OFFICIAL_REPOSITORY, OFFICIAL_CASES
+          assert OFFICIAL_COMMIT == "66092cf444c97356c0e11c5078c67116390615d9"
+          assert OFFICIAL_REPOSITORY == "MoonshotAI/Kimi-Vendor-Verifier"
+          assert set(OFFICIAL_CASES) == {"params", "k3_features", "tool_call_json_schema", "prompt_tokens"}
+          print("Original Kimi official source pin exists; no paid vendor tests executed.")
+          PY
