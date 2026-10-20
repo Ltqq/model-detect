@@ -17,7 +17,9 @@ def test_web_pages_and_reference_api(tmp_path):
     r = client.get("/")
     assert r.status_code == 200
     assert "model-detect" in r.text
-    assert "综合分 ≠ 模型为真的概率" in r.text
+    assert "统一总分不作为准入结论" in r.text
+    assert "生成正文、推理文本和自由文本错误不用于猜测供应商" in r.text
+    assert "Header / Body 指纹" not in r.text
     assert "禁止上游 Provider" not in r.text
     assert "按需运行 proxy-sleuth" not in r.text
     assert "proxy_sleuth:false" in r.text
