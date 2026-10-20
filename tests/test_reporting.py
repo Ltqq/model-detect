@@ -299,5 +299,5 @@ def test_report_json_does_not_publish_partial_overall_score(tmp_path):
     assert data["summary"]["overall_score"] is None
     assert data["human_interpretation"]["score"] is None
     assert "本工具不提供单一综合总分" in html
-    assert "检测覆盖" in data["human_interpretation"]["confidence_text"]
+    assert "证据覆盖" in data["human_interpretation"]["confidence_text"]
     assert data["human_interpretation"]["confidence_semantics"] == "heuristic_coverage_only_not_statistical_confidence"
