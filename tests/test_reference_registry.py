@@ -1,6 +1,7 @@
 from model_detect.baseline import aggregate_baseline_reports
 from model_detect.models import AuditReport, ProbeResult, ProbeStatus
 from model_detect.references import ReferenceManifest, ReferenceRegistry, compare_protocol_signature
+from model_detect.scoring import build_summary
 
 
 def make_report():
@@ -43,8 +44,50 @@ def test_reference_roundtrip_and_signature_compare(tmp_path):
     signature = registry.signature(loaded)
     result = compare_protocol_signature(report.results, signature)
     assert result.status == ProbeStatus.PASS
-    assert result.score == 1.0
+    assert result.category == "reference"
+    assert result.score is None
+    assert result.observed["match_ratio"] == 1.0
+    assert result.metadata["identity_strength"] == "weak"
+    assert result.metadata["weight_identity_proof"] is False
 
+    summary = build_summary(
+        [
+            ProbeResult(
+                probe_id="protocol.chat.basic",
+                category="protocol",
+                status=ProbeStatus.PASS,
+                score=1.0,
+                summary="ok",
+            ),
+            ProbeResult(
+                probe_id="protocol.chat.stream",
+                category="protocol",
+                status=ProbeStatus.PASS,
+                score=1.0,
+                summary="ok",
+            ),
+            result,
+        ]
+    )
+    assert "identity" not in summary.category_scores
+
+
+
+def test_protocol_signature_difference_is_review_not_identity_failure():
+    report = make_report()
+    signature = {
+        "probes": {
+            "protocol.chat.basic": {"status": "fail"},
+            "integrity.max_tokens": {"status": "pass"},
+        }
+    }
+    result = compare_protocol_signature(report.results, signature)
+    assert result.status == ProbeStatus.WARN
+    assert result.category == "reference"
+    assert result.score is None
+    assert result.observed["match_ratio"] == 0.5
+    assert result.metadata["weight_identity_proof"] is False
+    assert "not model-identity proof" in result.summary
 
 def test_reference_delete(tmp_path):
     registry = ReferenceRegistry(tmp_path / "refs")
