@@ -172,3 +172,24 @@ def test_glm_flash_weak_tool_support_is_not_perfect_model_identity():
     assert summary.coverage["identity"] is False
     assert summary.category_scores["protocol"] == 100.0
     assert summary.final_verdict == "review"
+
+
+def test_quick_without_reference_is_not_automatic_review():
+    """Untested identity/routing features are coverage gaps, not supplier defects."""
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.chat.stream", "protocol", 1.0),
+        r("identity.family_features.reasoning_effort", "identity", None,
+          status=ProbeStatus.INSUFFICIENT, identity_strength="weak"),
+        r("routing.summary", "routing", None, status=ProbeStatus.INSUFFICIENT),
+    ])
+    assert summary.final_verdict == "pass"
+
+
+def test_truncated_protocol_behavior_is_still_inconclusive():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.chat.stream", "protocol", 1.0),
+        r("protocol.json_mode", "protocol", None, status=ProbeStatus.INSUFFICIENT),
+    ])
+    assert summary.final_verdict == "review"
