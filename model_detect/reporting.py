@@ -556,14 +556,12 @@ def _render_html(report: AuditReport) -> str:
 
     result_rows = []
     for result in report.results:
-        score = "—" if result.score is None else f"{result.score * 100:.0f}"
         result_rows.append(
             f"""
             <tr data-status="{html.escape(result.status.value)}">
               <td><b>{html.escape(probe_title(result.probe_id))}</b><small><code>{html.escape(result.probe_id)}</code></small></td>
               <td>{html.escape(category_label(result.category))}</td>
               <td><span class="pill {_status_class(result.status.value)}">{html.escape(status_label(result.status))}</span></td>
-              <td>{score}</td>
               <td>{html.escape(result_explanation(result))}<small>{html.escape(result.summary)}</small></td>
               <td>{_evidence_links(result)}</td>
             </tr>
@@ -582,8 +580,6 @@ def _render_html(report: AuditReport) -> str:
     limitations = "".join(
         f"<li>{html.escape(item)}</li>" for item in human["limitations"]
     )
-    score_text = "N/A" if human["score"] is None else str(human["score"])
-    hard_cap = "无" if human["hard_cap"] is None else str(human["hard_cap"])
     model = html.escape(str(report.target.get("model", "")))
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
@@ -745,7 +741,7 @@ button{{background:#385fe7!important;color:#fff!important;border-radius:9px;font
     <button onclick="filterRows('fail')">只看失败</button>
     <button onclick="filterRows('all')">全部</button>
   </div>
-  <div class="table-wrap"><table id="probe-table"><thead><tr><th>检测项</th><th>维度</th><th>状态</th><th>分数</th><th>解读 / 技术摘要</th><th>证据</th></tr></thead><tbody>{''.join(result_rows)}</tbody></table></div>
+  <div class="table-wrap"><table id="probe-table"><thead><tr><th>检测项</th><th>维度</th><th>状态</th><th>解读 / 技术摘要</th><th>证据</th></tr></thead><tbody>{''.join(result_rows)}</tbody></table></div>
 </details>
 
 <section class="card">

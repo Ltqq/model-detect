@@ -28,6 +28,8 @@ def test_report_contains_evidence_links(tmp_path):
     root = write_report(report, tmp_path / "out")
     html = (root / "report.html").read_text(encoding="utf-8")
     assert 'evidence/ev_test.json' in html
+    assert "<th>分数</th>" not in html
+    assert "<th>状态</th>" in html
     assert (root / "evidence" / "ev_test.json").exists()
     data = json.loads((root / "report.json").read_text(encoding="utf-8"))
     assert "human_interpretation" in data
