@@ -17,7 +17,7 @@ def sample_payload(split_half=0.12, verdict="match"):
         "comparison": {
             "meanJsd": 0.18 if verdict == "match" else 0.48,
             "verdict": verdict,
-            "comparableCellCount": 2,
+            "comparableCellCount": 4,
             "protocolMismatch": False,
             "thresholds": {"match": 0.25, "mismatch": 0.35},
             "baselines": {
@@ -38,6 +38,18 @@ def sample_payload(split_half=0.12, verdict="match"):
                     "validA": 24,
                     "validB": 25,
                 },
+                {
+                    "cellId": "random-number-1-100:zh",
+                    "jsd": 0.19,
+                    "validA": 25,
+                    "validB": 25,
+                },
+                {
+                    "cellId": "random-color:en",
+                    "jsd": 0.17,
+                    "validA": 25,
+                    "validB": 25,
+                },
             ],
         },
         "target": {
@@ -51,6 +63,8 @@ def sample_payload(split_half=0.12, verdict="match"):
                 "cells": {
                     "random-number-1-100:en": {},
                     "random-color:zh": {},
+                    "random-number-1-100:zh": {},
+                    "random-color:en": {},
                 },
                 "meta": {"tool": "llm-fingerprint-detector"},
             },
@@ -71,38 +85,76 @@ def sample_payload(split_half=0.12, verdict="match"):
             "cells": {
                 "random-number-1-100:en": {},
                 "random-color:zh": {},
+                "random-number-1-100:zh": {},
+                "random-color:en": {},
             },
         },
         "warnings": [],
     }
 
 
-def test_parse_verify_payload_returns_identity_and_routing_results():
+def test_parse_verify_payload_returns_reference_evidence_without_identity_certainty():
     results, meta = parse_verify_payload(sample_payload(), returncode=0)
     by_id = {x.probe_id: x for x in results}
 
     primary = by_id["identity.fingerprint.reference_compare"]
     assert primary.status == ProbeStatus.PASS
-    assert primary.metadata["identity_strength"] == "strong"
-    assert len(primary.observed["cells"]) == 2
+    assert primary.score is None
+    assert primary.confidence is None
+    assert primary.metadata["identity_strength"] == "weak"
+    assert primary.metadata["weight_identity_proof"] is False
+    assert len(primary.observed["cells"]) == 4
     assert primary.observed["target_fingerprint"]["protocol"] == "one-token/v1"
 
     self_result = by_id["identity.self_consistency"]
-    assert self_result.status == ProbeStatus.PASS
+    assert self_result.status == ProbeStatus.INSUFFICIENT
+    assert self_result.score is None
     assert self_result.observed["split_half_jsd"] == 0.12
+    assert self_result.metadata["not_calibrated"] is True
 
-    routing = by_id["routing.fingerprint.consistency"]
-    assert routing.status == ProbeStatus.PASS
+    assert "routing.fingerprint.consistency" not in by_id
+    assert len(results) == 2
     assert meta["split_half_jsd"] == 0.12
-    assert len(meta["per_cell"]) == 2
+    assert len(meta["per_cell"]) == 4
 
 
-def test_high_split_half_is_warning_not_identity_mismatch():
+def test_high_split_half_is_raw_statistic_not_a_routing_verdict():
     results, _ = parse_verify_payload(sample_payload(split_half=0.42), returncode=0)
     by_id = {x.probe_id: x for x in results}
-    assert by_id["identity.self_consistency"].status == ProbeStatus.WARN
-    assert by_id["routing.fingerprint.consistency"].status == ProbeStatus.WARN
-    assert by_id["identity.self_consistency"].metadata["does_not_imply_identity_mismatch"] is True
+    assert by_id["identity.self_consistency"].status == ProbeStatus.INSUFFICIENT
+    assert "0.420" in by_id["identity.self_consistency"].summary
+    assert "routing.fingerprint.consistency" not in by_id
+
+
+def test_fingerprint_mismatch_is_a_review_signal_not_a_hard_failure():
+    results, meta = parse_verify_payload(sample_payload(verdict="mismatch"), returncode=2)
+    primary = results[0]
+    assert primary.status == ProbeStatus.WARN
+    assert primary.score is None
+    assert primary.confidence is None
+    assert primary.metadata["weight_identity_proof"] is False
+    assert meta["verdict"] == "mismatch"
+
+
+def test_fingerprint_match_with_protocol_mismatch_is_insufficient():
+    data = sample_payload()
+    data["comparison"]["protocolMismatch"] = True
+    results, meta = parse_verify_payload(data, returncode=0)
+    primary = results[0]
+    assert primary.status == ProbeStatus.INSUFFICIENT
+    assert primary.observed["raw_verdict"] == "match"
+    assert primary.observed["verdict"] == "insufficient"
+    assert meta["verdict"] == "insufficient"
+    assert primary.observed["validation_reasons"]
+
+
+def test_fingerprint_match_with_too_few_comparable_cells_is_insufficient():
+    data = sample_payload()
+    data["comparison"]["comparableCellCount"] = 2
+    results, meta = parse_verify_payload(data, returncode=0)
+    assert results[0].status == ProbeStatus.INSUFFICIENT
+    assert meta["verdict"] == "insufficient"
+    assert "fewer than 4" in results[0].summary
 
 
 def test_fingerprint_metadata_shape():

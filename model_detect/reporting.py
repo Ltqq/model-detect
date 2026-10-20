@@ -242,7 +242,7 @@ def _fingerprint_section(report: AuditReport) -> str:
     return f"""
 <section class="card" id="fingerprint">
   <div class="section-head">
-    <div><div class="eyebrow">强身份依据</div><h2>统计指纹对比</h2></div>
+    <div><div class="eyebrow">行为参考信号</div><h2>统计指纹对比</h2></div>
     <span class="pill {_status_class(primary.status.value)}">{html.escape(status_label(primary.status))}</span>
   </div>
   <p class="lead">{html.escape(explanation)}</p>
@@ -468,10 +468,11 @@ def _render_html(report: AuditReport) -> str:
     provider = human["provider"]
     quality = human["quality"]
     identity_state_label = {
-        "match": "已有强身份匹配",
-        "mismatch": "强身份不一致",
-        "uncertain": "强身份结果不确定",
-        "missing": "缺少强身份依据",
+        "behavioral_match": "行为指纹与参考接近",
+        "behavioral_mismatch": "行为指纹与参考有差异",
+        "behavioral_uncertain": "行为指纹结果不确定",
+        "insufficient": "指纹证据不足",
+        "missing": "未运行可用的参考对比",
     }.get(identity["state"], identity["state"])
 
     policy_state_label = {

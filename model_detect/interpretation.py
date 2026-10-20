@@ -273,62 +273,87 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
 
 
 def _identity_summary(report: AuditReport) -> dict[str, Any]:
-    strong = [
-        result for result in report.results
-        if result.category == "identity"
-        and result.metadata.get("identity_strength") == "strong"
-    ]
-    mismatch = any(
-        result.metadata.get("verdict") == "mismatch"
-        and result.status == ProbeStatus.FAIL
-        for result in strong
-    )
-    match = any(
-        result.metadata.get("verdict") == "match"
-        and result.status == ProbeStatus.PASS
-        for result in strong
-    )
+    # A behavioral fingerprint is an observation against a reference, not
+    # an authentication result. Handle it separately from legacy "strong identity"
+    # metadata so older reports cannot turn a JSD verdict into weight proof.
     fingerprint = next(
         (
-            result for result in strong
+            result for result in report.results
             if result.probe_id == "identity.fingerprint.reference_compare"
         ),
         None,
     )
+    observed = (
+        fingerprint.observed
+        if fingerprint and isinstance(fingerprint.observed, dict)
+        else {}
+    )
+    verdict = (
+        fingerprint.metadata.get("verdict", observed.get("verdict"))
+        if fingerprint
+        else None
+    )
 
-    if mismatch:
-        state = "mismatch"
-        text = "本次行为指纹与所选参考出现差异；需检查参考来源、配置并重复测试，不能单凭此项判定换模。"
-    elif match:
-        state = "match"
-        text = "本次统计行为与所选参考较接近；这仅是辅助信号，不能证明模型权重身份。"
-    elif strong:
-        state = "uncertain"
-        text = "已经运行强身份检测，但结果仍不确定，需要增加样本或重新采集可信参考。"
+    if fingerprint:
+        if verdict == "match" and fingerprint.status == ProbeStatus.PASS:
+            state = "behavioral_match"
+            text = (
+                "本次行为分布与所选参考接近，只说明当前采样协议下统计行为相似；"
+                "不能证明模型权重身份。请核对参考来源、采样条件和采集日期。"
+            )
+        elif verdict == "mismatch":
+            state = "behavioral_mismatch"
+            text = (
+                "本次行为分布与所选参考有明显差异。可能原因包括模型替换、版本更新、"
+                "隐藏系统提示、采样条件、量化或路由变化；需复测，不能单凭此项断言换模。"
+            )
+        elif verdict == "uncertain":
+            state = "behavioral_uncertain"
+            text = (
+                "行为指纹结果处于不确定区间；可增加有效样本并复核参考协议，"
+                "不要将单次比较作为身份结论。"
+            )
+        elif fingerprint.status in {ProbeStatus.INSUFFICIENT, ProbeStatus.ERROR} or verdict == "insufficient":
+            state = "insufficient"
+            text = (
+                "当前指纹比较证据不足，可能是参考协议不匹配、有效样本不足或采集失败；"
+                "这不是模型失败，也不能判断身份是否一致。"
+            )
+        else:
+            state = "behavioral_uncertain"
+            text = "指纹工具未提供可解释的比较结果；当前无法判断行为是否接近参考。"
     else:
+        strong = [
+            result for result in report.results
+            if result.category == "identity"
+            and result.metadata.get("identity_strength") == "strong"
+        ]
         state = "missing"
         text = (
-            "缺少 Trusted Reference / Statistical Fingerprint 等强身份证据。"
-            "协议和能力通过只能说明“行为像且能用”，不能证明模型身份。"
+            "缺少可用的行为参考比较。协议和能力通过只能说明接口在已测项目中表现正常，"
+            "不能证明模型权重身份。"
         )
+        # Legacy non-fingerprint identity results are kept for history reading,
+        # but do not get promoted to a model identity claim here.
+        if strong:
+            text += "旧版身份信号仅作历史记录，不作为本次权重认证。"
+
+    mean_jsd = observed.get("mean_jsd")
+    if mean_jsd is None and fingerprint:
+        mean_jsd = observed.get("mean_jsd")
 
     return {
         "state": state,
         "label": {
-            "match": "已有强身份匹配",
-            "mismatch": "强身份不一致",
-            "uncertain": "强身份结果不确定",
-            "missing": "缺少强身份依据",
+            "behavioral_match": "行为指纹与参考接近",
+            "behavioral_mismatch": "行为指纹与参考有差异",
+            "behavioral_uncertain": "行为指纹结果不确定",
+            "insufficient": "指纹证据不足",
+            "missing": "未运行可用的参考对比",
         }.get(state, state),
         "text": text,
-        "fingerprint_verdict": (
-            fingerprint.metadata.get("verdict") if fingerprint else None
-        ),
-        "mean_jsd": (
-            fingerprint.observed.get("mean_jsd")
-            if fingerprint and isinstance(fingerprint.observed, dict)
-            else None
-        ),
+        "fingerprint_verdict": verdict,
+        "mean_jsd": mean_jsd,
     }
 
 
@@ -448,7 +473,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
 
     invalid_target = verdict == "invalid_target"
     policy_violation = provider["state"] == "violation"
-    identity_mismatch = identity["state"] == "mismatch"
+    identity_mismatch = identity["state"] == "behavioral_mismatch"
 
     if invalid_target:
         decision = "重新检测"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -11,8 +12,7 @@ from ..models import ProbeResult, ProbeStatus
 
 
 PINNED_FINGERPRINT_VERSION = "0.1.0"
-SELF_MATCH_THRESHOLD = 0.25
-SELF_WARN_THRESHOLD = 0.35
+MIN_COMPARABLE_CELLS = 4
 
 
 def _installed_version(binary: str) -> str | None:
@@ -201,101 +201,44 @@ def list_bundled_references(timeout_seconds: float = 60) -> dict[str, Any]:
 
 
 def _self_consistency_result(split_half_jsd: Any) -> ProbeResult:
+    """Preserve split-half JSD as a raw statistic; no local threshold is calibrated."""
     probe_id = "identity.self_consistency"
     try:
         value = float(split_half_jsd)
+        if not math.isfinite(value) or value < 0:
+            raise ValueError("split-half JSD must be finite and non-negative")
     except (TypeError, ValueError):
         return ProbeResult(
             probe_id=probe_id,
             category="identity",
             status=ProbeStatus.INSUFFICIENT,
             score=None,
-            confidence=0.0,
-            summary="fingerprint split-half JSD is unavailable",
+            confidence=None,
+            summary="fingerprint split-half JSD unavailable; no consistency conclusion",
             observed={"split_half_jsd": split_half_jsd},
-            metadata={"identity_strength": "weak"},
+            metadata={
+                "identity_strength": "weak",
+                "signal": "split-half-jsd",
+                "not_calibrated": True,
+                "mixed_routing_proof": False,
+            },
         )
-
-    if value <= SELF_MATCH_THRESHOLD:
-        status = ProbeStatus.PASS
-        score = 1.0
-        label = "stable"
-    elif value <= SELF_WARN_THRESHOLD:
-        status = ProbeStatus.WARN
-        score = 0.6
-        label = "suspicious"
-    else:
-        status = ProbeStatus.WARN
-        score = 0.3
-        label = "unstable"
 
     return ProbeResult(
         probe_id=probe_id,
         category="identity",
-        status=status,
-        score=score,
-        confidence=0.75,
-        summary=f"fingerprint self-consistency={label}, split-half JSD={value:.3f}",
-        observed={
-            "split_half_jsd": value,
-            "thresholds": {
-                "stable_max": SELF_MATCH_THRESHOLD,
-                "suspicious_max": SELF_WARN_THRESHOLD,
-            },
-        },
+        status=ProbeStatus.INSUFFICIENT,
+        score=None,
+        confidence=None,
+        summary=(
+            f"split-half JSD={value:.3f} is retained as a raw statistic; "
+            "this project has no calibrated cutoff for it"
+        ),
+        observed={"split_half_jsd": value},
         metadata={
             "identity_strength": "weak",
-            "self_consistency": label,
-            "does_not_imply_identity_mismatch": True,
-        },
-    )
-
-
-def _routing_consistency_result(split_half_jsd: Any) -> ProbeResult:
-    probe_id = "routing.fingerprint.consistency"
-    try:
-        value = float(split_half_jsd)
-    except (TypeError, ValueError):
-        return ProbeResult(
-            probe_id=probe_id,
-            category="routing",
-            status=ProbeStatus.INSUFFICIENT,
-            score=None,
-            confidence=0.0,
-            summary="fingerprint split-half JSD is unavailable for routing analysis",
-            observed={"split_half_jsd": split_half_jsd},
-        )
-
-    if value <= SELF_MATCH_THRESHOLD:
-        status = ProbeStatus.PASS
-        score = 1.0
-        verdict = "stable"
-    elif value <= SELF_WARN_THRESHOLD:
-        status = ProbeStatus.WARN
-        score = 0.6
-        verdict = "suspicious"
-    else:
-        status = ProbeStatus.WARN
-        score = 0.3
-        verdict = "unstable"
-
-    return ProbeResult(
-        probe_id=probe_id,
-        category="routing",
-        status=status,
-        score=score,
-        confidence=0.7,
-        summary=f"fingerprint routing consistency={verdict}, split-half JSD={value:.3f}",
-        observed={
-            "split_half_jsd": value,
-            "thresholds": {
-                "stable_max": SELF_MATCH_THRESHOLD,
-                "suspicious_max": SELF_WARN_THRESHOLD,
-            },
-        },
-        metadata={
-            "verdict": verdict,
             "signal": "split-half-jsd",
+            "not_calibrated": True,
             "mixed_routing_proof": False,
         },
     )
@@ -306,7 +249,8 @@ def parse_verify_payload(
     *,
     returncode: int = 0,
 ) -> tuple[list[ProbeResult], dict[str, Any]]:
-    verdict = str(data.get("verdict") or "insufficient").lower()
+    raw_verdict = str(data.get("verdict") or "insufficient").lower()
+    verdict = raw_verdict
     comparison = data.get("comparison") if isinstance(data.get("comparison"), dict) else {}
     target = data.get("target") if isinstance(data.get("target"), dict) else {}
     target_fp = target.get("fingerprint") if isinstance(target.get("fingerprint"), dict) else {}
@@ -315,41 +259,96 @@ def parse_verify_payload(
 
     mean_jsd = data.get("meanJsd", comparison.get("meanJsd"))
     cells = comparison.get("cells") if isinstance(comparison.get("cells"), list) else []
-    comparable = comparison.get("comparableCellCount")
+    comparable_raw = comparison.get("comparableCellCount")
+    try:
+        comparable = int(comparable_raw)
+    except (TypeError, ValueError):
+        comparable = 0
     split_half = target.get("splitHalfJsd")
+
+    target_protocol = target_fp.get("protocol")
+    reference_protocol = reference.get("protocol")
+    protocol_mismatch = (
+        comparison.get("protocolMismatch") is True
+        or not isinstance(target_protocol, str)
+        or not target_protocol
+        or not isinstance(reference_protocol, str)
+        or not reference_protocol
+        or target_protocol != reference_protocol
+    )
+
+    try:
+        numeric_mean_jsd = float(mean_jsd)
+        valid_mean_jsd = math.isfinite(numeric_mean_jsd) and 0 <= numeric_mean_jsd <= 1
+    except (TypeError, ValueError):
+        numeric_mean_jsd = None
+        valid_mean_jsd = False
+
+    validation_reasons: list[str] = []
+    if raw_verdict in {"match", "mismatch", "uncertain"}:
+        if protocol_mismatch:
+            validation_reasons.append("target/reference fingerprint protocols are missing or incompatible")
+        if comparable < MIN_COMPARABLE_CELLS or len(cells) < MIN_COMPARABLE_CELLS:
+            validation_reasons.append(
+                f"fewer than {MIN_COMPARABLE_CELLS} comparable fingerprint cells"
+            )
+        if not valid_mean_jsd:
+            validation_reasons.append("mean JSD is missing or invalid")
+        if validation_reasons:
+            verdict = "insufficient"
 
     status_map = {
         "match": ProbeStatus.PASS,
-        "mismatch": ProbeStatus.FAIL,
+        # A distribution mismatch may reflect model replacement, version drift,
+        # hidden prompts, sampling conditions, or serving changes. It is a review
+        # signal, not proof of fraud or wrong weights.
+        "mismatch": ProbeStatus.WARN,
         "uncertain": ProbeStatus.WARN,
         "insufficient": ProbeStatus.INSUFFICIENT,
     }
-    score_map = {
-        "match": 1.0,
-        "uncertain": 0.5,
-        "mismatch": 0.0,
-        "insufficient": None,
-    }
     status = status_map.get(verdict, ProbeStatus.ERROR)
-    mean_text = ""
-    try:
-        mean_text = f", mean JSD={float(mean_jsd):.3f}"
-    except (TypeError, ValueError):
-        pass
+    mean_text = (
+        f", mean JSD={numeric_mean_jsd:.3f}"
+        if valid_mean_jsd and numeric_mean_jsd is not None
+        else ""
+    )
+    summaries = {
+        "match": (
+            "behavioral output distribution is close to the selected reference"
+            f"{mean_text}; this does not prove model-weight identity"
+        ),
+        "mismatch": (
+            "behavioral output distribution differs from the selected reference"
+            f"{mean_text}; review reference age, prompt, sampling, model update, "
+            "quantization, and routing before drawing conclusions"
+        ),
+        "uncertain": (
+            "behavioral fingerprint comparison is uncertain"
+            f"{mean_text}; repeat with more valid samples and a compatible reference"
+        ),
+        "insufficient": (
+            "behavioral fingerprint evidence is insufficient"
+            + (": " + "; ".join(validation_reasons) if validation_reasons else "")
+        ),
+    }
+    summary = summaries.get(verdict, "fingerprint tool returned an unknown verdict")
 
     primary = ProbeResult(
         probe_id="identity.fingerprint.reference_compare",
         category="identity",
         status=status,
-        score=score_map.get(verdict),
-        confidence=0.9 if verdict in {"match", "mismatch"} else 0.6,
-        summary=f"statistical fingerprint verdict={verdict}{mean_text}",
+        # Do not turn the external verdict into an invented 0–100 capability score.
+        score=None,
+        confidence=None,
+        summary=summary,
         observed={
             "verdict": verdict,
-            "mean_jsd": mean_jsd,
+            "raw_verdict": raw_verdict,
+            "mean_jsd": numeric_mean_jsd if valid_mean_jsd else mean_jsd,
             "comparable_cell_count": comparable,
             "cells": cells,
-            "protocol_mismatch": comparison.get("protocolMismatch"),
+            "protocol_mismatch": protocol_mismatch,
+            "validation_reasons": validation_reasons,
             "thresholds": comparison.get("thresholds"),
             "baselines": comparison.get("baselines"),
             "target_split_half_jsd": split_half,
@@ -360,32 +359,38 @@ def parse_verify_payload(
         },
         metadata={
             "verdict": verdict,
+            "raw_verdict": raw_verdict,
             "engine": "llm-fingerprint-detector",
-            "identity_strength": "strong",
+            "identity_strength": "weak",
+            "evidence_type": "behavioral_distribution_comparison",
+            "weight_identity_proof": False,
+            "not_calibrated_for_model_detect_targets": True,
             "per_cell_jsd": True,
         },
     )
-    results = [
-        primary,
-        _self_consistency_result(split_half),
-        _routing_consistency_result(split_half),
-    ]
+    # Split-half JSD is the same statistic used to assess endpoint self-consistency.
+    # Do not duplicate it as an independent routing detector or apply an uncalibrated
+    # routing threshold.
+    results = [primary, _self_consistency_result(split_half)]
     meta = {
         "available": True,
         "engine": "llm-fingerprint-detector",
         "returncode": returncode,
         "verdict": verdict,
-        "mean_jsd": mean_jsd,
+        "raw_verdict": raw_verdict,
+        "mean_jsd": numeric_mean_jsd if valid_mean_jsd else mean_jsd,
         "comparable_cell_count": comparable,
         "per_cell": cells,
         "split_half_jsd": split_half,
         "adapter": target.get("adapter"),
         "warnings": warnings,
+        "validation_reasons": validation_reasons,
         "target_fingerprint": fingerprint_metadata_from_data(target_fp),
         "reference_fingerprint": fingerprint_metadata_from_data(reference),
-        "protocol_mismatch": comparison.get("protocolMismatch"),
+        "protocol_mismatch": protocol_mismatch,
         "thresholds": comparison.get("thresholds"),
         "baselines": comparison.get("baselines"),
+        "weight_identity_proof": False,
     }
     return results, meta
 
