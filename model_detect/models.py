@@ -49,7 +49,8 @@ class ProbeResult(BaseModel):
     category: str
     status: ProbeStatus
     score: float | None = None
-    confidence: float = 1.0
+    # Optional for categorical checks that do not have a calibrated probability.
+    confidence: float | None = 1.0
     summary: str
     expected: Any = None
     observed: Any = None
