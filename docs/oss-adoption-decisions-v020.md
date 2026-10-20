@@ -9,7 +9,7 @@
 | EleutherAI lm-evaluation-harness | `model_detect/adapters/lm_eval.py)；[上游](https://github.com/EleutherAI/lm-evaluation-harness) | MIT；项目目标 `0.4.13)；本地 OpenAI 兼容 Mock 已真实启动原始任务/评分器链路 | **保留唯一主力能力评测引擎**。原始 scorer 优先；真实渠道能力结果仍未验收 |
 | MoonshotAI Kimi Vendor Verifier | `kimi_official.py`、`kimi_runner.py)；[上游](https://github.com/MoonshotAI/Kimi-Vendor-Verifier)；固定 commit `66092cf444c97356c0e11c5078c67116390615d9) | MIT；四组协议测试源码已固定 | **保留适用型号专项**；官方源码可追溯不等于真实供应商通过 |
 | promptfoo | `adapters/promptfoo.py`、`regression_promptfoo.py)；[上游](https://github.com/promptfoo/promptfoo) | MIT；外部 CLI 版本尚未完成完整实证 | **兼容隔离**：保留旧 YAML 回归路径，默认不运行；不作为身份或 Benchmark 主引擎 |
-| ToseaAI llm-fingerprint-detector | `model_detect/adapters/fingerprint.py)；[上游](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；上游 `package.json` 当前版本 `0.1.0)，Node >=18.17；当前适配器未固定 npx 版本且全局命令版本未校验 | **实验性候选**：本次报告未运行；先修复版本/CLI 可复现性，再做同模型正例、异模型负例、参考库覆盖和成本验证。不能进入正式身份结论 |
+| ToseaAI llm-fingerprint-detector | `model_detect/adapters/fingerprint.py)；[上游](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；上游 `package.json` 当前版本 `0.1.0)，Node >=18.17；当前适配器未固定 npx 版本且全局命令版本未校验 | **实验性候选**：本次报告未运行；已固定版本/CLI 合同；接下来做同模型正例、异模型负例、参考库覆盖和成本验证。不能进入正式身份结论 |
 | dreamor llm-fingerprint | [上游](https://github.com/dreamor/llm-fingerprint) | MIT；自述参考库 176+ 模型，数据源 2026-07，数据集 CC-BY-4.0 | **不另接适配器**；作为 ToseaAI 的同类候选比较，避免维护重复 JSD 引擎。新模型未入库时无匹配真值 |
 | ps4398 llm_check | [上游](https://github.com/ps4398/llm_check) | MIT；自述提供 JSD、forensics 与历史/漂移功能；仍需独立验证其真实误报 | **不另接适配器**；作为同类方法比较，不把 README 指标当作本项目准确率 |
 | Babapei proxy-sleuth | `adapters/proxy_sleuth.py)；[上游](https://github.com/Babapei/proxy-sleuth) | MIT；上游项目标为 Alpha；当前版本/输出契约需固定 | **实验性隔离、默认关闭**；与现有参数/上下文/路由探针重叠，须证明独有贡献及正反样例效果后才决定去留 |
