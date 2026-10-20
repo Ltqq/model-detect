@@ -12,7 +12,7 @@
 | ToseaAI llm-fingerprint-detector | `model_detect/adapters/fingerprint.py`；[上游](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；源码版本 `0.1.0`；Node >=18.17；npm registry 实测 404，PR #181 已固定源码 commit 构建并通过 CLI/JSON smoke | **实验性候选**：显式安装、版本校验；不自动 npx 下载。真实端点采集和准确性仍未验证 |
 | dreamor llm-fingerprint | [上游](https://github.com/dreamor/llm-fingerprint) | MIT；自述参考库 176+ 模型，数据源标记为 2026-07，数据集 CC-BY-4.0 | **不另接适配器**；与 ToseaAI 属同类分布指纹路线，比较参考覆盖即可，避免重复维护引擎 |
 | ps4398 llm_check | [上游](https://github.com/ps4398/llm_check) | MIT；自述包含 JSD、forensics 和漂移分析，需独立复核 | **不另接适配器**；作为同类候选，不把 README 指标当成本项目准确率 |
-| Mohamed7415 fpverify | [上游](https://github.com/Mohamed7415/fpverify) | MIT；0.1.0；无 `pyproject.toml`，通过 `requirements.txt` 管理；36 个 cell × 20 样本的参考入册约 720 次请求，审计预算默认最高 600 次并可早停 | **研究候选，不接入 v0.2.0 默认流程**：e-process/序贯检验值得评估；README 对 `delta` 的后验预测标定明确属于近似，真实 API 误报率需独立验证 |
+| Mohamed7415 fpverify | [上游](https://github.com/Mohamed7415/fpverify) | MIT；0.1.0；无 `pyproject.toml`，通过 `requirements.txt` 管理；36 个 cell × 20 样本的参考入册约 720 次请求，审计预算默认最高 600 次并可早停；当前不集成 | **研究候选，不接入 v0.2.0 默认流程**：e-process/序贯检验值得评估；README 对 `delta` 的后验预测标定明确属于近似；统计测试基于自有合成分布与仿真，不能证明真实 API 误报率 |
 | benbenlijie llm-provider-audit | [上游](https://github.com/benbenlijie/llm-provider-audit) | MIT；Alpha `0.1.0`；要求 Python >=3.12，与当前 Python 3.11 测试矩阵不兼容 | **研究参考**：借鉴 reference variance、negative controls、open-set calibration；先比较独有价值，不作为当前依赖 |
 | Babapei proxy-sleuth | `adapters/proxy_sleuth.py`；[上游](https://github.com/Babapei/proxy-sleuth) | MIT；上游标为 Alpha，当前版本/输出契约需固定 | **实验性隔离、默认关闭**；与现有参数/上下文/路由探针重叠，须证明独有贡献后再决定 |
 | Inspect AI | [上游](https://github.com/UKGovernmentBEIS/inspect_ai) | MIT；UK AI Security Institute 维护，200+ 预构建评测 | **不加入 v0.2.0**；作为 lm-eval 的备选，只有明确任务缺口才评估替换/补充 |
@@ -39,7 +39,7 @@
 3. 第二份 GLM 报告里 ToseaAI 指纹为 `not_run`、lm-eval 为 `disabled`、proxy-sleuth 为 `disabled`；该报告没有开源统计指纹或标准能力 Benchmark 的实际结果。
 4. ToseaAI、dreamor、llm_check 是同类行为分布路线，不应将三个结果当作三种独立证据叠加。
 5. fpverify 增加序贯 e-process 与容差标定，值得候选评估；但它不是当前已集成的组件，且需要同条件 Reference、较高请求预算和真实端点正反验证。
-6. llm-provider-audit 的 reference variance 和 negative controls 值得借鉴，但当前 Python 3.11 兼容性与重叠能力需先解决。
+6. llm-provider-audit 的 reference variance 和 negative controls 值得借鉴，但当前要求 Python >=3.12，且需先验证负对照的独立贡献和可复现性。
 7. proxy-sleuth 不能因上游声称七层检测就作为主引擎；需固定 commit、许可证、命令/输出契约及受控真值验收。
 8. 官方公开成绩有来源权威性，但不是本次 API 调用结果，也不自动可与不同 Harness 的本地成绩相减。
 
