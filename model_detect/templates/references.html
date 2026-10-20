@@ -53,9 +53,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     <div class="wide"><label>API Key</label><input id="key" type="password" placeholder="sk-..."></div>
   </div>
   <div style="margin:14px 0">
-    <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" checked style="width:auto">同时采集行为分布指纹（可选；需 Node/npm，同协议下比较，不认证权重身份）</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" checked style="width:auto">同时采集质量 Baseline（推荐，用完全相同的检测套件做官方 vs 供应商对比）</label>
-    <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">推荐 3 次；3 次及以上才开始估计基准自身波动。</div></div>
+    <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" style="width:auto">同时采集行为分布指纹（额外约 200 次请求；需 Node/npm，同协议下比较，不认证权重身份）</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" checked style="width:auto">同时采集质量 Baseline（可选；按重复次数执行完整 Standard 检测）</label>
+    <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">默认不运行。勾选后会产生额外请求和费用；3 次及以上才开始估计基准自身波动。</div></div>
     <div style="margin:10px 0;max-width:500px">
       <label>标准能力 Benchmark（可选，默认不运行）</label>
       <select id="benchmark_profile" style="width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
