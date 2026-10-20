@@ -13,7 +13,7 @@ def r(probe_id, category, score, status=ProbeStatus.PASS, **metadata):
     )
 
 
-def test_category_score_and_pass():
+def test_category_scores_are_retained_but_no_aggregate_score_is_emitted():
     summary = build_summary(
         [
             r("protocol.chat.basic", "protocol", 1.0),
@@ -23,11 +23,11 @@ def test_category_score_and_pass():
     )
     assert summary.category_scores["protocol"] == 100.0
     assert summary.category_scores["identity"] == 90.0
-    assert summary.overall_score is not None
+    assert summary.overall_score is None
     assert summary.final_verdict == "pass"
 
 
-def test_identity_mismatch_hard_caps_total():
+def test_identity_mismatch_requires_review_without_numeric_score():
     summary = build_summary(
         [
             r("protocol.chat.basic", "protocol", 1.0),
@@ -41,19 +41,21 @@ def test_identity_mismatch_hard_caps_total():
             ),
         ]
     )
-    assert summary.hard_cap == 40.0
-    assert summary.overall_score <= 40.0
+    assert summary.hard_cap is None
+    assert summary.overall_score is None
     assert summary.final_verdict == "review"
 
 
-def test_critical_protocol_failure_caps_score():
+def test_critical_protocol_failure_fails_without_numeric_cap():
     summary = build_summary(
         [
             r("protocol.chat.basic", "protocol", 0.0, status=ProbeStatus.FAIL),
             r("identity.other", "identity", 1.0),
         ]
     )
-    assert summary.hard_cap == 60.0
+    assert summary.hard_cap is None
+    assert summary.overall_score is None
+    assert summary.final_verdict == "fail"
 
 
 def test_weak_identity_does_not_block_protocol_admission():
@@ -65,7 +67,7 @@ def test_weak_identity_does_not_block_protocol_admission():
             r("context.summary", "context", 1.0),
         ]
     )
-    assert summary.overall_score is not None
+    assert summary.overall_score is None
     assert summary.final_verdict == "pass"
     assert summary.confidence in {"medium", "low"}
 
@@ -109,7 +111,8 @@ def test_disallowed_upstream_policy_violation_fails_admission():
         ]
     )
 
-    assert summary.hard_cap == 40.0
+    assert summary.hard_cap is None
+    assert summary.overall_score is None
     assert summary.final_verdict == "fail"
 
 
@@ -125,7 +128,8 @@ def test_benchmark_scores_do_not_change_authenticity_admission_score():
         *native,
         r("capability.external.lm_eval.gsm8k", "benchmark", 1.0),
     ])
-    assert with_benchmark.overall_score == original.overall_score
+    assert original.overall_score is None
+    assert with_benchmark.overall_score is None
     assert with_benchmark.final_verdict == original.final_verdict
 
 
@@ -193,3 +197,21 @@ def test_truncated_protocol_behavior_is_still_inconclusive():
         r("protocol.json_mode", "protocol", None, status=ProbeStatus.INSUFFICIENT),
     ])
     assert summary.final_verdict == "review"
+
+
+def test_no_aggregate_score_even_when_multiple_categories_are_covered():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.chat.stream", "protocol", 1.0),
+        r("integrity.max_tokens", "integrity", 0.8),
+        r("context.marker_recall", "context", 0.9),
+        r("capability.gsm8k.smoke", "capability", 0.7),
+        r("identity.family_features.tools", "identity", None,
+          status=ProbeStatus.INSUFFICIENT, identity_strength="weak"),
+    ])
+    assert summary.category_scores["protocol"] == 100.0
+    assert summary.category_scores["integrity"] == 80.0
+    assert summary.category_scores["context"] == 90.0
+    assert summary.category_scores["capability"] == 70.0
+    assert summary.overall_score is None
+    assert summary.hard_cap is None
