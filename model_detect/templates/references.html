@@ -58,7 +58,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">默认不运行。勾选后会产生额外请求和费用；3 次及以上才开始估计基准自身波动。</div></div>
     <div style="margin:10px 0;max-width:500px">
       <label>标准能力 Benchmark（可选，默认不运行）</label>
-      <select id="benchmark_profile" style="width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
+      <select id="benchmark_profile">
         <option value="">不开启：仅采轻量能力</option>
         <option value="smoke">Smoke：1 类 × 最多 5 题/次</option>
         <option value="standard">Standard：3 类 × 最多 25 题/次</option>
