@@ -25,25 +25,55 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.filters input,.filters select{max-width:200px;padding:8px}
 .notice{padding:10px 12px;border-radius:9px;background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.22);font-size:12px;color:#b9d8ff}
 @media(max-width:820px){.guide{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.wrap{padding:18px 12px 60px}.top{flex-direction:column}}
+
+/* v0.2 UI: task-first interface. No framework, same DOM IDs/API behavior. */
+:root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--panel2:#f8fafc;--border:#e3e8f0;--text:#182234;--muted:#69778b;--blue:#385fe7;--green:#12845b;--yellow:#a96b10;--red:#cb3d43}
+body{background:radial-gradient(ellipse at 15% 0%,#eaf0ff 0%,transparent 42%),var(--bg);font-size:14px;line-height:1.6}
+.wrap{max-width:1110px;padding:42px 26px 90px}
+.top{align-items:center;margin-bottom:28px}.top h1{font-size:32px;font-weight:760;letter-spacing:-.7px}
+.top .muted{font-size:14px;max-width:600px;line-height:1.7}
+.top-nav{display:flex;gap:23px;align-items:center;font-size:13px;white-space:nowrap}
+.top-nav a{font-weight:600;color:#53627b}.top-nav a:first-child{color:var(--blue)}
+.nav-optional{font-size:11px;color:#8e9aaf;margin-left:3px}
+.card{border-radius:18px;box-shadow:0 8px 32px rgba(29,51,96,.035);padding:27px;margin:18px 0}
+.main-form{border:1px solid #d6dffc;box-shadow:0 16px 60px rgba(56,95,231,.075);margin-top:4px}
+h2{font-size:21px;letter-spacing:-.35px}.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.14em}
+label{font-size:13px;color:#3f4d63;font-weight:650}
+input,select{padding:12px 13px;border-radius:10px;background:#fff;min-height:43px;font-size:14px;border-color:#dce3ee;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:#8ea2ff;box-shadow:0 0 0 3px rgba(56,95,231,.09)}
+.grid{column-gap:16px;row-gap:21px}
+.field-help,.field-warn{font-size:12px;line-height:1.55}
+button{background:var(--blue);border-radius:10px;padding:11px 20px;box-shadow:none;font-size:14px}
+button.secondary{background:#edf1f8;color:#334460}.danger{background:#fff1f0;color:#bd353a}
+button:hover:not(:disabled){filter:brightness(.96)}
+.advanced{margin-top:25px!important}
+details.advanced>summary{color:#415477;font-weight:650;font-size:13px}
+.secondary-panel{background:#fff;box-shadow:none;padding:18px 24px;margin:16px 0}
+.secondary-panel>summary{list-style:none;cursor:pointer;font-size:14px;font-weight:700;color:#34445d;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.secondary-panel>summary:after{content:"⌄";color:var(--muted)}
+.secondary-panel[open]>summary:after{content:"⌃"}
+.secondary-panel>summary .muted{font-weight:400}
+.secondary-panel .guide,.secondary-panel .advanced-content{margin-top:18px}
+.guide-item{background:#f8fafc;border-radius:11px}
+.notice{background:#f2f5ff;color:#536488;border-color:#dee5ff}
+.table-wrap{border:1px solid var(--border);border-radius:12px;overflow:auto}
+table{font-size:12px}th,td{padding:13px}th{background:#f8fafc}
+.pill{background:#f1f4f9}.job-title{font-size:13px}.job-sub{max-width:190px}
+.result-box{background:#f8fafc}
+.run-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.run-row button{min-width:164px}
+@media(max-width:820px){.wrap{padding:22px 14px 55px}.top{align-items:flex-start}.top-nav{gap:12px;flex-wrap:wrap}.top h1{font-size:27px}.card{padding:18px}.top .muted{font-size:13px}}
+
 </style>
 </head>
 <body><div class="wrap">
 <div class="top">
-  <div><div class="eyebrow">model-detect</div><h1>模型渠道检测</h1><div class="muted">验证模型接口是否可用、参数是否被改写、路由是否稳定，以及是否命中禁止上游。</div></div>
-  <a href="/references">可信 Reference 管理 →</a>
+  <div><div class="eyebrow">model-detect</div><h1>模型渠道检测</h1><div class="muted">输入待测接口和模型，先看可用性与协议表现，再按需深入验证能力和异常。</div></div>
+  <nav class="top-nav"><a href="#audit-start">开始检测</a><a href="#history-list">历史记录</a><a href="/references">参考基准 <span class="nav-optional">高级</span></a></nav>
 </div>
 
-<div class="card">
-  <div class="row between"><div><div class="eyebrow">先理解结果</div><h2>这三个原则最重要</h2></div></div>
-  <div class="guide" style="margin-top:14px">
-    <div class="guide-item"><b>综合分 ≠ 模型为真的概率</b><p>90 分表示审计维度总体表现好，不等于“90% 是真模型”。模型身份要优先看 Trusted Reference / Statistical Fingerprint。</p></div>
-    <div class="guide-item"><b>Provider 指纹是证据，不是身份证</b><p>Header、Body、网关特征可以说明“观察到了什么”，但中转可能清洗这些信息，所以“未发现”不等于绝对不存在。</p></div>
-    <div class="guide-item"><b>429 只代表限流</b><p>429 不会被单独用来判断 Fireworks。只有 Fireworks 等 Provider 的强 Header / Body 指纹达到阈值才会触发上游策略。</p></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="row between"><div><div class="eyebrow">开始检测</div><h2>新建审计</h2></div><span class="muted">推荐日常使用 Standard</span></div>
+<div class="card main-form" id="audit-start">
+  <div class="row between"><div><div class="eyebrow">01 / 开始</div><h2>检测一个模型接口</h2></div><span class="muted">日常建议先用 Quick，确认正常后再使用 Standard</span></div>
   <div class="grid" style="margin-top:16px">
     <div>
       <label>Base URL（模型 API 根地址）</label>
@@ -69,8 +99,11 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
       </select>
       <div id="profile_help" class="field-help"></div>
     </div>
+  <details class="advanced">
+    <summary>高级选项（一般不用改）</summary>
+    <div class="grid" style="margin-top:14px">
     <div>
-      <label>可信 Reference（强烈建议用于“真假模型”判断）</label>
+      <label>历史 Reference（可选，不影响本次检测）</label>
       <select id="reference_id">
         <option value="">不使用 Reference</option>
         {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}{% if r.fingerprint_artifact or r.fingerprint_reference %} · 指纹✓{% endif %}{% if r.baseline_artifact %} · Baseline {{ r.baseline_runs }}次{% endif %}{% if r.baseline_metadata.get('benchmark_profile') %} · Benchmark {{ r.baseline_metadata.get('benchmark_profile') }}{% endif %}</option>{% endfor %}
@@ -84,9 +117,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
     </div>
   </div>
 
-  <details class="advanced">
-    <summary>高级选项（一般不用改）</summary>
-    <div class="grid" style="margin-top:14px">
+
       <div class="wide">
         <label>Regression Suites（回归规则，可多选）</label>
         <select id="regression_suites" multiple size="4">
@@ -115,13 +146,24 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
     </div>
   </details>
 
-  <div style="margin-top:18px"><button id="run">开始检测</button> <span id="msg" class="muted"></span></div>
+  <div class="run-row" style="margin-top:18px"><button id="run">开始检测 <span aria-hidden="true">→</span></button> <span id="msg" class="muted"></span></div>
   <div id="result_box" class="result-box">
     <h3 id="result_title"></h3><p id="result_text"></p><a id="result_link" href="#">查看中文审计报告 →</a>
   </div>
 </div>
 
-<div class="card">
+<details class="card secondary-panel">
+  <summary>检测结果的可信度与限制 <span class="muted">了解 Reference、身份与风险解释</span></summary>
+  <div class="guide" style="margin-top:14px">
+    <div class="guide-item"><b>综合分 ≠ 模型为真的概率</b><p>90 分表示审计维度总体表现好，不等于“90% 是真模型”。模型身份要优先看 Trusted Reference / Statistical Fingerprint。</p></div>
+    <div class="guide-item"><b>Provider 指纹是证据，不是身份证</b><p>Header、Body、网关特征可以说明“观察到了什么”，但中转可能清洗这些信息，所以“未发现”不等于绝对不存在。</p></div>
+    <div class="guide-item"><b>429 只代表限流</b><p>429 不会被单独用来判断 Fireworks。只有 Fireworks 等 Provider 的强 Header / Body 指纹达到阈值才会触发上游策略。</p></div>
+  </div>
+</details>
+
+<details class="card secondary-panel" id="advanced-compare">
+  <summary>高级：已有评测结果的离线对照 <span class="muted">可选，无 API 调用</span></summary>
+  <div class="advanced-content">
   <div class="row between"><div><div class="eyebrow">离线能力对照</div><h2>官方 Reference 与供应商对比</h2></div><span class="muted">不调用模型，不产生新的 API Token</span></div>
   <p class="muted">输入服务器本机已保存的 <code>snapshots</code> 文件夹（可来自之前的 lm-eval 结果）；也可只输入一对 Kimi 官方 Pytest <code>summary.json</code>。必须成对填写，版本不一致会标为不可比。</p>
   <div class="grid">
@@ -137,10 +179,10 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
   </div>
   <div class="notice" style="margin-top:14px">这里显示的是用户提供的本地证据，未经独立来源认证；能力成绩相近不代表模型权重相同。原始评测日志可能含 Prompt 和回答，请不要上传到公开仓库。</div>
   <div style="margin-top:14px"><button id="compare_run" class="secondary">生成中文对照报告</button> <span id="compare_msg" class="muted"></span></div>
-</div>
+</div></details>
 
-<div class="card">
-  <div class="row between"><div><div class="eyebrow">历史记录</div><h2>检测结果</h2></div><button class="secondary" onclick="location.reload()">刷新</button></div>
+<div class="card" id="history-list">
+  <div class="row between"><div><div class="eyebrow">02 / 历史结果</div><h2>检测结果</h2></div><button class="secondary" onclick="location.reload()">刷新</button></div>
   <form method="get" action="/" class="filters">
     <input name="model" value="{{ history_filters.model }}" placeholder="按模型筛选，例如 kimi">
     <select name="status">
