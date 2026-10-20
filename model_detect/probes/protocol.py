@@ -56,7 +56,7 @@ def _error_result(probe_id: str, category: str, call: CallResult) -> ProbeResult
         category=category,
         status=ProbeStatus.ERROR,
         score=0.0,
-        confidence=1.0,
+        confidence=None,
         summary=call.evidence.error or "request failed",
         observed={"error": call.evidence.error},
         evidence_ids=[call.evidence.id],
@@ -121,7 +121,7 @@ async def probe_basic(
             category="protocol",
             status=ProbeStatus.PASS if usage_ok else ProbeStatus.WARN,
             score=1.0 if usage_ok else 0.5,
-            confidence=1.0,
+            confidence=None,
             summary="usage fields present" if usage_ok else "usage fields missing or non-standard",
             observed=usage,
             evidence_ids=[ev.id],
@@ -279,7 +279,7 @@ async def probe_invalid_model(
             category="provider",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=None,
-            confidence=0.9,
+            confidence=None,
             summary=(
                 f"invalid model was explicitly rejected with HTTP {ev.response_status}"
                 if rejected
@@ -298,7 +298,7 @@ async def probe_invalid_model(
             category="provider",
             status=ProbeStatus.PASS if standard_status else ProbeStatus.WARN,
             score=None,
-            confidence=0.8,
+            confidence=None,
             summary=(
                 f"invalid-model rejection used client-error HTTP {ev.response_status}"
                 if standard_status
@@ -337,7 +337,7 @@ async def probe_unknown_field(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.7,
-            confidence=0.8,
+            confidence=None,
             summary=(
                 f"unknown field rejected with HTTP {ev.response_status}"
                 if rejected
@@ -375,7 +375,7 @@ async def probe_reasoning_typo(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.6,
-            confidence=0.9,
+            confidence=None,
             summary=(
                 "misspelled reasoning_effor field was rejected"
                 if rejected
@@ -615,7 +615,7 @@ async def probe_bad_enum(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.6,
-            confidence=0.85,
+            confidence=None,
             summary=(
                 f"invalid temperature rejected with HTTP {ev.response_status}"
                 if rejected
@@ -655,7 +655,7 @@ async def probe_reasoning_valid(
             category="protocol",
             status=ProbeStatus.PASS if accepted else ProbeStatus.WARN,
             score=1.0 if accepted else 0.5,
-            confidence=0.8,
+            confidence=None,
             summary=(
                 "reasoning_effort=low accepted"
                 if accepted
@@ -727,7 +727,7 @@ async def probe_json_schema(
             category="protocol",
             status=ProbeStatus.PASS if valid else ProbeStatus.WARN,
             score=1.0 if valid else 0.5,
-            confidence=0.9,
+            confidence=None,
             summary=(
                 "strict JSON Schema output satisfied"
                 if valid
@@ -789,7 +789,7 @@ async def probe_routing_model_consistency(
             category="routing",
             status=status,
             score=score,
-            confidence=0.8,
+            confidence=None,
             summary=summary,
             observed={"returned_models": returned_models, "statuses": statuses},
             evidence_ids=[x.id for x in evidences],
@@ -828,7 +828,7 @@ async def probe_response_metadata(
             category="provider",
             status=ProbeStatus.PASS if ev.response_headers else ProbeStatus.WARN,
             score=None,
-            confidence=1.0,
+            confidence=None,
             summary=f"captured {len(ev.response_headers)} response headers",
             observed=ev.response_headers,
             evidence_ids=[ev.id],
@@ -838,7 +838,7 @@ async def probe_response_metadata(
             category="provider",
             status=ProbeStatus.PASS if response_id else ProbeStatus.WARN,
             score=None,
-            confidence=0.8,
+            confidence=None,
             summary=(
                 f"response id prefix={prefix!r}"
                 if response_id
@@ -876,7 +876,7 @@ async def probe_reasoning_invalid_value(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.6,
-            confidence=0.85,
+            confidence=None,
             summary=(
                 f"invalid reasoning_effort rejected with HTTP {ev.response_status}"
                 if rejected
@@ -910,7 +910,7 @@ async def probe_thinking_disable(
             category="protocol",
             status=ProbeStatus.PASS if accepted else ProbeStatus.WARN,
             score=None,
-            confidence=0.7,
+            confidence=None,
             summary=(
                 "thinking disable field accepted"
                 if accepted
@@ -981,7 +981,7 @@ async def probe_tool_choice(
             category="protocol",
             status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
             score=1.0 if ok else 0.5,
-            confidence=0.9,
+            confidence=None,
             summary="specific tool_choice respected" if ok else "specific tool_choice was not confirmed",
             observed={"tool_name": name, "http_status": ev.response_status},
             evidence_ids=[ev.id],
@@ -1055,7 +1055,7 @@ async def probe_tools_parallel(
             category="protocol",
             status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
             score=1.0 if ok else 0.5,
-            confidence=0.75,
+            confidence=None,
             summary="parallel tool calls returned both requested tools" if ok else "parallel tool calling was not confirmed",
             observed={"tool_names": names, "http_status": ev.response_status},
             evidence_ids=[ev.id],
@@ -1098,7 +1098,7 @@ async def probe_tools_invalid_schema(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.6,
-            confidence=0.8,
+            confidence=None,
             summary="invalid tool schema rejected" if rejected else "invalid tool schema accepted or passed through",
             observed={"http_status": ev.response_status},
             evidence_ids=[ev.id],
@@ -1137,7 +1137,7 @@ async def probe_json_invalid_schema(
             category="protocol",
             status=ProbeStatus.PASS if rejected else ProbeStatus.WARN,
             score=1.0 if rejected else 0.6,
-            confidence=0.8,
+            confidence=None,
             summary="invalid JSON Schema rejected" if rejected else "invalid JSON Schema accepted or ignored",
             observed={"http_status": ev.response_status},
             evidence_ids=[ev.id],
@@ -1179,7 +1179,7 @@ async def probe_responses_basic(
             category="protocol",
             status=status,
             score=None,
-            confidence=0.8,
+            confidence=None,
             summary=summary,
             observed={"http_status": ev.response_status, "body": ev.response_body},
             evidence_ids=[ev.id],

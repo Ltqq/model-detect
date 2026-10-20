@@ -91,7 +91,7 @@ async def run_capability_suite(
                 category="capability",
                 status=status,
                 score=score,
-                confidence=0.65 if profile.lower() == "standard" else 0.8,
+                confidence=None,
                 summary=f"{category}: {passed}/{len(rows)} deterministic tasks passed",
                 observed={"tasks": rows},
                 evidence_ids=[x["evidence_id"] for x in rows],
@@ -139,10 +139,7 @@ def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]
                 category="capability",
                 status=tool_status,
                 score=round(tool_score, 4),
-                confidence=min(
-                    0.9,
-                    sum(item.confidence for item in tool_scenarios) / len(tool_scenarios),
-                ),
+                confidence=None,
                 summary=(
                     f"tool use: {len(tool_scenarios)} scenario probes aggregated"
                 ),
@@ -198,11 +195,7 @@ def derived_capability_results(existing: list[ProbeResult]) -> list[ProbeResult]
                 category="capability",
                 status=structured_status,
                 score=round(structured_score, 4),
-                confidence=min(
-                    0.9,
-                    sum(item.confidence for item in structured_scenarios)
-                    / len(structured_scenarios),
-                ),
+                confidence=None,
                 summary=(
                     f"structured output: {len(structured_scenarios)} "
                     "scenario probes aggregated"

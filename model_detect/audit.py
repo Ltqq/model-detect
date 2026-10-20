@@ -107,7 +107,7 @@ def _rule_results(model: str, results: list[ProbeResult]) -> list[ProbeResult]:
                 category="identity",
                 status=status,
                 score=score,
-                confidence=0.75,
+                confidence=None,
                 summary=(
                     f"model rule {item['rule_id']}: {item['feature']} "
                     f"expected={item['expected']} observed={item['observed']}"
@@ -186,7 +186,7 @@ async def _run_regression_suites(
                     category="internal",
                     status=ProbeStatus.ERROR,
                     score=None,
-                    confidence=1.0,
+                    confidence=None,
                     summary=(
                         "regression suite failed: "
                         f"{type(exc).__name__}: raw error hidden"
@@ -327,7 +327,7 @@ async def run_audit(
                     category="internal",
                     status=ProbeStatus.ERROR,
                     score=None,
-                    confidence=1.0,
+                    confidence=None,
                     summary=f"{type(exc).__name__}: raw error hidden",
                 )
             ]
@@ -344,7 +344,7 @@ async def run_audit(
                         category="target",
                         status=ProbeStatus.FAIL,
                         score=None,
-                        confidence=1.0,
+                        confidence=None,
                         summary=invalid_target,
                         evidence_ids=[e.id for e in evidences],
                         metadata={"invalid_target": True},
@@ -487,7 +487,7 @@ async def run_audit(
                     category="internal",
                     status=ProbeStatus.ERROR,
                     score=None,
-                    confidence=1.0,
+                    confidence=None,
                     summary=f"strong benchmark unavailable: {type(exc).__name__}; raw error hidden",
                 )
             )
@@ -555,7 +555,7 @@ async def run_audit(
                 category="identity",
                 status=ProbeStatus.INSUFFICIENT,
                 score=None,
-                confidence=0.0,
+                confidence=None,
                 summary="Reference unusable: " + ", ".join(issues),
             ))
             # Do not compare against a partial or mismatched trusted baseline.
@@ -596,7 +596,7 @@ async def run_audit(
                     category="identity",
                     status=ProbeStatus.ERROR,
                     score=None,
-                    confidence=1.0,
+                    confidence=None,
                     summary=f"fingerprint adapter failed: {type(exc).__name__}; raw error hidden",
                     metadata={"engine": "llm-fingerprint-detector"},
                 )

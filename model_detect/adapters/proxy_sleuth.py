@@ -62,7 +62,7 @@ def run(
                     category="identity",
                     status=ProbeStatus.SKIPPED,
                     score=None,
-                    confidence=0.0,
+                    confidence=None,
                     summary="proxy-sleuth is not installed; optional OSS layers skipped",
                     metadata={"engine": "proxy-sleuth"},
                 )
@@ -116,7 +116,7 @@ def run(
                     category="identity",
                     status=ProbeStatus.ERROR,
                     score=None,
-                    confidence=0.4,
+                    confidence=None,
                     summary=f"proxy-sleuth did not produce parseable JSON (exit {proc.returncode})",
                     metadata={"engine": "proxy-sleuth"},
                 )
@@ -146,7 +146,7 @@ def run(
                 category=category,
                 status=_status(verdict),
                 score=score,
-                confidence=0.75,
+                confidence=None,
                 summary=f"proxy-sleuth {name}: {verdict}",
                 observed={"layer": name, "verdict": verdict, "score": score},
                 metadata={
@@ -174,7 +174,7 @@ def run(
                 category="identity",
                 status=_status(verdict),
                 score=score,
-                confidence=0.65,
+                confidence=None,
                 summary=f"proxy-sleuth overall verdict={verdict}",
                 observed={"verdict": verdict, "overall_score": score},
                 metadata={"engine": "proxy-sleuth", "verdict": verdict.lower(), "identity_strength": "medium"},
