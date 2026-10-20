@@ -468,10 +468,11 @@ def _render_html(report: AuditReport) -> str:
     provider = human["provider"]
     quality = human["quality"]
     identity_state_label = {
-        "match": "已有强身份匹配",
-        "mismatch": "强身份不一致",
-        "uncertain": "强身份结果不确定",
-        "missing": "缺少强身份依据",
+        "behavioral_match": "行为指纹与参考接近",
+        "behavioral_mismatch": "行为指纹与参考有差异",
+        "behavioral_uncertain": "行为指纹结果不确定",
+        "insufficient": "指纹证据不足",
+        "missing": "未运行可用的参考对比",
     }.get(identity["state"], identity["state"])
 
     policy_state_label = {
