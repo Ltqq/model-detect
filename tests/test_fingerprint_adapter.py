@@ -1,3 +1,8 @@
+import subprocess
+
+import pytest
+
+from model_detect.adapters import fingerprint as fingerprint_adapter
 from model_detect.adapters.fingerprint import (
     fingerprint_metadata_from_data,
     parse_verify_payload,
@@ -116,3 +121,49 @@ def test_fingerprint_metadata_shape():
     assert got["format_version"] == 1
     assert got["cell_count"] == 2
     assert got["post_reasoning"] is True
+
+
+def test_fingerprint_npx_fallback_pins_exact_package_version(monkeypatch):
+    monkeypatch.setattr(
+        fingerprint_adapter.shutil,
+        "which",
+        lambda name: "/usr/bin/npx" if name == "npx" else None,
+    )
+    assert fingerprint_adapter._prefix() == [
+        "/usr/bin/npx",
+        "--yes",
+        "llm-fingerprint-detector@0.1.0",
+    ]
+
+
+def test_fingerprint_global_binary_must_match_pinned_version(monkeypatch):
+    monkeypatch.setattr(
+        fingerprint_adapter.shutil,
+        "which",
+        lambda name: "/usr/local/bin/llm-fingerprint" if name == "llm-fingerprint" else None,
+    )
+    monkeypatch.setattr(
+        fingerprint_adapter.subprocess,
+        "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(
+            cmd, 0, stdout="0.1.0\\n", stderr=""
+        ),
+    )
+    assert fingerprint_adapter._prefix() == ["/usr/local/bin/llm-fingerprint"]
+
+
+def test_fingerprint_global_binary_rejects_unknown_or_different_version(monkeypatch):
+    monkeypatch.setattr(
+        fingerprint_adapter.shutil,
+        "which",
+        lambda name: "/usr/local/bin/llm-fingerprint" if name == "llm-fingerprint" else None,
+    )
+    monkeypatch.setattr(
+        fingerprint_adapter.subprocess,
+        "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(
+            cmd, 0, stdout="0.9.9\\n", stderr=""
+        ),
+    )
+    with pytest.raises(RuntimeError, match="version mismatch"):
+        fingerprint_adapter._prefix()
