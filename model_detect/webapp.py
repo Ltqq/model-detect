@@ -53,8 +53,8 @@ class WebReferenceRequest(BaseModel):
     api_key: str = Field(min_length=1)
     model: str
     provider: str = "trusted"
-    fingerprint: bool = True
-    quality_baseline: bool = True
+    fingerprint: bool = False
+    quality_baseline: bool = False
     baseline_runs: int = Field(default=3, ge=1, le=5)
     benchmark_profile: str | None = None
     overwrite: bool = False

@@ -4,21 +4,40 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>可信 Reference · model-detect</title>
 <style>
-:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--panel2:#151e28;--border:#263241;--text:#eaf2f8;--muted:#8fa2b5;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.55}.wrap{max-width:1120px;margin:auto;padding:28px 20px 70px}
-a{color:var(--blue);text-decoration:none}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.12em;text-transform:uppercase}h1{margin:2px 0 4px;font-size:26px}h2{margin:0;font-size:19px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin:16px 0}.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.guide div{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:13px}.guide b{display:block;margin-bottom:4px}.guide p{margin:0;color:var(--muted);font-size:12px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.wide{grid-column:1/-1}label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input{width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px}button{background:#238636;color:white;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:650}.danger{background:#b62324;padding:6px 9px;font-size:12px}.muted{color:var(--muted);font-size:12px}.notice{padding:10px 12px;background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.2);border-radius:9px;color:#b9d8ff;font-size:12px}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-weight:600}.table-wrap{overflow:auto}.ok{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
-@media(max-width:760px){.guide,.grid{grid-template-columns:1fr}.wide{grid-column:auto}.wrap{padding:18px 12px 60px}}
+:root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--panel2:#f8fafc;--border:#e3e8f0;--text:#182234;--muted:#69778b;--blue:#385fe7;--green:#12845b;--yellow:#a96b10;--red:#cb3d43}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 15% 0%,#eaf0ff 0%,transparent 42%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.6}
+.wrap{max-width:1110px;margin:0 auto;padding:42px 26px 90px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}
+h1{margin:0 0 4px;font-size:30px;font-weight:760;letter-spacing:-.7px}h2{margin:0;font-size:21px;letter-spacing:-.35px}
+.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+.muted{color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:27px;margin:18px 0;box-shadow:0 8px 32px rgba(29,51,96,.035)}
+.guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.guide>div{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:14px}
+.guide b{display:block;margin-bottom:5px}.guide p{margin:0;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.wide{grid-column:1/-1}
+label{display:block;font-size:13px;color:#3f4d63;font-weight:650;margin-bottom:6px}
+input,select{width:100%;min-height:43px;padding:12px 13px;border-radius:10px;background:#fff;color:var(--text);border:1px solid #dce3ee;outline:none;font:inherit}
+input:focus,select:focus{border-color:#8ea2ff;box-shadow:0 0 0 3px rgba(56,95,231,.09)}
+input[type=checkbox]{width:auto;min-height:auto;accent-color:var(--blue)}
+button{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:11px 20px;font:inherit;font-weight:650;cursor:pointer}
+button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.5;cursor:not-allowed}
+.danger{background:#fff1f0;color:#bd353a;padding:6px 10px;font-size:12px}
+.notice{padding:10px 12px;background:#f2f5ff;border:1px solid #dee5ff;border-radius:9px;color:#536488;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:13px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-weight:600;background:#f8fafc;white-space:nowrap}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
+.ok{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+@media(max-width:760px){.wrap{padding:22px 14px 55px}.top{align-items:flex-start;flex-direction:column}.guide,.grid{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:18px}}
 </style></head>
 <body><div class="wrap">
-<div class="top"><div><div class="eyebrow">model-detect</div><h1>可信 Reference（Trusted Reference）</h1><div class="muted">用官方 / 高可信端点建立基准，增强“是不是同一个模型”的判断能力。</div></div><a href="/">← 返回模型检测</a></div>
+<div class="top"><div><div class="eyebrow">model-detect</div><h1>可信 Reference（Trusted Reference）</h1><div class="muted">保存可信端点的行为与质量参考，用于同条件比较；行为相似不等于模型权重相同。</div></div><a href="/">← 返回模型检测</a></div>
 
 <div class="card">
   <div class="guide">
     <div><b>Reference 最好来自官方端点</b><p>例如官方 Kimi、GLM、DeepSeek API。不要把待审计供应商自己当作“可信参考”。</p></div>
-    <div><b>Statistical Fingerprint 很重要</b><p>统计指纹会比较目标渠道与 Reference 的行为分布，是当前工具里最强的身份类证据之一。</p></div>
+    <div><b>行为分布指纹是辅助信号</b><p>它比较目标渠道与参考的输出分布；只有协议、采样和样本条件可比时才有解释价值，不能认证模型权重身份。</p></div>
     <div><b>质量基准需要重复采样</b><p>默认连续跑 3 次相同 Standard Suite，记录均值和自然波动；1 次结果只能做差值参考，不能声称“超出正常波动”。</p></div>
   </div>
 </div>
@@ -34,12 +53,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     <div class="wide"><label>API Key</label><input id="key" type="password" placeholder="sk-..."></div>
   </div>
   <div style="margin:14px 0">
-    <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" checked style="width:auto">同时采集 Statistical Fingerprint（推荐，需要 Node/npm）</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" checked style="width:auto">同时采集质量 Baseline（推荐，用完全相同的检测套件做官方 vs 供应商对比）</label>
-    <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">推荐 3 次；3 次及以上才开始估计基准自身波动。</div></div>
+    <label style="display:flex;align-items:center;gap:8px"><input id="fp" type="checkbox" style="width:auto">同时采集行为分布指纹（额外约 200 次请求；需 Node/npm，同协议下比较，不认证权重身份）</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:7px"><input id="quality" type="checkbox" style="width:auto">同时采集质量 Baseline（可选；按重复次数执行完整 Standard 检测）</label>
+    <div style="margin:8px 0 0 26px;max-width:280px"><label>Baseline 重复次数</label><input id="baseline_runs" type="number" min="1" max="5" value="3"><div class="muted">默认不运行。勾选后会产生额外请求和费用；3 次及以上才开始估计基准自身波动。</div></div>
     <div style="margin:10px 0;max-width:500px">
       <label>标准能力 Benchmark（可选，默认不运行）</label>
-      <select id="benchmark_profile" style="width:100%;background:#0c1219;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
+      <select id="benchmark_profile">
         <option value="">不开启：仅采轻量能力</option>
         <option value="smoke">Smoke：1 类 × 最多 5 题/次</option>
         <option value="standard">Standard：3 类 × 最多 25 题/次</option>
@@ -54,7 +73,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 
 <div class="card">
   <h2>现有可信 Reference</h2>
-  <div class="table-wrap"><table><thead><tr><th>ID</th><th>模型</th><th>来源</th><th>采集时间</th><th>统计指纹</th><th>质量 Baseline</th><th>规则版本</th><th>操作</th></tr></thead><tbody>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>模型</th><th>来源</th><th>采集时间</th><th>行为指纹参考</th><th>质量 Baseline</th><th>规则版本</th><th>操作</th></tr></thead><tbody>
   {% for r in references %}
   <tr>
     <td><b>{{ r.id }}</b></td><td>{{ r.model }}</td><td>{{ r.provider }}</td><td>{{ r.collected_at[:19] }}</td>
@@ -64,7 +83,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     <td><button class="danger" onclick="delRef('{{ r.id }}')">删除</button></td>
   </tr>
   {% endfor %}
-  {% if not references %}<tr><td colspan="8" class="muted">还没有 Reference。若核心目标是判断模型身份，建议先从官方端点采集一份。</td></tr>{% endif %}
+  {% if not references %}<tr><td colspan="8" class="muted">还没有 Reference。需要比较行为分布时，可从官方或其他可信端点采集同协议参考；基础协议检测不依赖 Reference。</td></tr>{% endif %}
   </tbody></table></div>
 </div>
 
@@ -108,7 +127,7 @@ async function poll(id){
  },1200)
 }
 async function delRef(id){
- if(!confirm('确认删除 Reference '+id+'？删除后使用它的强身份对比将不可用。'))return;
+ if(!confirm('确认删除 Reference '+id+'？删除后基于它的行为/质量对照将不可用。'))return;
  const r=await fetch('/api/references/'+encodeURIComponent(id),{method:'DELETE'});
  const d=await r.json().catch(()=>({}));
  if(r.ok)location.reload();else alert('删除失败：'+(d.detail||'未知错误'));
