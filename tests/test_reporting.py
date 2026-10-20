@@ -42,8 +42,9 @@ def test_report_renders_fingerprint_cells(tmp_path):
                 probe_id="identity.fingerprint.reference_compare",
                 category="identity",
                 status=ProbeStatus.PASS,
-                score=1.0,
-                summary="match",
+                score=None,
+                confidence=None,
+                summary="behavioral reference match; not model identity proof",
                 observed={
                     "verdict": "match",
                     "mean_jsd": 0.18,
@@ -72,7 +73,7 @@ def test_report_renders_fingerprint_cells(tmp_path):
                         }
                     ],
                 },
-                metadata={"identity_strength": "strong", "verdict": "match"},
+                metadata={"identity_strength": "weak", "verdict": "match", "weight_identity_proof": False},
             )
         ],
         adapters={
@@ -85,6 +86,8 @@ def test_report_renders_fingerprint_cells(tmp_path):
     root = write_report(report, tmp_path / "fp-report")
     html = (root / "report.html").read_text(encoding="utf-8")
     assert "统计指纹对比" in html
+    assert "行为参考信号" in html
+    assert "已有强身份匹配" not in html
     assert "查看每个统计单元的 JSD 明细" in html
     assert "random-number-1-100:en" in html
     assert "collected" in html
