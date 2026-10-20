@@ -582,8 +582,6 @@ def _render_html(report: AuditReport) -> str:
     limitations = "".join(
         f"<li>{html.escape(item)}</li>" for item in human["limitations"]
     )
-    score_text = "N/A" if human["score"] is None else str(human["score"])
-    hard_cap = "无" if human["hard_cap"] is None else str(human["hard_cap"])
     model = html.escape(str(report.target.get("model", "")))
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
