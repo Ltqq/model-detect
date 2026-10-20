@@ -133,10 +133,15 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for r in results
     )
     any_warning = any(
-        r.status in {ProbeStatus.FAIL, ProbeStatus.WARN, ProbeStatus.ERROR,
-                     ProbeStatus.INSUFFICIENT}
+        r.status in {ProbeStatus.FAIL, ProbeStatus.WARN, ProbeStatus.ERROR}
+        or (
+            r.status == ProbeStatus.INSUFFICIENT
+            and r.category in {"protocol", "integrity"}
+        )
         for r in results
     )
+    # Quick does not run statistical identity or repeated routing checks.
+    # No reference / unmeasured features are coverage gaps, not API failures.
 
     if upstream_policy_violation:
         verdict = "fail"
