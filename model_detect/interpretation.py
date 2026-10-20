@@ -473,7 +473,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
 
     invalid_target = verdict == "invalid_target"
     policy_violation = provider["state"] == "violation"
-    identity_mismatch = identity["state"] == "mismatch"
+    identity_mismatch = identity["state"] == "behavioral_mismatch"
 
     if invalid_target:
         decision = "重新检测"
