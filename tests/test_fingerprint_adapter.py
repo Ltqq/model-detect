@@ -146,7 +146,7 @@ def test_fingerprint_global_binary_must_match_pinned_version(monkeypatch):
         fingerprint_adapter.subprocess,
         "run",
         lambda cmd, **kwargs: subprocess.CompletedProcess(
-            cmd, 0, stdout="0.1.0\\n", stderr=""
+            cmd, 0, stdout="0.1.0\n", stderr=""
         ),
     )
     assert fingerprint_adapter._prefix() == ["/usr/local/bin/llm-fingerprint"]
@@ -162,7 +162,7 @@ def test_fingerprint_global_binary_rejects_unknown_or_different_version(monkeypa
         fingerprint_adapter.subprocess,
         "run",
         lambda cmd, **kwargs: subprocess.CompletedProcess(
-            cmd, 0, stdout="0.9.9\\n", stderr=""
+            cmd, 0, stdout="0.9.9\n", stderr=""
         ),
     )
     with pytest.raises(RuntimeError, match="version mismatch"):
@@ -179,7 +179,7 @@ def test_fingerprint_availability_reports_version_mismatch(monkeypatch):
         fingerprint_adapter.subprocess,
         "run",
         lambda cmd, **kwargs: subprocess.CompletedProcess(
-            cmd, 0, stdout="0.9.9\\n", stderr=""
+            cmd, 0, stdout="0.9.9\n", stderr=""
         ),
     )
     status = fingerprint_adapter.availability()
