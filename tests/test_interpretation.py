@@ -12,12 +12,13 @@ from model_detect.models import (
 )
 
 
-def result(probe_id, category, status=ProbeStatus.PASS, score=1.0, **metadata):
+def result(probe_id, category, status=ProbeStatus.PASS, score=1.0, confidence=1.0, **metadata):
     return ProbeResult(
         probe_id=probe_id,
         category=category,
         status=status,
         score=score,
+        confidence=confidence,
         summary="technical summary",
         metadata=metadata,
     )
