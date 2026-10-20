@@ -100,3 +100,46 @@ jobs:
               assert root.joinpath(path).is_file(), f"wheel missing runtime asset: {path}"
           print("installed wheel CLI and runtime assets OK")
           PY
+
+
+  fingerprint-oss-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install project and pinned optional fingerprint engine
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          npm install --global llm-fingerprint-detector@0.1.0
+
+      - name: Verify real OSS CLI and bundled references without model API
+        run: |
+          test "$(llm-fingerprint --version)" = "0.1.0"
+          python - <<'PY'
+          from model_detect.adapters.fingerprint import availability, list_bundled_references
+
+          status = availability()
+          assert status["available"] is True, status
+          assert status["version_compatible"] is True, status
+          assert status["installed_version"] == "0.1.0", status
+
+          result = list_bundled_references()
+          assert result["returncode"] == 0, result
+          assert isinstance(result["references"], list) and result["references"], result
+          print({
+              "engine": result.get("source", {}).get("tool"),
+              "reference_count": len(result["references"]),
+              "runtime_verified": True,
+              "model_api_called": False,
+              "accuracy_calibrated": False,
+          })
+          PY
