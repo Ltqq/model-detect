@@ -45,7 +45,7 @@ CATEGORY_ZH = {
 }
 
 CATEGORY_HELP = {
-    "identity": "判断被测接口的行为是否与声明模型及可信参考一致。强身份结论依赖 Trusted Reference / Statistical Fingerprint。",
+    "identity": "判断被测接口的行为是否与声明模型及可信参考相似。行为指纹只提供统计相似性线索，不能认证模型权重身份。",
     "protocol": "检查 OpenAI 兼容接口、流式、工具调用、JSON、推理参数等是否按预期工作。",
     "integrity": "检查中转是否吞掉、改写或忽略关键请求参数与结构。",
     "context": "检查较长输入是否能正确保留并取回关键信息，区分上下文失败和输出被截断。",
@@ -221,7 +221,9 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
                 if item.provider in provider_rules
                 else item.provider
             ),
-            "confidence": item.confidence,
+            # Old reports may contain hand-set confidence numbers; never surface
+            # them as calibrated probabilities in the current interpretation.
+            "confidence": None,
             "evidence": list(item.evidence),
         }
         for item in report.provider_hypotheses[:5]
@@ -581,11 +583,10 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         )
 
     confidence = str(report.summary.confidence or "low").casefold()
-    confidence_text = {
-        "high": "高：已有较强身份依据且检测覆盖较完整。",
-        "medium": "中：覆盖较完整，但身份依据或部分关键证据仍有限。",
-        "low": "低：缺少强身份依据或有效检测覆盖不足。",
-    }.get(confidence, confidence)
+    confidence_text = (
+        "旧版兼容字段：该标签由覆盖情况和旧规则推导，不是统计置信度，"
+        "也不是模型为真的概率。请以实际执行项、证据来源和复测结果为准。"
+    )
 
     return {
         "decision": decision,
@@ -598,6 +599,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "confidence": confidence,
         "confidence_label": confidence_label(confidence),
         "confidence_text": confidence_text,
+        "confidence_is_probability": False,
         "identity": identity,
         "provider": provider,
         "quality": quality,
@@ -606,7 +608,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "categories": category_cards,
         "limitations": [
             "综合分数是审计评分，不是“模型为真”的概率。",
-            "Provider / Gateway 指纹来自可观测 Header、Body 和行为证据，不是密码学身份证明。",
+            "Provider / Gateway 线索只来自配置的响应头/结构化元数据；生成正文、推理文本和自由文本错误不用于猜测上游，且这些线索不是密码学身份证明。",
             "无论是否存在 Reference 或统计指纹，黑盒测试均不能独立认证模型权重身份。",
             "HTTP 429 只代表限流现象，不能单独用来识别 Fireworks 或任何其他 Provider。",
             "质量退化只说明当前黑盒行为低于可信基准范围，不能据此确定 INT4、FP8、AWQ、GPTQ、蒸馏、GPU 型号或具体 Serving Engine。",
