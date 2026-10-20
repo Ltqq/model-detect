@@ -2,6 +2,7 @@ import json
 
 from model_detect.models import AuditReport, Evidence, ProbeResult, ProbeStatus, ProviderHypothesis
 from model_detect.reporting import write_report
+from model_detect.scoring import build_summary
 
 
 def test_report_contains_evidence_links(tmp_path):
@@ -267,3 +268,35 @@ def test_provider_hints_render_without_uncalibrated_percentages(tmp_path):
     assert "protocol.chat.basic: response header x-tt-logid" in html
     assert "策略命中置信度" not in html
     assert "24.2%" not in html
+
+
+def test_report_json_does_not_publish_partial_overall_score(tmp_path):
+    results = [
+        ProbeResult(
+            probe_id="protocol.chat.basic",
+            category="protocol",
+            status=ProbeStatus.PASS,
+            score=1.0,
+            summary="basic protocol works",
+        ),
+        ProbeResult(
+            probe_id="protocol.chat.stream",
+            category="protocol",
+            status=ProbeStatus.PASS,
+            score=1.0,
+            summary="streaming works",
+        ),
+    ]
+    report = AuditReport(
+        target={"base_url": "https://example.com/v1", "model": "m"},
+        results=results,
+        summary=build_summary(results),
+    )
+    root = write_report(report, tmp_path / "no-overall-score")
+    data = json.loads((root / "report.json").read_text(encoding="utf-8"))
+    html = (root / "report.html").read_text(encoding="utf-8")
+
+    assert data["summary"]["overall_score"] is None
+    assert data["human_interpretation"]["score"] is None
+    assert "本工具不提供单一综合总分" in html
+    assert "检测覆盖" in data["human_interpretation"]["confidence_text"]
