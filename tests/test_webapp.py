@@ -3,8 +3,19 @@ import asyncio
 from fastapi.testclient import TestClient
 
 from model_detect.models import AuditReport, AuditSummary
-from model_detect.webapp import create_app
+from model_detect.webapp import WebReferenceRequest, create_app
 
+
+
+def test_reference_collection_expensive_options_are_opt_in_by_default():
+    payload = WebReferenceRequest(
+        id="trusted-model",
+        base_url="https://example.invalid/v1",
+        model="example-model",
+        api_key="test-key",
+    )
+    assert payload.fingerprint is False
+    assert payload.quality_baseline is False
 
 def test_web_pages_and_reference_api(tmp_path):
     app = create_app(
