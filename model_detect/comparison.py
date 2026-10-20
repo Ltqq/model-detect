@@ -311,7 +311,7 @@ def _dimension_result(item: QualityDimensionComparison) -> ProbeResult:
         category="quality",
         status=status,
         score=item.target_score if item.contract_valid else None,
-        confidence=0.9 if item.statistically_evaluable else 0.0,
+        confidence=None,
         summary=item.explanation,
         expected={
             "baseline_mean": item.baseline_mean,
@@ -359,11 +359,7 @@ def _summary_result(comparison: QualityComparison) -> ProbeResult:
         category="quality",
         status=status,
         score=None,
-        confidence=(
-            0.9
-            if comparison.verdict in {"baseline_match", "quality_regression"}
-            else 0.4
-        ),
+        confidence=None,
         summary=summary,
         observed=comparison.model_dump(mode="json"),
         metadata={
