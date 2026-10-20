@@ -580,7 +580,7 @@ def _render_html(report: AuditReport) -> str:
     limitations = "".join(
         f"<li>{html.escape(item)}</li>" for item in human["limitations"]
     )
-     model = html.escape(str(report.target.get("model", "")))
+    model = html.escape(str(report.target.get("model", "")))
     base_url = html.escape(str(report.target.get("base_url", "")))
     fingerprint_section = _fingerprint_section(report)
     usage_cost_section = _usage_cost_section(report)
