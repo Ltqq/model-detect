@@ -34,6 +34,7 @@ class StubClient:
         ({"choices": [{"text": "OK"}]}, ProbeStatus.FAIL),
         ({"choices": ["not-an-object"]}, ProbeStatus.FAIL),
         ({"choices": []}, ProbeStatus.FAIL),
+        ({"choices": [{"message": {"role": "assistant", "content": "", "reasoning_content": "thinking"}, "finish_reason": "length"}]}, ProbeStatus.INSUFFICIENT),
     ],
 )
 def test_basic_probe_rejects_non_chat_completion_shapes(body, expected_status):
