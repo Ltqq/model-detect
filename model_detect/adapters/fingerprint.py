@@ -10,6 +10,7 @@ from typing import Any
 from ..models import ProbeResult, ProbeStatus
 
 
+PINNED_FINGERPRINT_VERSION = "0.1.0"
 SELF_MATCH_THRESHOLD = 0.25
 SELF_WARN_THRESHOLD = 0.35
 
@@ -22,6 +23,8 @@ def availability() -> dict[str, Any]:
         "direct_binary": direct,
         "npx": npx,
         "engine": "ToseaAI/llm-fingerprint-detector",
+        "pinned_package_version": PINNED_FINGERPRINT_VERSION,
+        "requires_network_if_downloaded": not bool(direct) and bool(npx),
         "structured_json": True,
     }
 
@@ -29,12 +32,38 @@ def availability() -> dict[str, Any]:
 def _prefix() -> list[str]:
     direct = shutil.which("llm-fingerprint")
     if direct:
+        try:
+            proc = subprocess.run(
+                [direct, "--version"],
+                text=True,
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(
+                "cannot verify llm-fingerprint CLI version; "
+                f"required {PINNED_FINGERPRINT_VERSION}"
+            ) from exc
+        installed_version = (proc.stdout or "").strip()
+        if proc.returncode != 0 or installed_version != PINNED_FINGERPRINT_VERSION:
+            raise RuntimeError(
+                "llm-fingerprint CLI version mismatch; "
+                f"required {PINNED_FINGERPRINT_VERSION}, found "
+                f"{installed_version or 'unknown'}"
+            )
         return [direct]
     npx = shutil.which("npx")
     if npx:
-        return [npx, "--yes", "llm-fingerprint-detector"]
+        # Pin the package explicitly; never resolve an unversioned latest release.
+        return [
+            npx,
+            "--yes",
+            f"llm-fingerprint-detector@{PINNED_FINGERPRINT_VERSION}",
+        ]
     raise RuntimeError(
-        "llm-fingerprint-detector is unavailable; install Node.js/npm or the llm-fingerprint CLI"
+        "llm-fingerprint-detector is unavailable; install Node.js/npm or "
+        f"the llm-fingerprint CLI version {PINNED_FINGERPRINT_VERSION}"
     )
 
 
