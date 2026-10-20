@@ -516,6 +516,8 @@ async def run_audit(
             "status": (
                 "violation"
                 if policy_result.metadata.get("policy_violation")
+                else "not_observed"
+                if policy_result.status == ProbeStatus.INSUFFICIENT
                 else "clear"
             ),
             "config": config.upstream_policy.model_dump(mode="json"),

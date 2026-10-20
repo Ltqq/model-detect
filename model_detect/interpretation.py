@@ -235,23 +235,33 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
     rate_limit_count = int(observed.get("http_429_count") or 0)
 
     if policy.get("status") == "violation":
-        text = "已观察到禁止上游的强证据，当前渠道不满足准入策略。"
+        text = (
+            "匹配到配置的禁止上游响应头规则。该信号说明响应链路出现相关元数据，"
+            "不等于认证模型权重身份。"
+        )
         state = "violation"
+    elif policy.get("status") == "not_observed":
+        text = (
+            "本轮没有足够可归因的响应头线索。未观察到不代表证明后端不存在该上游；"
+            "自然语言正文不参与供应商识别。"
+        )
+        state = "unknown"
     elif disallowed:
         text = (
-            "本轮未观察到禁止上游的足够证据。"
-            "这表示“未发现”，不等于从密码学意义证明后端绝对不存在该上游。"
+            "旧版记录未观察到禁止上游的信号。"
+            "这不等于从密码学意义证明后端绝对不存在该上游。"
         )
         state = "clear"
     else:
-        text = "未配置禁止上游策略；下方 Provider 仅表示可观测指纹，不等同于最终模型供应商证明。"
+        text = "未配置禁止上游策略；响应头线索只用于观察 API 链路，不证明最终模型供应商或权重身份。"
         state = "not_configured"
 
     return {
         "state": state,
         "label": {
             "violation": "命中禁止上游",
-            "clear": "未观察到禁止上游",
+            "clear": "旧记录：未观察到禁止上游",
+            "unknown": "证据不足：无法判断",
             "not_configured": "未配置禁止上游",
         }.get(state, state),
         "text": text,

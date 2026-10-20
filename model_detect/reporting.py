@@ -486,7 +486,7 @@ def _render_html(report: AuditReport) -> str:
         provider_items.append(
             "<div class='provider-row'>"
             f"<div><b>{html.escape(item.get('label') or item['provider'])}</b><small><code>{html.escape(item['provider'])}</code> · {html.escape(evidence)}</small></div>"
-            f"<strong>{item['confidence']:.0%}</strong>"
+            "<strong>响应头线索</strong>"
             "</div>"
         )
     providers_html = "".join(provider_items) or "<div class='empty'>未观察到足够明确的 Provider / Gateway 指纹。</div>"
@@ -502,8 +502,7 @@ def _render_html(report: AuditReport) -> str:
         blocked_items.append(
             "<div class='issue fail'>"
             f"<b>{html.escape(str(item.get('provider') or 'unknown'))}</b>"
-            f"<p>策略命中置信度：{float(item.get('confidence') or 0):.0%}"
-            f" · 最强单信号权重：{float(item.get('max_signal_weight') or 0):.2f}</p>"
+            "<p>配置的响应头规则匹配；该线索不是模型权重身份认证，也不是统计概率。</p>"
             f"<div class='tech'>命中信号：{html.escape('；'.join(signals[:12]) or '未列出')}</div>"
             "</div>"
         )

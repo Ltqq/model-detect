@@ -33,7 +33,7 @@ def test_detect_azure_apim_and_fireworks_from_evidence():
     by_name = {x.provider: x for x in got}
     assert "azure_apim" in by_name
     assert "fireworks" in by_name
-    assert by_name["fireworks"].confidence > 0.5
+    assert by_name["fireworks"].confidence is None
     assert by_name["azure_apim"].evidence
 
 
@@ -190,7 +190,7 @@ def test_provider_v2_migration_preserves_legacy_signal_weights():
     assert rules.providers["volcengine"].patterns["ark"] == 0.20
 
 
-def test_provider_v2_migration_preserves_detection_confidence():
+def test_provider_hints_do_not_emit_uncalibrated_confidence():
     evidences = [
         Evidence(
             id="ev1",
@@ -215,8 +215,9 @@ def test_provider_v2_migration_preserves_detection_confidence():
         for item in detect_provider_hypotheses(evidences)
     }
 
-    assert by_name["fireworks"].confidence == 0.841
-    assert by_name["azure_apim"].confidence == 0.533
+    assert by_name["fireworks"].confidence is None
+    assert by_name["azure_apim"].confidence is None
+    assert all("response header" in item for hint in by_name.values() for item in hint.evidence)
 
 
 
@@ -245,7 +246,7 @@ def test_detect_new_api_gateway_from_response_headers():
         for item in detect_provider_hypotheses(evidences)
     }
     assert "new_api" in by_name
-    assert by_name["new_api"].confidence > 0.8
+    assert by_name["new_api"].confidence is None
 
 
 
@@ -293,7 +294,75 @@ def test_upstream_policy_does_not_treat_429_as_provider_identity():
         disallowed=["fireworks"],
     )
 
-    assert result.status.value == "pass"
+    assert result.status.value == "insufficient"
     assert result.metadata["policy_violation"] is False
     assert result.observed["http_429_count"] == 1
     assert result.observed["detected"] == []
+
+
+def test_generated_text_brand_substrings_never_identify_a_provider():
+    evidences = [
+        Evidence(
+            id="ev-generated-text",
+            probe_id="protocol.chat.basic",
+            url="https://example.com/v1/chat/completions",
+            response_status=200,
+            response_headers={"content-type": "application/json"},
+            response_body={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                "This is markdown. The substring ark is not a provider. "
+                                "It also mentions OpenAI, Fireworks, Anthropic, and Volcengine."
+                            ),
+                            "reasoning": "markdown / ark / openrouter",
+                        }
+                    }
+                ]
+            },
+        )
+    ]
+    assert detect_provider_hypotheses(evidences) == []
+
+
+def test_free_text_error_message_does_not_trigger_disallowed_upstream_policy():
+    evidences = [
+        Evidence(
+            id="ev-text-only",
+            probe_id="provider.error.invalid_model",
+            url="https://example.com/v1/chat/completions",
+            response_status=400,
+            response_headers={"content-type": "application/json"},
+            response_body={
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": "Ark and Fireworks are mentioned in this explanatory text."
+                }
+            },
+        )
+    ]
+    result = evaluate_upstream_policy(
+        evidences,
+        detect_provider_hypotheses(evidences),
+        disallowed=["volcengine", "fireworks"],
+    )
+    assert result.status.value == "insufficient"
+    assert result.metadata["policy_violation"] is False
+    assert result.observed["detected"] == []
+    assert result.confidence is None
+
+
+def test_provider_header_hint_is_not_a_probability():
+    evidence = Evidence(
+        id="ev-fireworks-header",
+        probe_id="protocol.chat.basic",
+        url="https://example.com/v1/chat/completions",
+        response_status=200,
+        response_headers={"x-fireworks-request-id": "fw-123"},
+        response_body={"choices": []},
+    )
+    hint = detect_provider_hypotheses([evidence])[0]
+    assert hint.provider == "fireworks"
+    assert hint.confidence is None
+    assert hint.evidence == ["protocol.chat.basic: response header x-fireworks-request-id"]
