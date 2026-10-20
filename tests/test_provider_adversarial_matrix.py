@@ -100,3 +100,15 @@ def test_no_policy_configuration_is_skipped_not_passed():
     result = evaluate_upstream_policy([item], [], disallowed=[])
     assert result.status.value == "skipped"
     assert result.confidence is None
+
+
+@pytest.mark.parametrize("header_value", ["", " ", "\\t"])
+def test_empty_header_value_is_not_provider_evidence(header_value):
+    item = evidence(
+        {"choices": []},
+        headers={"x-fireworks-request-id": header_value},
+    )
+    assert detect_provider_hypotheses([item]) == []
+    result = evaluate_upstream_policy([item], [], disallowed=["fireworks"])
+    assert result.status.value == "insufficient"
+    assert not result.metadata["policy_violation"]
