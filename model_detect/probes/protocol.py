@@ -5,7 +5,7 @@ from typing import Any
 
 from ..http_client import AuditHttpClient, CallResult
 from ..models import Evidence, ProbeResult, ProbeStatus
-from ..rules import apply_feature_probe_request, preferred_feature_value
+from ..rules import apply_feature_probe_request, preferred_feature_value, match_model_rule
 
 
 def _message_text(body: Any) -> str:
@@ -24,6 +24,30 @@ def _message_text(body: Any) -> str:
                 chunks.append(part["text"])
         return "".join(chunks)
     return ""
+
+
+
+def _budget_for_text(model: str, ordinary: int) -> int:
+    """Keep reasoning tokens from starving the answer on known reasoning models.
+
+    Still capped: a truncated answer must be INSUFFICIENT, not a model failure.
+    """
+    rule = match_model_rule(model)
+    features = rule.features if isinstance(rule.features, dict) else {}
+    effort = features.get("reasoning_effort") or {}
+    if isinstance(effort, dict) and effort.get("expected") is True:
+        return max(ordinary, 256)
+    return ordinary
+
+
+def _truncated_answer(body: Any) -> bool:
+    if not isinstance(body, dict):
+        return False
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return False
+    first = choices[0]
+    return isinstance(first, dict) and first.get("finish_reason") == "length"
 
 
 def _error_result(probe_id: str, category: str, call: CallResult) -> ProbeResult:
@@ -50,7 +74,7 @@ async def probe_basic(
             "model": model,
             "messages": [{"role": "user", "content": "Reply exactly with OK."}],
             "temperature": 0,
-            "max_tokens": 16,
+            "max_tokens": _budget_for_text(model, 16),
         },
     )
     ev = call.evidence
@@ -66,14 +90,17 @@ async def probe_basic(
         and isinstance(body["choices"][0], dict)
         and isinstance(body["choices"][0].get("message"), dict)
     )
+    truncated_empty = ok_shape and _truncated_answer(body) and not _message_text(body).strip()
     results = [
         ProbeResult(
             probe_id=probe_id,
             category="protocol",
-            status=ProbeStatus.PASS if ok_shape else ProbeStatus.FAIL,
-            score=1.0 if ok_shape else 0.0,
+            status=(ProbeStatus.INSUFFICIENT if truncated_empty else
+                    ProbeStatus.PASS if ok_shape else ProbeStatus.FAIL),
+            score=None if truncated_empty else (1.0 if ok_shape else 0.0),
             summary=(
-                "OpenAI chat completion returned a valid choices response"
+                "Chat structure returned but model exhausted generation budget in reasoning before an answer; retry with larger max_tokens"
+                if truncated_empty else "OpenAI chat completion returned a valid choices response"
                 if ok_shape
                 else f"unexpected chat completion response (HTTP {ev.response_status})"
             ),
@@ -110,8 +137,8 @@ async def probe_basic(
         ProbeResult(
             probe_id="protocol.finish_reason",
             category="protocol",
-            status=ProbeStatus.PASS if finish_reason is not None else ProbeStatus.WARN,
-            score=1.0 if finish_reason is not None else 0.5,
+            status=ProbeStatus.WARN if truncated_empty else ProbeStatus.PASS if finish_reason is not None else ProbeStatus.WARN,
+            score=0.5 if truncated_empty else 1.0 if finish_reason is not None else 0.5,
             summary=(
                 f"finish_reason={finish_reason!r}"
                 if finish_reason is not None
@@ -377,7 +404,7 @@ async def probe_system(
                 {"role": "user", "content": "Follow the system instruction."},
             ],
             "temperature": 0,
-            "max_tokens": 32,
+            "max_tokens": _budget_for_text(model, 32),
         },
     )
     ev = call.evidence
@@ -385,13 +412,14 @@ async def probe_system(
         return [_error_result(probe_id, "protocol", call)], [ev]
     text = _message_text(call.json_body)
     ok = ev.response_status == 200 and token in text
+    truncated = _truncated_answer(call.json_body) and not ok
     return [
         ProbeResult(
             probe_id=probe_id,
             category="protocol",
-            status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
-            score=1.0 if ok else 0.5,
-            summary="system instruction observed" if ok else "system instruction was not reproduced as requested",
+            status=ProbeStatus.PASS if ok else ProbeStatus.INSUFFICIENT if truncated else ProbeStatus.WARN,
+            score=1.0 if ok else None if truncated else 0.5,
+            summary="system instruction observed" if ok else "Output truncated at generation limit; cannot assess system instruction" if truncated else "system instruction was not reproduced as requested",
             observed={"text": text[:500], "http_status": ev.response_status},
             evidence_ids=[ev.id],
         )
@@ -414,7 +442,7 @@ async def probe_multiturn(
                 {"role": "user", "content": "What token did you just state? Answer only the token."},
             ],
             "temperature": 0,
-            "max_tokens": 32,
+            "max_tokens": _budget_for_text(model, 32),
         },
     )
     ev = call.evidence
@@ -422,13 +450,14 @@ async def probe_multiturn(
         return [_error_result(probe_id, "protocol", call)], [ev]
     text = _message_text(call.json_body)
     ok = ev.response_status == 200 and token in text
+    truncated = _truncated_answer(call.json_body) and not ok
     return [
         ProbeResult(
             probe_id=probe_id,
             category="protocol",
-            status=ProbeStatus.PASS if ok else ProbeStatus.WARN,
-            score=1.0 if ok else 0.5,
-            summary="multi-turn context preserved" if ok else "multi-turn recall probe did not reproduce the token",
+            status=ProbeStatus.PASS if ok else ProbeStatus.INSUFFICIENT if truncated else ProbeStatus.WARN,
+            score=1.0 if ok else None if truncated else 0.5,
+            summary="multi-turn context preserved" if ok else "Output truncated at generation limit; cannot assess multi-turn recall" if truncated else "multi-turn recall probe did not reproduce the token",
             observed={"text": text[:500], "http_status": ev.response_status},
             evidence_ids=[ev.id],
         )
@@ -531,7 +560,7 @@ async def probe_json_mode(
             ],
             "response_format": {"type": "json_object"},
             "temperature": 0,
-            "max_tokens": 64,
+            "max_tokens": _budget_for_text(model, 64),
         },
     )
     ev = call.evidence
@@ -546,13 +575,14 @@ async def probe_json_mode(
             valid = isinstance(parsed, dict)
         except Exception:
             pass
+    truncated = _truncated_answer(call.json_body) and not valid
     return [
         ProbeResult(
             probe_id=probe_id,
             category="protocol",
-            status=ProbeStatus.PASS if valid else ProbeStatus.WARN,
-            score=1.0 if valid else 0.4,
-            summary="JSON mode returned parseable JSON" if valid else "JSON mode unsupported or output was not valid JSON",
+            status=ProbeStatus.PASS if valid else ProbeStatus.INSUFFICIENT if truncated else ProbeStatus.WARN,
+            score=1.0 if valid else None if truncated else 0.4,
+            summary="JSON mode returned parseable JSON" if valid else "Output truncated at generation limit; cannot assess JSON mode" if truncated else "JSON mode unsupported or output was not valid JSON",
             observed={"parsed": parsed, "text": text[:500], "http_status": ev.response_status},
             evidence_ids=[ev.id],
         )
