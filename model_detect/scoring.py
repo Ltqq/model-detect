@@ -5,15 +5,6 @@ from collections import defaultdict
 from .models import AuditSummary, ProbeResult, ProbeStatus
 
 
-DEFAULT_CATEGORY_WEIGHTS = {
-    "identity": 35.0,
-    "protocol": 20.0,
-    "integrity": 15.0,
-    "context": 10.0,
-    "routing": 10.0,
-    "capability": 10.0,
-}
-
 
 def build_summary(results: list[ProbeResult]) -> AuditSummary:
     by_category: dict[str, list[float]] = defaultdict(list)
@@ -42,14 +33,12 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for category in DEFAULT_CATEGORY_WEIGHTS
     }
 
-    weighted = 0.0
-    weight_total = 0.0
-    for category, weight in DEFAULT_CATEGORY_WEIGHTS.items():
-        if category in category_scores:
-            weighted += category_scores[category] * weight
-            weight_total += weight
-
-    overall = round(weighted / weight_total, 1) if weight_total else None
+    # Cross-category weighted scores are not scientifically comparable:
+    # Quick/Standard may run only a subset of categories, and the category
+    # weights have not been calibrated against labeled provider substitutions.
+    # Keep per-category evidence, but never normalize the tested subset into a
+    # single overall score.
+    overall = None
     hard_cap = None
 
     identity_mismatch = any(
@@ -60,11 +49,6 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     )
     mixed_routing = any(
         r.probe_id.startswith("routing.")
-        and r.status == ProbeStatus.FAIL
-        for r in results
-    )
-    protocol_critical = any(
-        r.probe_id in {"protocol.chat.basic", "protocol.chat.stream"}
         and r.status == ProbeStatus.FAIL
         for r in results
     )
@@ -88,17 +72,6 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
         for r in results
     )
 
-    if identity_mismatch:
-        hard_cap = 40.0
-    elif upstream_policy_violation:
-        hard_cap = 40.0
-    elif mixed_routing:
-        hard_cap = 60.0
-    elif protocol_critical:
-        hard_cap = 60.0
-
-    if overall is not None and hard_cap is not None:
-        overall = min(overall, hard_cap)
 
     covered_count = sum(coverage.values())
     if strong_identity and covered_count >= 4:
