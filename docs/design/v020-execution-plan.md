@@ -283,7 +283,9 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 
 - [ ] **D1.1 lm-eval**：固定 `0.4.13` 与任务配置，实际运行原始 scorer 的 Mock 链路已有证据；补充版本不符/任务不存在/无结果/样本日志缺失时不得报告完成；真实模型结果仍单独标未测。
 - [ ] **D1.2 Kimi 原始测试**：固定 commit 与四组适用范围；保留原始测试 ID/退出码；不把它推广为其他型号的官方认证。
-- [x] **D1.3.1 版本与执行策略**：已固定目标 CLI `0.1.0`，全局命令版本不符即停止；npm registry 404 后禁用 npx 下载。\n- [ ] **D1.3.2 源码运行 smoke**：PR #181 固定 GitHub commit 后构建上游 TypeScript CLI，通过 `references --json` 验证真实 CLI/JSON 合同，不调用模型 API。\n- [ ] **D1.3.3 方法对照**：比较 ToseaAI 固定样本 JSD 与 fpverify 序贯 e-process，核对参考覆盖、FPR 假设、请求预算和成本；dreamor/llm_check 仅作同类参考，不接入多个并行引擎。
+- [x] **D1.3.1 版本与执行策略**：已固定目标 CLI `0.1.0`，全局命令版本不符即停止；npm registry 404 后禁用 npx 下载。
+- [ ] **D1.3.2 源码运行 smoke**：PR #181 固定 GitHub commit 后构建上游 TypeScript CLI，通过 `references --json` 验证真实 CLI/JSON 合同，不调用模型 API。
+- [ ] **D1.3.3 方法对照**：比较 ToseaAI 固定样本 JSD 与 fpverify 序贯 e-process，核对参考覆盖、FPR 假设、请求预算和成本；dreamor/llm_check 仅作同类参考，不接入多个并行引擎。
 - [ ] **D1.4 proxy-sleuth**：固定上游 commit 与许可证/依赖，确认命令与 JSON schema；其输出只作为实验性信号，需和现有通用探针做差异比较；不能证明独有价值则保留关闭或删除。
 - [ ] **D1.5 promptfoo**：只验证现存 YAML 回归的兼容性与旧历史读取，不作为默认模型身份/能力引擎。
 - **退出条件**：`oss-status` 精确区分 adapter/executable/version/runtime/result validation；本地 Mock 只标执行链路通过，不标检测准确率通过。
