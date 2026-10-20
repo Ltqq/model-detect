@@ -240,6 +240,57 @@ def _self_consistency_result(split_half_jsd: Any) -> ProbeResult:
     )
 
 
+def _comparison_cell_validation_reasons(
+    cells: list[Any],
+    comparable: int,
+    mean_jsd: float | None,
+) -> list[str]:
+    """Validate the external CLI's aggregate against its per-cell evidence."""
+    reasons: list[str] = []
+    if comparable != len(cells):
+        reasons.append("reported comparable-cell count does not match the cell evidence")
+
+    seen_ids: set[str] = set()
+    cell_jsds: list[float] = []
+    malformed = False
+    for cell in cells:
+        if not isinstance(cell, dict):
+            malformed = True
+            continue
+
+        cell_id = cell.get("cellId")
+        jsd = cell.get("jsd")
+        valid_a = cell.get("validA")
+        valid_b = cell.get("validB")
+        if (
+            not isinstance(cell_id, str)
+            or not cell_id.strip()
+            or cell_id in seen_ids
+            or isinstance(jsd, bool)
+            or not isinstance(jsd, (int, float))
+            or not math.isfinite(float(jsd))
+            or not 0 <= float(jsd) <= 1
+            or type(valid_a) is not int
+            or type(valid_b) is not int
+            or valid_a < 10
+            or valid_b < 10
+        ):
+            malformed = True
+            continue
+        seen_ids.add(cell_id)
+        cell_jsds.append(float(jsd))
+
+    if malformed or len(seen_ids) != len(cells):
+        reasons.append(
+            "per-cell evidence is malformed, duplicated, or below the upstream minimum of 10 valid samples per side"
+        )
+    if len(cell_jsds) == len(cells) and cells and mean_jsd is not None:
+        computed_mean = sum(cell_jsds) / len(cell_jsds)
+        if not math.isclose(computed_mean, mean_jsd, rel_tol=1e-6, abs_tol=1e-6):
+            reasons.append("reported mean JSD does not match the per-cell JSD values")
+    return reasons
+
+
 def parse_verify_payload(
     data: dict[str, Any],
     *,
@@ -290,6 +341,13 @@ def parse_verify_payload(
             )
         if not valid_mean_jsd:
             validation_reasons.append("mean JSD is missing or invalid")
+        validation_reasons.extend(
+            _comparison_cell_validation_reasons(
+                cells,
+                comparable,
+                numeric_mean_jsd if valid_mean_jsd else None,
+            )
+        )
         if validation_reasons:
             verdict = "insufficient"
 
