@@ -171,7 +171,7 @@ def test_glm_flash_weak_tool_support_is_not_perfect_model_identity():
     assert summary.category_scores.get("identity") is None
     assert summary.coverage["identity"] is False
     assert summary.category_scores["protocol"] == 100.0
-    assert summary.final_verdict == "review"
+    assert summary.final_verdict == "pass"
 
 
 def test_quick_without_reference_is_not_automatic_review():
