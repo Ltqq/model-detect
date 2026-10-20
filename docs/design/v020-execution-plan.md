@@ -243,7 +243,7 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 - [x] [开源组件取舍](../oss-adoption-decisions-v020.md)：纠正一个文档错位——当前 `model_detect/adapters/fingerprint.py` 实际调用的是 **ToseaAI/llm-fingerprint-detector**，不是 dreamor 的 `fp` CLI。dreamor/llm_check 是同类候选，不是当前适配器。
 - [x] 已确认第二份 GLM-5.3-Flash 报告里 ToseaAI 指纹状态为 `not_run`、lm-eval 为 `disabled`、proxy-sleuth 为 `disabled`；这份报告不是开源能力 Benchmark 或统计身份检测结果。
 - [x] 已定位通用误报根因：`probes/provider.py` 将整个 JSON 响应 body 序列化后做品牌子串匹配；例如自然语言中含 `markdown` 会匹配 `ark`，产生 Volcengine/Ark 假线索。此规则不具备供应商归因能力，必须从算法上移除，而非给单词加黑名单。
-- [x] 已定位可复现性缺口：指纹适配器存在 `npx --yes llm-fingerprint-detector` 无版本号回退，全局 `llm-fingerprint` 也没有版本/CLI 契约核验；代码存在不等于可复现执行。
+- [x] 已定位并复核可复现性缺口：上游 package.json 有版本 `0.1.0`，但 npm registry 实测返回 404；无版本和固定版本的 npx 路径都不能用。已决定禁用自动下载，要求显式安装源码构建的 CLI。
 
 ### 检测方法全景与取舍
 
@@ -262,6 +262,13 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 | 安全红队（garak） | 越狱、注入、泄露风险 | **不属于 v0.2.0** | 不与供应商身份/一般能力混合；未来若要扩展须单独决策 |
 | Inspect AI / OpenCompass / EvalScope | 替代或补充通用评测引擎 | **本版本不并行安装** | 只有 lm-eval 被证实无法覆盖明确需求时，才比较迁移/补充成本 |
 
+### 新发现的开源候选：差异与准入边界
+
+- **[fpverify](https://github.com/Mohamed7415/fpverify)**：MIT，行为分布 + JSD + 序贯 betting e-process，支持早停。它比固定 JSD 阈值多一层统计决策，但 `calibrate_delta` 的良性漂移校准是后验预测近似，README 的 FPR/检出率主要来自项目自有仿真/实验，不能直接视为真实 API 准确率。没有 `pyproject.toml`；36 个 cell × 20 次入册约 720 请求，审计预算可达 600 次。**研究候选，不进入默认 Quick/Standard**。
+- **[llm-provider-audit](https://github.com/benbenlijie/llm-provider-audit)**：MIT、Alpha、要求 Python >=3.12。reference variance、negative controls、open-set thresholds 值得借鉴，但与当前指纹/路由能力重叠且不兼容 Python 3.11 矩阵。**只提炼实验设计，不引入依赖**。
+- **[model-audit](https://github.com/liuxiaotong/model-audit)**：面向蒸馏/血缘取证，部分方法需白盒表示；README 自述的 14 样本 100% 结果尚未独立复现。**不进入 v0.2.0**。
+- **选型原则**：不按仓库数量堆工具；只把能提供不同证据、固定版本、可复现且在正反样例中证明有效的方法纳入主流程。
+
 ### 接下来严格按此顺序执行
 
 #### D0 — 通用证据正确性（先做，零 API 费用）
@@ -276,7 +283,7 @@ main 为 M6 工程收尾版本（#122）；已有 Web/SQLite/报告、原生协�
 
 - [ ] **D1.1 lm-eval**：固定 `0.4.13` 与任务配置，实际运行原始 scorer 的 Mock 链路已有证据；补充版本不符/任务不存在/无结果/样本日志缺失时不得报告完成；真实模型结果仍单独标未测。
 - [ ] **D1.2 Kimi 原始测试**：固定 commit 与四组适用范围；保留原始测试 ID/退出码；不把它推广为其他型号的官方认证。
-- [ ] **D1.3 指纹候选**：先将 ToseaAI package/CLI 固定版本和调用合同；禁止无版本 `npx` 自动拉取。对上游可运行的命令加版本检查/错误映射测试。与 dreamor/llm_check 做方法和参考库对比，但不接入三个并行引擎。
+- [x] **D1.3.1 版本与执行策略**：已固定目标 CLI `0.1.0`，全局命令版本不符即停止；npm registry 404 后禁用 npx 下载。\n- [ ] **D1.3.2 源码运行 smoke**：PR #181 固定 GitHub commit 后构建上游 TypeScript CLI，通过 `references --json` 验证真实 CLI/JSON 合同，不调用模型 API。\n- [ ] **D1.3.3 方法对照**：比较 ToseaAI 固定样本 JSD 与 fpverify 序贯 e-process，核对参考覆盖、FPR 假设、请求预算和成本；dreamor/llm_check 仅作同类参考，不接入多个并行引擎。
 - [ ] **D1.4 proxy-sleuth**：固定上游 commit 与许可证/依赖，确认命令与 JSON schema；其输出只作为实验性信号，需和现有通用探针做差异比较；不能证明独有价值则保留关闭或删除。
 - [ ] **D1.5 promptfoo**：只验证现存 YAML 回归的兼容性与旧历史读取，不作为默认模型身份/能力引擎。
 - **退出条件**：`oss-status` 精确区分 adapter/executable/version/runtime/result validation；本地 Mock 只标执行链路通过，不标检测准确率通过。
