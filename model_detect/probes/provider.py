@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from functools import lru_cache
 from importlib.resources import files
@@ -68,18 +67,6 @@ def load_provider_rules() -> dict[str, ProviderRule]:
     return load_provider_rule_set().providers
 
 
-def _body_text(evidence: Evidence) -> str:
-    try:
-        return json.dumps(
-            evidence.response_body,
-            ensure_ascii=False,
-            sort_keys=True,
-        ).lower()
-    except Exception:
-        return str(evidence.response_body).lower()
-
-
-
 def _provider_signal_details(
     evidence: Evidence,
     rule: ProviderRule,
@@ -88,23 +75,16 @@ def _provider_signal_details(
         str(k).lower(): str(v)
         for k, v in evidence.response_headers.items()
     }
-    body = _body_text(evidence)
+    # Only response metadata is eligible for provider hints. Model-generated
+    # content, reasoning, and free-text error messages are untrusted and must
+    # never be searched for brand substrings.
     signals: list[dict[str, Any]] = []
     for header, weight in rule.headers.items():
-        if str(header).lower() in headers:
+        if str(header).lower() in headers and float(weight) >= 0.30:
             signals.append(
                 {
                     "kind": "header",
                     "value": str(header),
-                    "weight": float(weight),
-                }
-            )
-    for pattern, weight in rule.patterns.items():
-        if str(pattern).lower() in body:
-            signals.append(
-                {
-                    "kind": "body",
-                    "value": str(pattern),
                     "weight": float(weight),
                 }
             )
@@ -168,17 +148,18 @@ def evaluate_upstream_policy(
                 )
                 matched_evidence_ids.append(evidence.id)
 
-        confidence = hypothesis.confidence if hypothesis else 0.0
-        policy_match = (
-            confidence >= min_confidence
-            or max_signal_weight >= strong_signal_weight
-        )
+        # Do not use a heuristic "confidence" as a probability. A configured
+        # upstream policy may only match a sufficiently specific response-header
+        # marker; body text is never evidence for this decision.
+        policy_match = max_signal_weight >= strong_signal_weight
         if policy_match:
             detected.append(
                 {
                     "provider": provider,
-                    "confidence": confidence,
+                    "confidence": None,
                     "max_signal_weight": max_signal_weight,
+                    "decision_basis": "configured_response_header_rule",
+                    "not_model_identity_proof": True,
                     "evidence": provider_evidence,
                 }
             )
@@ -192,19 +173,21 @@ def evaluate_upstream_policy(
     return ProbeResult(
         probe_id=probe_id,
         category="provider",
-        status=ProbeStatus.FAIL if violation else ProbeStatus.PASS,
+        status=ProbeStatus.FAIL if violation else ProbeStatus.INSUFFICIENT,
         score=0.0 if violation else None,
-        confidence=0.95 if violation else 0.65,
+        confidence=1.0 if violation else 0.0,
         summary=(
-            "disallowed upstream provider evidence detected: "
+            "configured disallowed-provider response-header rule matched: "
             + ", ".join(item["provider"] for item in detected)
+            + "; this is an upstream metadata signal, not model-weight identity proof"
             if violation
-            else "no disallowed upstream provider evidence was observed"
+            else "no qualifying disallowed-provider response-header signal was observed; absence is not proof of absence"
         ),
         expected={
             "disallowed": sorted(disallowed_set),
-            "min_confidence": min_confidence,
+            "legacy_min_confidence_ignored": min_confidence,
             "strong_signal_weight": strong_signal_weight,
+            "body_text_is_never_identity_evidence": True,
         },
         observed={
             "detected": detected,
@@ -229,39 +212,24 @@ def detect_provider_hypotheses(
     evidences: Iterable[Evidence],
 ) -> list[ProviderHypothesis]:
     rules = load_provider_rules()
-    scores: dict[str, float] = defaultdict(float)
     reasons: dict[str, list[str]] = defaultdict(list)
 
     for evidence in evidences:
-        headers = {
-            str(k).lower(): str(v)
-            for k, v in evidence.response_headers.items()
-        }
-        body = _body_text(evidence)
         for provider, rule in rules.items():
-            for header, weight in rule.headers.items():
-                if str(header).lower() in headers:
-                    scores[provider] += float(weight)
-                    reasons[provider].append(
-                        f"{evidence.probe_id}: response header {header}"
-                    )
-            for pattern, weight in rule.patterns.items():
-                if str(pattern).lower() in body:
-                    scores[provider] += float(weight)
-                    reasons[provider].append(
-                        f"{evidence.probe_id}: response body contains {pattern!r}"
-                    )
+            for signal in _provider_signal_details(evidence, rule):
+                reasons[provider].append(
+                    f"{evidence.probe_id}: response header {signal['value']}"
+                )
 
-    out: list[ProviderHypothesis] = []
-    for provider, raw_score in scores.items():
-        confidence = min(0.99, 1 - (0.5 ** max(raw_score, 0.01)))
-        if confidence < 0.2:
-            continue
-        out.append(
-            ProviderHypothesis(
-                provider=provider,
-                confidence=round(confidence, 3),
-                evidence=list(dict.fromkeys(reasons[provider])),
-            )
+    # These are uncalibrated metadata hints, not probabilistic identity
+    # estimates. Repeated occurrences do not increase confidence.
+    out = [
+        ProviderHypothesis(
+            provider=provider,
+            confidence=None,
+            evidence=list(dict.fromkeys(provider_reasons)),
         )
-    return sorted(out, key=lambda x: x.confidence, reverse=True)
+        for provider, provider_reasons in reasons.items()
+        if provider_reasons
+    ]
+    return sorted(out, key=lambda x: x.provider)
