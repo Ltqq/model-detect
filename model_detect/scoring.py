@@ -5,6 +5,12 @@ from collections import defaultdict
 from .models import AuditSummary, ProbeResult, ProbeStatus
 
 
+COVERAGE_CATEGORIES = (
+    "identity", "protocol", "integrity", "context", "routing",
+    "capability", "benchmark", "provider",
+)
+
+
 
 def build_summary(results: list[ProbeResult]) -> AuditSummary:
     by_category: dict[str, list[float]] = defaultdict(list)
@@ -30,7 +36,7 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     }
     coverage = {
         category: bool(by_category.get(category))
-        for category in DEFAULT_CATEGORY_WEIGHTS
+        for category in COVERAGE_CATEGORIES
     }
 
     # Cross-category weighted scores are not scientifically comparable:
