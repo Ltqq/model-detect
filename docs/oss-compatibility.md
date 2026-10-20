@@ -10,7 +10,7 @@
 | 厂商专项协议 | [MoonshotAI/Kimi-Vendor-Verifier](https://github.com/MoonshotAI/Kimi-Vendor-Verifier) | MIT；固定源码 commit `66092cf444c97356c0e11c5078c67116390615d9) | 四组 Pytest 源码已固定；源码/运行器离线检查通过；真实端点运行未证明 | 对 Kimi 适用的协议/参数测试；不是任意模型的身份认证 |
 | 通用能力 Benchmark | [EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) | MIT；当前项目配置目标为 `0.4.13)，须以运行环境版本复核 | 已验证原始评分器在本地 OpenAI 兼容 Mock 上执行并输出 JSON；真实供应商成绩未验证；默认关闭 | 在具体任务、样本、评分器、生成参数可比时，测量对应能力 |
 | YAML 回归 | [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | MIT；当前未固定并实证完整外部 CLI 版本 | 旧 YAML/历史路径仍被调用；不属于默认 Quick/Standard 主引擎 | 执行显式断言与回归；断言本身需要正反例校准，不识别真实权重 |
-| 行为分布指纹 | [ToseaAI/llm-fingerprint-detector](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；源码版本 `0.1.0`，固定 commit `94dc44686a553595581b6d06405c17f070df9b8d`；npm registry 实测 404 | 显式源码安装；CI 真实构建、CLI 版本与参考目录 smoke 已通过。内置 11 个样例参考采集于 2026-07-08，协议为 `bruckner-zenodo-2026`，与工具 `one-token/v1` 不同 | 内置样例参考在本适配器中会因协议不匹配降为证据不足；列表没有 GLM-5.3/Flash、Kimi-K3 或 DeepSeek V4/V4.1。需同协议可信 Reference 才可比较；仍不证明权重身份 |
+| 行为分布指纹 | [ToseaAI/llm-fingerprint-detector](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；源码版本 `0.1.0`，固定 commit `94dc44686a553595581b6d06405c17f070df9b8d`；npm registry 实测 404 | 显式源码安装；CI 真实构建、CLI 版本与参考目录 smoke 已通过；PR #186 复用上游 `npm test`，44 个上游单元/集成测试通过。内置 11 个样例参考采集于 2026-07-08，协议为 `bruckner-zenodo-2026`，与工具 `one-token/v1` 不同 | 内置样例参考在本适配器中会因协议不匹配降为证据不足；列表没有 GLM-5.3/Flash、Kimi-K3 或 DeepSeek V4/V4.1。需同协议可信 Reference 才可比较；仍不证明权重身份 |
 | 多层代理异常筛查 | [Babapei/proxy-sleuth](https://github.com/Babapei/proxy-sleuth) | MIT；上游标为 Alpha，当前版本需固定 | 旧 CLI/适配器保留、默认关闭；未对本产品五型号做受控真值校准 | 候选的参数/上下文/路由/行为信号；不能直接作为真假判决 |
 | 序贯行为指纹 / 假设检验 | [Mohamed7415/fpverify](https://github.com/Mohamed7415/fpverify) | MIT；README/CITATION 标记 0.1.0；当前仓库没有 `pyproject.toml`，依赖通过 `requirements.txt` 管理；统计测试是项目自有合成分布/仿真，不能视为真实供应商 API 的独立 FPR 证明 | **未集成**；代码与统计测试值得深入评估，不能直接 pip 安装成稳定依赖 | 在行为分布指纹上增加 e-process 早停与误报控制，并做参考方差标定；README 的 FPR 数字主要来自项目自身仿真/实验，复合零假设的 `delta` 标定明确是后验预测近似，不能无条件宣称真实 API FPR 已被证明 |
 | 参考校准 + 负对照的渠道审计 | [benbenlijie/llm-provider-audit](https://github.com/benbenlijie/llm-provider-audit) | MIT；Alpha，`0.1.0`；要求 Python >=3.12，与本项目 3.11 测试矩阵不兼容 | **未集成**；完成源码级方法审查，不作为运行时依赖 | 参考方差、负对照、开放集阈值值得借鉴；但相似度尾部概率来自参考样本的经验排名，阈值为校准启发式，不等于正式 FPR 保证。实现与现有功能重叠 |
@@ -51,7 +51,7 @@
 
 ### 指纹引擎的可选源码安装
 
-只有用户主动启用统计指纹时才需要安装。该项目虽有 npm `package.json`，但在 2026-10-20 对 npm registry 的真实安装测试返回 404，因此不要使用 `npx llm-fingerprint-detector`。CI 已验证以下固定源码构建、版本和非空参考目录可用（不调用模型 API；只验证执行链路，不校准准确率）：
+只有用户主动启用统计指纹时才需要安装。该项目虽有 npm `package.json`，但在 2026-10-20 对 npm registry 的真实安装测试返回 404，因此不要使用 `npx llm-fingerprint-detector`。CI 已验证固定源码构建、版本和非空参考目录可用，并运行上游 `npm test`（44 tests passed；不调用模型 API）。这验证上游统计/解析实现与本项目 adapter 的执行链路，不校准真实供应商准确率：
 
 ```bash
 git clone https://github.com/ToseaAI/llm-fingerprint-detector.git
