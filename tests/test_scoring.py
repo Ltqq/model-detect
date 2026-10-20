@@ -13,6 +13,17 @@ def r(probe_id, category, score, status=ProbeStatus.PASS, **metadata):
     )
 
 
+
+def test_probe_confidence_defaults_to_unknown_without_calibration():
+    result = ProbeResult(
+        probe_id="protocol.chat.basic",
+        category="protocol",
+        status=ProbeStatus.PASS,
+        score=1.0,
+        summary="deterministic protocol assertion passed",
+    )
+    assert result.confidence is None
+
 def test_category_score_and_pass():
     summary = build_summary(
         [
