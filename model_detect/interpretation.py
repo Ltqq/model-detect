@@ -299,7 +299,7 @@ def _identity_summary(report: AuditReport) -> dict[str, Any]:
             state = "behavioral_match"
             text = (
                 "本次行为分布与所选参考接近，只说明当前采样协议下统计行为相似；"
-                "不能证明模型权重相同。请核对参考来源、采样条件和采集日期。"
+                "不能证明模型权重身份。请核对参考来源、采样条件和采集日期。"
             )
         elif verdict == "mismatch":
             state = "behavioral_mismatch"
