@@ -15,16 +15,38 @@ SELF_MATCH_THRESHOLD = 0.25
 SELF_WARN_THRESHOLD = 0.35
 
 
+def _installed_version(binary: str) -> str | None:
+    try:
+        proc = subprocess.run(
+            [binary, "--version"],
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return (proc.stdout or "").strip() or None
+
+
 def availability() -> dict[str, Any]:
     direct = shutil.which("llm-fingerprint")
     npx = shutil.which("npx")
+    direct_version = _installed_version(direct) if direct else None
+    direct_compatible = bool(direct and direct_version == PINNED_FINGERPRINT_VERSION)
+    can_use_pinned_npx = bool(not direct and npx)
     return {
-        "available": bool(direct or npx),
+        "available": direct_compatible or can_use_pinned_npx,
+        "executable_found": bool(direct or npx),
         "direct_binary": direct,
+        "installed_version": direct_version,
+        "version_compatible": direct_compatible if direct else None,
         "npx": npx,
         "engine": "ToseaAI/llm-fingerprint-detector",
         "pinned_package_version": PINNED_FINGERPRINT_VERSION,
-        "requires_network_if_downloaded": not bool(direct) and bool(npx),
+        "requires_network_if_downloaded": can_use_pinned_npx,
         "structured_json": True,
     }
 
@@ -32,21 +54,8 @@ def availability() -> dict[str, Any]:
 def _prefix() -> list[str]:
     direct = shutil.which("llm-fingerprint")
     if direct:
-        try:
-            proc = subprocess.run(
-                [direct, "--version"],
-                text=True,
-                capture_output=True,
-                timeout=5,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise RuntimeError(
-                "cannot verify llm-fingerprint CLI version; "
-                f"required {PINNED_FINGERPRINT_VERSION}"
-            ) from exc
-        installed_version = (proc.stdout or "").strip()
-        if proc.returncode != 0 or installed_version != PINNED_FINGERPRINT_VERSION:
+        installed_version = _installed_version(direct)
+        if installed_version != PINNED_FINGERPRINT_VERSION:
             raise RuntimeError(
                 "llm-fingerprint CLI version mismatch; "
                 f"required {PINNED_FINGERPRINT_VERSION}, found "
