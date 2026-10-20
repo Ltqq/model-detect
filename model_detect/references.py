@@ -390,15 +390,17 @@ def compare_protocol_signature(
     current_results: list[ProbeResult],
     reference_signature: dict[str, Any] | None,
 ) -> ProbeResult:
+    # Keep the legacy probe ID for stored-report compatibility. This compares
+    # protocol/integrity/context/routing status patterns, not model identity.
     probe_id = "identity.reference.protocol_signature"
     if not reference_signature:
         return ProbeResult(
             probe_id=probe_id,
-            category="identity",
+            category="reference",
             status=ProbeStatus.INSUFFICIENT,
             score=None,
             confidence=None,
-            summary="reference does not contain a protocol signature",
+            summary="reference does not contain a protocol signature; no model-identity conclusion",
         )
 
     expected = reference_signature.get("probes") or {}
@@ -410,11 +412,11 @@ def compare_protocol_signature(
     if not common:
         return ProbeResult(
             probe_id=probe_id,
-            category="identity",
+            category="reference",
             status=ProbeStatus.INSUFFICIENT,
             score=None,
             confidence=None,
-            summary="no comparable probes between current run and reference",
+            summary="no comparable probes between current run and reference; no model-identity conclusion",
         )
 
     matches = 0
@@ -429,22 +431,25 @@ def compare_protocol_signature(
         )
 
     ratio = matches / len(common)
-    if ratio >= 0.90:
-        status = ProbeStatus.PASS
-    elif ratio >= 0.70:
-        status = ProbeStatus.WARN
-    else:
-        status = ProbeStatus.FAIL
+    # A status-pattern difference may be caused by profile, model version or
+    # serving changes. Exact agreement is informative; disagreement warrants
+    # review, not a hard identity failure.
+    status = ProbeStatus.PASS if ratio == 1.0 else ProbeStatus.WARN
     return ProbeResult(
         probe_id=probe_id,
-        category="identity",
+        category="reference",
         status=status,
-        score=ratio,
+        score=None,
         confidence=None,
-        summary=f"protocol signature matched {matches}/{len(common)} comparable probes",
+        summary=(
+            f"reference protocol-behavior signature matched {matches}/{len(common)} "
+            "comparable probe statuses; this is not model-identity proof"
+        ),
         observed={"match_ratio": ratio, "details": details},
         metadata={
-            "verdict": "match" if status == ProbeStatus.PASS else ("mismatch" if status == ProbeStatus.FAIL else "uncertain"),
-            "identity_strength": "medium",
+            "verdict": "match" if status == ProbeStatus.PASS else "uncertain",
+            "identity_strength": "weak",
+            "evidence_type": "protocol_behavior_signature",
+            "weight_identity_proof": False,
         },
     )
