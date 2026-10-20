@@ -11,11 +11,13 @@ from model_detect.models import ProbeStatus
 
 
 def sample_payload(split_half=0.12, verdict="match"):
+    cell_jsds = [0.11, 0.25, 0.19, 0.17] if verdict == "match" else [0.41, 0.49, 0.50, 0.52]
+    mean_jsd = sum(cell_jsds) / len(cell_jsds)
     return {
         "verdict": verdict,
-        "meanJsd": 0.18 if verdict == "match" else 0.48,
+        "meanJsd": mean_jsd,
         "comparison": {
-            "meanJsd": 0.18 if verdict == "match" else 0.48,
+            "meanJsd": mean_jsd,
             "verdict": verdict,
             "comparableCellCount": 4,
             "protocolMismatch": False,
@@ -28,25 +30,25 @@ def sample_payload(split_half=0.12, verdict="match"):
             "cells": [
                 {
                     "cellId": "random-number-1-100:en",
-                    "jsd": 0.11,
+                    "jsd": cell_jsds[0],
                     "validA": 25,
                     "validB": 25,
                 },
                 {
                     "cellId": "random-color:zh",
-                    "jsd": 0.25,
+                    "jsd": cell_jsds[1],
                     "validA": 24,
                     "validB": 25,
                 },
                 {
                     "cellId": "random-number-1-100:zh",
-                    "jsd": 0.19,
+                    "jsd": cell_jsds[2],
                     "validA": 25,
                     "validB": 25,
                 },
                 {
                     "cellId": "random-color:en",
-                    "jsd": 0.17,
+                    "jsd": cell_jsds[3],
                     "validA": 25,
                     "validB": 25,
                 },
@@ -156,6 +158,41 @@ def test_fingerprint_match_with_too_few_comparable_cells_is_insufficient():
     assert meta["verdict"] == "insufficient"
     assert "fewer than 4" in results[0].summary
 
+
+
+def test_fingerprint_match_with_malformed_cell_evidence_is_insufficient():
+    data = sample_payload()
+    data["comparison"]["cells"][0]["jsd"] = 1.5
+    results, meta = parse_verify_payload(data, returncode=0)
+    assert results[0].status == ProbeStatus.INSUFFICIENT
+    assert meta["verdict"] == "insufficient"
+    assert any("per-cell evidence is malformed" in item for item in meta["validation_reasons"])
+
+
+def test_fingerprint_match_with_duplicate_cells_is_insufficient():
+    data = sample_payload()
+    data["comparison"]["cells"][1]["cellId"] = data["comparison"]["cells"][0]["cellId"]
+    results, meta = parse_verify_payload(data, returncode=0)
+    assert results[0].status == ProbeStatus.INSUFFICIENT
+    assert meta["verdict"] == "insufficient"
+
+
+def test_fingerprint_match_with_inconsistent_aggregate_mean_is_insufficient():
+    data = sample_payload()
+    data["meanJsd"] = 0.21
+    data["comparison"]["meanJsd"] = 0.21
+    results, meta = parse_verify_payload(data, returncode=0)
+    assert results[0].status == ProbeStatus.INSUFFICIENT
+    assert meta["verdict"] == "insufficient"
+    assert any("mean JSD does not match" in item for item in meta["validation_reasons"])
+
+
+def test_fingerprint_match_with_too_few_valid_samples_per_cell_is_insufficient():
+    data = sample_payload()
+    data["comparison"]["cells"][0]["validA"] = 9
+    results, meta = parse_verify_payload(data, returncode=0)
+    assert results[0].status == ProbeStatus.INSUFFICIENT
+    assert meta["verdict"] == "insufficient"
 
 def test_fingerprint_metadata_shape():
     got = fingerprint_metadata_from_data(
