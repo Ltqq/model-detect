@@ -101,7 +101,7 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
     <summary>高级选项（一般不用改）</summary>
     <div class="grid" style="margin-top:14px">
     <div>
-      <label>历史 Reference（可选，不影响本次检测）</label>
+      <label>历史 Reference（可选；选择后会增加参考对照）</label>
       <select id="reference_id">
         <option value="">不使用 Reference</option>
         {% for r in references %}<option value="{{ r.id }}">{{ r.id }} — {{ r.model }}{% if r.fingerprint_artifact or r.fingerprint_reference %} · 指纹✓{% endif %}{% if r.baseline_artifact %} · Baseline {{ r.baseline_runs }}次{% endif %}{% if r.baseline_metadata.get('benchmark_profile') %} · Benchmark {{ r.baseline_metadata.get('benchmark_profile') }}{% endif %}</option>{% endfor %}
