@@ -16,3 +16,13 @@ def test_home_page_does_not_overstate_reference_or_provider_evidence():
     assert "Header / Body 指纹" not in html
     assert "生成正文、推理文本和自由文本错误不用于猜测供应商" in html
     assert "不证明模型权重身份" in html
+
+def test_reference_page_uses_same_theme_and_does_not_overstate_identity():
+    html = files("model_detect").joinpath("templates/references.html").read_text(encoding="utf-8")
+    css = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    assert css.count(":root") == 1
+    assert "最强的身份类证据之一" not in html
+    assert "不能认证模型权重身份" in html
+    assert "额外约 200 次请求" in html
+    assert '<input id="fp" type="checkbox" checked' not in html
+    assert '<input id="quality" type="checkbox" checked' not in html
