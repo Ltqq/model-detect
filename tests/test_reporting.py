@@ -1,6 +1,6 @@
 import json
 
-from model_detect.models import AuditReport, Evidence, ProbeResult, ProbeStatus
+from model_detect.models import AuditReport, Evidence, ProbeResult, ProbeStatus, ProviderHypothesis
 from model_detect.reporting import write_report
 
 
@@ -245,3 +245,22 @@ def test_unrelated_model_does_not_inherit_kimi_published_score(tmp_path):
     assert "DeepSeek-V4.1-Flash-1017" in page
     assert "Terminal-Bench 4.0" in page
     assert "GPQA Diamond" not in page  # no cross-model Kimi score leakage
+
+
+def test_provider_hints_render_without_uncalibrated_percentages(tmp_path):
+    report = AuditReport(
+        target={"base_url": "https://example.com/v1", "model": "m"},
+        provider_hypotheses=[
+            ProviderHypothesis(
+                provider="volcengine",
+                confidence=None,
+                evidence=["protocol.chat.basic: response header x-tt-logid"],
+            )
+        ],
+    )
+    root = write_report(report, tmp_path / "provider-hints")
+    html = (root / "report.html").read_text(encoding="utf-8")
+    assert "响应头线索" in html
+    assert "protocol.chat.basic: response header x-tt-logid" in html
+    assert "策略命中置信度" not in html
+    assert "24.2%" not in html
