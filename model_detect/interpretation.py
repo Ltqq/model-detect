@@ -582,9 +582,9 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
 
     confidence = str(report.summary.confidence or "low").casefold()
     confidence_text = {
-        "high": "高：已有较强身份依据且检测覆盖较完整。",
-        "medium": "中：覆盖较完整，但身份依据或部分关键证据仍有限。",
-        "low": "低：缺少强身份依据或有效检测覆盖不足。",
+        "high": "检测覆盖较完整（启发式覆盖分级，不是统计置信度或身份概率）。",
+        "medium": "检测覆盖中等（启发式覆盖分级，不是统计置信度或身份概率）。",
+        "low": "有效证据覆盖有限（启发式覆盖分级，不是统计置信度或身份概率）。",
     }.get(confidence, confidence)
 
     return {
@@ -605,8 +605,8 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "actions": actions[:8],
         "categories": category_cards,
         "limitations": [
-            "综合分数是审计评分，不是“模型为真”的概率。",
-            "Provider / Gateway 指纹来自可观测 Header、Body 和行为证据，不是密码学身份证明。",
+            "本工具不提供单一综合总分；请按协议、能力、异常和证据充分性逐项判断。",
+            "Provider / Gateway 线索仅来自可归因的响应头/结构化元数据；不用于认证模型权重身份。",
             "无论是否存在 Reference 或统计指纹，黑盒测试均不能独立认证模型权重身份。",
             "HTTP 429 只代表限流现象，不能单独用来识别 Fireworks 或任何其他 Provider。",
             "质量退化只说明当前黑盒行为低于可信基准范围，不能据此确定 INT4、FP8、AWQ、GPTQ、蒸馏、GPU 型号或具体 Serving Engine。",
