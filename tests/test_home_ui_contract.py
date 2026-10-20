@@ -12,6 +12,8 @@ def test_home_page_uses_one_responsive_theme():
 def test_home_page_does_not_overstate_reference_or_provider_evidence():
     html = files("model_detect").joinpath("templates/index.html").read_text(encoding="utf-8")
     assert "可增强模型身份判断" not in html
+    assert "不影响本次检测" not in html
+    assert "选择后会增加参考对照" in html
     assert "综合分 ≠ 模型为真的概率" not in html
     assert "Header / Body 指纹" not in html
     assert "生成正文、推理文本和自由文本错误不用于猜测供应商" in html
