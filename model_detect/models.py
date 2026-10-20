@@ -59,7 +59,9 @@ class ProbeResult(BaseModel):
 
 class ProviderHypothesis(BaseModel):
     provider: str
-    confidence: float
+    # Legacy report compatibility only. New heuristic signals are not calibrated
+    # probabilities, so the detector leaves this unset.
+    confidence: float | None = None
     evidence: list[str] = Field(default_factory=list)
 
 
