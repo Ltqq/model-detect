@@ -175,7 +175,7 @@ async def _needle_probe(
             category="context",
             status=status,
             score=score,
-            confidence=0.9,
+            confidence=None,
             summary=summary,
             observed={
                 "http_status": evidences[-1].response_status if evidences else None,
@@ -252,7 +252,7 @@ async def run_context_suite(
                     )
                 ),
                 score=score,
-                confidence=0.9,
+                confidence=None,
                 summary=(
                     f"context needle passed {passed}/{len(results)} tested levels"
                     + (
