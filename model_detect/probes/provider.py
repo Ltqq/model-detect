@@ -80,7 +80,7 @@ def _provider_signal_details(
     # never be searched for brand substrings.
     signals: list[dict[str, Any]] = []
     for header, weight in rule.headers.items():
-        if str(header).lower() in headers and float(weight) >= 0.30:
+        if headers.get(str(header).lower(), "").strip() and float(weight) >= 0.30:
             signals.append(
                 {
                     "kind": "header",
