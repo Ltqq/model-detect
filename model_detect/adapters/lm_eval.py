@@ -583,7 +583,7 @@ def parse_result_payload(
                 category="capability",
                 status=status,
                 score=score,
-                confidence=0.8 if score is not None else 0.4,
+                confidence=None,
                 summary=summary,
                 observed={
                     "task": task,
