@@ -150,7 +150,7 @@ def test_429_is_explained_as_auxiliary_only_when_no_header_signal_is_observed():
 
     assert human["provider"]["state"] == "unknown"
     assert human["provider"]["http_429_count"] == 3
-    assert "未观察到" in human["provider"]["text"]
+    assert "没有观察到" in human["provider"]["text"]
     assert "不能排除" in human["provider"]["label"]
     assert any("429" in item for item in human["limitations"])
 
