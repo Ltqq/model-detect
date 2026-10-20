@@ -102,7 +102,7 @@ async def probe_reasoning_levels(
                 category="protocol",
                 status=ProbeStatus.PASS if accepted else ProbeStatus.WARN,
                 score=1.0 if accepted else 0.5,
-                confidence=0.85,
+                confidence=None,
                 summary=(
                     f"reasoning_effort={level} accepted"
                     if accepted
@@ -144,7 +144,7 @@ async def probe_reasoning_levels(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.7,
+            confidence=None,
             summary=summary,
             observed=observations,
             evidence_ids=[e.id for e in evidences],
@@ -193,7 +193,7 @@ async def probe_max_tokens(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.8,
+            confidence=None,
             summary=(
                 "larger max_tokens produced a larger completion"
                 if status == ProbeStatus.PASS
@@ -238,7 +238,7 @@ async def probe_stop(
             category="integrity",
             status=ProbeStatus.PASS if respected else ProbeStatus.WARN,
             score=1.0 if respected else 0.5,
-            confidence=0.75,
+            confidence=None,
             summary="stop sequence appears preserved" if respected else "stop sequence behavior could not be confirmed",
             observed={"http_status": ev.response_status, "text": text[:300]},
             evidence_ids=[ev.id],
@@ -312,7 +312,7 @@ async def probe_system_prompt(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.7,
+            confidence=None,
             summary=summary,
             observed={"challenges": rows},
             evidence_ids=[x.id for x in evidences],
@@ -400,7 +400,7 @@ async def probe_tool_definitions(
             category="integrity",
             status=ProbeStatus.PASS if valid else ProbeStatus.WARN,
             score=1.0 if valid else 0.5,
-            confidence=0.85,
+            confidence=None,
             summary=(
                 "nested tool definition constraints were preserved"
                 if valid
@@ -481,7 +481,7 @@ async def probe_tools_preserved(
             category="integrity",
             status=status,
             score=1.0 if passed == 2 else (0.5 if passed == 1 else 0.2),
-            confidence=0.8,
+            confidence=None,
             summary=f"dynamic tool schema changes were preserved in {passed}/2 cases",
             observed={"cases": rows},
             evidence_ids=[x.id for x in evidences],
@@ -558,7 +558,7 @@ async def probe_json_schema_preserved(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.85 if valid else 0.65,
+            confidence=None,
             summary=summary,
             observed={
                 "http_status": call.evidence.response_status,
@@ -589,7 +589,7 @@ async def _sampling_parameter_probe(
                 category="integrity",
                 status=ProbeStatus.SKIPPED,
                 score=None,
-                confidence=1.0,
+                confidence=None,
                 summary=(
                     f"{parameter} variability is not applicable: "
                     f"model rule declares fixed {parameter}={fixed_value!r}"
@@ -636,7 +636,7 @@ async def _sampling_parameter_probe(
                 category="integrity",
                 status=ProbeStatus.WARN,
                 score=0.5,
-                confidence=0.7,
+                confidence=None,
                 summary=f"{parameter} was rejected by at least one request",
                 observed={"statuses": statuses, "samples": buckets},
                 evidence_ids=[x.id for x in evidences],
@@ -669,7 +669,7 @@ async def _sampling_parameter_probe(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.6,
+            confidence=None,
             summary=summary,
             observed={
                 "parameter": parameter,
@@ -773,7 +773,7 @@ async def probe_sampling_controls(
             category="integrity",
             status=status,
             score=score,
-            confidence=0.55,
+            confidence=None,
             summary=summary,
             observed={
                 "deterministic": buckets["deterministic"],
