@@ -20,7 +20,14 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
     warnings: list[str] = []
 
     for result in results:
-        if result.score is not None:
+        # Source-backed feature support is NOT model-weight identity evidence.
+        # Do not award a perfect identity category just because one tool-call
+        # probe passed while identity reference tests were not run.
+        weak_identity = (
+            result.category == "identity"
+            and result.metadata.get("identity_strength") not in {"medium", "strong"}
+        )
+        if result.score is not None and not weak_identity:
             by_category[result.category].append(max(0.0, min(1.0, result.score)))
         if result.status in {ProbeStatus.FAIL, ProbeStatus.WARN}:
             warnings.append(f"{result.probe_id}: {result.summary}")

@@ -158,3 +158,17 @@ def test_noncritical_protocol_failure_requires_review():
         r("protocol.json_mode", "protocol", 0.0, ProbeStatus.FAIL),
     ])
     assert summary.final_verdict == "review"
+
+
+def test_glm_flash_weak_tool_support_is_not_perfect_model_identity():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.chat.stream", "protocol", 1.0),
+        r("identity.family_features.tools", "identity", 1.0, identity_strength="weak"),
+        r("identity.family_features.reasoning_effort", "identity", None,
+          status=ProbeStatus.INSUFFICIENT, identity_strength="weak"),
+    ])
+    assert summary.category_scores.get("identity") is None
+    assert summary.coverage["identity"] is False
+    assert summary.category_scores["protocol"] == 100.0
+    assert summary.final_verdict == "review"
