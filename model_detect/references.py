@@ -397,7 +397,7 @@ def compare_protocol_signature(
             category="identity",
             status=ProbeStatus.INSUFFICIENT,
             score=None,
-            confidence=0.0,
+            confidence=None,
             summary="reference does not contain a protocol signature",
         )
 
@@ -413,7 +413,7 @@ def compare_protocol_signature(
             category="identity",
             status=ProbeStatus.INSUFFICIENT,
             score=None,
-            confidence=0.0,
+            confidence=None,
             summary="no comparable probes between current run and reference",
         )
 
@@ -440,7 +440,7 @@ def compare_protocol_signature(
         category="identity",
         status=status,
         score=ratio,
-        confidence=min(0.95, 0.5 + len(common) / 40),
+        confidence=None,
         summary=f"protocol signature matched {matches}/{len(common)} comparable probes",
         observed={"match_ratio": ratio, "details": details},
         metadata={
