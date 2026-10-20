@@ -175,7 +175,7 @@ def evaluate_upstream_policy(
         category="provider",
         status=ProbeStatus.FAIL if violation else ProbeStatus.INSUFFICIENT,
         score=0.0 if violation else None,
-        confidence=1.0 if violation else 0.0,
+        confidence=None,
         summary=(
             "configured disallowed-provider response-header rule matched: "
             + ", ".join(item["provider"] for item in detected)
