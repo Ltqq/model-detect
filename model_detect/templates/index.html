@@ -269,8 +269,8 @@ progress{width:120px;height:8px}.err{white-space:pre-wrap;color:var(--red);font-
 const q=id=>document.getElementById(id);
 const profileHelp={
   quick:'快速检查基础协议与明显错误，适合先确认接口能否正常调用；不适合做完整准入结论。',
-  standard:'推荐日常准入：覆盖协议、参数完整性、上下文、路由和基础能力，耗时与证据量比较均衡。',
-  deep:'在 Standard 基础上增加更多路由/能力/代码等检查，适合异常复核或重要供应商准入。'
+  standard:'日常检查：覆盖协议、参数完整性、上下文、路由和基础能力；不认证模型身份，重要准入应结合可信参考或同条件 Benchmark。',
+  deep:'在 Standard 基础上增加更多路由/能力/代码等检查，适合异常复核；重要准入仍需同条件参考或独立评测。'
 };
 function updateProfileHelp(){q('profile_help').textContent=profileHelp[q('profile').value]||''}
 q('profile').addEventListener('change',updateProfileHelp);updateProfileHelp();
