@@ -175,17 +175,14 @@ def test_fingerprint_metadata_shape():
     assert got["post_reasoning"] is True
 
 
-def test_fingerprint_npx_fallback_pins_exact_package_version(monkeypatch):
+def test_fingerprint_does_not_fallback_to_unpublished_npm_package(monkeypatch):
     monkeypatch.setattr(
         fingerprint_adapter.shutil,
         "which",
         lambda name: "/usr/bin/npx" if name == "npx" else None,
     )
-    assert fingerprint_adapter._prefix() == [
-        "/usr/bin/npx",
-        "--yes",
-        "llm-fingerprint-detector@0.1.0",
-    ]
+    with pytest.raises(RuntimeError, match="automatic npx downloads are disabled"):
+        fingerprint_adapter._prefix()
 
 
 def test_fingerprint_global_binary_must_match_pinned_version(monkeypatch):
@@ -241,15 +238,18 @@ def test_fingerprint_availability_reports_version_mismatch(monkeypatch):
     assert status["version_compatible"] is False
 
 
-def test_fingerprint_availability_marks_pinned_npx_as_network_dependent(monkeypatch):
+def test_fingerprint_availability_requires_explicit_source_install(monkeypatch):
     monkeypatch.setattr(
         fingerprint_adapter.shutil,
         "which",
         lambda name: "/usr/bin/npx" if name == "npx" else None,
     )
     status = fingerprint_adapter.availability()
-    assert status["available"] is True
-    assert status["executable_found"] is True
+    assert status["available"] is False
+    assert status["executable_found"] is False
     assert status["version_compatible"] is None
+    assert status["npx_available"] is True
+    assert status["automatic_download"] is False
     assert status["pinned_package_version"] == "0.1.0"
-    assert status["requires_network_if_downloaded"] is True
+    assert status["recommended_source_commit"] == "94dc44686a553595581b6d06405c17f070df9b8d"
+    assert status["requires_manual_source_install"] is True
