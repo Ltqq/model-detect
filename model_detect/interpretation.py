@@ -25,9 +25,9 @@ VERDICT_ZH = {
 }
 
 CONFIDENCE_ZH = {
-    "high": "高",
-    "medium": "中",
-    "low": "低",
+    "high": "证据覆盖较完整",
+    "medium": "证据覆盖中等",
+    "low": "证据覆盖有限",
 }
 
 CATEGORY_ZH = {
@@ -597,6 +597,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "hard_cap": report.summary.hard_cap,
         "confidence": confidence,
         "confidence_label": confidence_label(confidence),
+        "confidence_semantics": "heuristic_coverage_only_not_statistical_confidence",
         "confidence_text": confidence_text,
         "identity": identity,
         "provider": provider,
