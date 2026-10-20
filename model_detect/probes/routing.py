@@ -252,7 +252,7 @@ def _repeat_results(
             category="routing",
             status=status,
             score=score,
-            confidence=0.88 if len(rows) >= 10 else 0.75,
+            confidence=None,
             summary=(
                 f"routing verdict={verdict} across {len(windows)} sampling windows"
                 + (f"; {', '.join(flags)}" if flags else "")
@@ -280,7 +280,7 @@ def _repeat_results(
             category="routing",
             status=cluster_status,
             score=cluster_score,
-            confidence=0.82 if len(rows) >= 10 else 0.7,
+            confidence=None,
             summary=f"explainable routing feature buckets={len(clusters)} ({cluster_verdict})",
             observed={
                 "cluster_count": len(clusters),
@@ -371,7 +371,7 @@ async def _tool_style_consistency(
             category="routing",
             status=ProbeStatus.PASS if stable else ProbeStatus.WARN,
             score=1.0 if stable else 0.6,
-            confidence=0.65,
+            confidence=None,
             summary=(
                 "tool-call response style was stable"
                 if stable
@@ -446,7 +446,7 @@ async def _fact_inversion(
             category="routing",
             status=status,
             score=score,
-            confidence=0.7,
+            confidence=None,
             summary=f"fact inversion count={inversion_count}/4 ({verdict})",
             observed={"facts": rows, "inversion_count": inversion_count},
             evidence_ids=[x.id for x in evidences],
@@ -516,7 +516,7 @@ async def _quality_strata(
             category="routing",
             status=ProbeStatus.WARN if inversion else ProbeStatus.PASS,
             score=0.5 if inversion else 1.0,
-            confidence=0.55,
+            confidence=None,
             summary=(
                 "simple/complex quality inversion observed"
                 if inversion
@@ -568,22 +568,21 @@ def finalize_routing_analysis(results: list[ProbeResult]) -> ProbeResult:
         status = ProbeStatus.FAIL
         score = 0.0
         verdict = "mixed-routing-likely"
-        confidence = 0.9
+
     elif len(suspicious) >= 2:
         status = ProbeStatus.WARN
         score = 0.4
         verdict = "suspicious"
-        confidence = 0.75
+
     elif available:
         status = ProbeStatus.PASS
         score = 1.0
         verdict = "stable"
-        confidence = 0.7
+
     else:
         status = ProbeStatus.INSUFFICIENT
         score = None
         verdict = "insufficient"
-        confidence = 0.0
 
     evidence_ids = []
     for result in available:
@@ -594,7 +593,7 @@ def finalize_routing_analysis(results: list[ProbeResult]) -> ProbeResult:
         category="routing",
         status=status,
         score=score,
-        confidence=confidence,
+        confidence=None,
         summary=(
             f"routing evidence fusion={verdict}; "
             f"strong={strong or 'none'}; suspicious={suspicious or 'none'}"
