@@ -25,6 +25,7 @@ def test_reference_page_uses_same_theme_and_does_not_overstate_identity():
     html = files("model_detect").joinpath("templates/references.html").read_text(encoding="utf-8")
     css = html.split("<style>", 1)[1].split("</style>", 1)[0]
     assert css.count(":root") == 1
+    assert "#0c1219" not in html
     assert "最强的身份类证据之一" not in html
     assert "不能认证模型权重身份" in html
     assert "额外约 200 次请求" in html
