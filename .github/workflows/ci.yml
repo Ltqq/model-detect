@@ -136,7 +136,7 @@ jobs:
           assert result["returncode"] == 0, result
           assert isinstance(result["references"], list) and result["references"], result
           print({
-              "engine": result.get("source", {}).get("tool"),
+              "engine": "ToseaAI/llm-fingerprint-detector@0.1.0",
               "reference_count": len(result["references"]),
               "runtime_verified": True,
               "model_api_called": False,
