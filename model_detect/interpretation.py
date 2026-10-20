@@ -42,6 +42,7 @@ CATEGORY_ZH = {
     "benchmark": "标准能力评测",
     "target": "目标地址",
     "internal": "检测器内部",
+    "reference": "参考对照",
 }
 
 CATEGORY_HELP = {
@@ -51,6 +52,7 @@ CATEGORY_HELP = {
     "context": "检查较长输入是否能正确保留并取回关键信息，区分上下文失败和输出被截断。",
     "routing": "多次重复请求观察 model、响应结构、ID、Header、输出风格是否稳定，用于发现混路由迹象。",
     "capability": "用小型任务抽检基础能力。它只能辅助判断质量，不能单独证明模型身份。",
+    "reference": "比较当前探针状态与保存参考的差异；状态相同只说明行为签名接近，不证明模型权重身份。",
 }
 
 PROBE_TITLES = {
@@ -73,6 +75,7 @@ PROBE_TITLES = {
     "provider.error.invalid_model": "不存在模型拒绝",
     "provider.error.invalid_model_status": "不存在模型 HTTP 状态码",
     "provider.upstream_policy": "上游准入策略",
+    "identity.reference.protocol_signature": "参考协议行为签名对照",
     "identity.fingerprint.reference_compare": "统计指纹与可信参考对比",
     "identity.self_consistency": "统计指纹自一致性",
     "routing.fingerprint.consistency": "指纹路由稳定性",
