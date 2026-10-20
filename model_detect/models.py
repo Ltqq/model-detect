@@ -72,6 +72,7 @@ class AuditSummary(BaseModel):
     coverage: dict[str, bool] = Field(default_factory=dict)
     hard_cap: float | None = None
     final_verdict: str = "insufficient"
+    # Legacy field: heuristic evidence-coverage grade, not statistical confidence.
     confidence: str = "low"
     warnings: list[str] = Field(default_factory=list)
 
