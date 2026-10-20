@@ -36,7 +36,9 @@ def _status(verdict: str) -> ProbeStatus:
     if value == "MATCH":
         return ProbeStatus.PASS
     if value == "MISMATCH":
-        return ProbeStatus.FAIL
+        # This optional alpha engine is not calibrated on our target models;
+        # a mismatch is a review signal, never a hard failure by itself.
+        return ProbeStatus.WARN
     if value in {"SUSPICIOUS", "INCONCLUSIVE"}:
         return ProbeStatus.WARN
     if value in {"NOT_RUN", "NOT_AVAILABLE"}:
@@ -135,49 +137,55 @@ def run(
         name = str(layer.get("layer") or layer.get("name") or "unknown")
         category = LAYER_CATEGORY.get(name, "identity")
         verdict = str(layer.get("verdict") or "INCONCLUSIVE")
-        score = layer.get("overall_score", layer.get("score"))
+        external_score = layer.get("overall_score", layer.get("score"))
         try:
-            score = float(score) if score is not None else None
+            external_score = float(external_score) if external_score is not None else None
         except Exception:
-            score = None
+            external_score = None
         results.append(
             ProbeResult(
                 probe_id=f"oss.proxy_sleuth.{name}",
                 category=category,
                 status=_status(verdict),
-                score=score,
+                # Preserve the third-party value as raw evidence, not our score.
+                score=None,
                 confidence=None,
-                summary=f"proxy-sleuth {name}: {verdict}",
-                observed={"layer": name, "verdict": verdict, "score": score},
+                summary=f"proxy-sleuth {name}: {verdict}; experimental external signal",
+                observed={"layer": name, "verdict": verdict, "external_score": external_score},
                 metadata={
                     "engine": "proxy-sleuth",
                     "layer": name,
                     "verdict": verdict.lower(),
-                    "identity_strength": (
-                        "strong" if name == "statistical"
-                        else ("medium" if name == "knowledge_probes" else "weak")
-                    ),
+                    "identity_strength": "weak",
+                    "weight_identity_proof": False,
+                    "not_calibrated_for_model_detect_targets": True,
                 },
             )
         )
 
     if not results:
         verdict = str(data.get("verdict") or "INCONCLUSIVE")
-        score = data.get("overall_score")
+        external_score = data.get("overall_score")
         try:
-            score = float(score) if score is not None else None
+            external_score = float(external_score) if external_score is not None else None
         except Exception:
-            score = None
+            external_score = None
         results.append(
             ProbeResult(
                 probe_id="oss.proxy_sleuth.overall",
                 category="identity",
                 status=_status(verdict),
-                score=score,
+                score=None,
                 confidence=None,
-                summary=f"proxy-sleuth overall verdict={verdict}",
-                observed={"verdict": verdict, "overall_score": score},
-                metadata={"engine": "proxy-sleuth", "verdict": verdict.lower(), "identity_strength": "medium"},
+                summary=f"proxy-sleuth overall verdict={verdict}; experimental external signal",
+                observed={"verdict": verdict, "external_score": external_score},
+                metadata={
+                    "engine": "proxy-sleuth",
+                    "verdict": verdict.lower(),
+                    "identity_strength": "weak",
+                    "weight_identity_proof": False,
+                    "not_calibrated_for_model_detect_targets": True,
+                },
             )
         )
 
