@@ -47,11 +47,11 @@ def test_review_without_strong_identity_explains_reference_gap():
 
     assert human["decision"] == "人工复核"
     assert human["identity"]["state"] == "missing"
-    assert human["identity"]["label"] == "缺少强身份依据"
+    assert human["identity"]["label"] == "未运行可用的参考对比"
     assert any("不影响已支持的协议与能力测试" in action for action in human["actions"])
 
 
-def test_strong_identity_match_can_be_explained_as_pass():
+def test_behavioral_fingerprint_match_is_not_strong_identity_proof():
     report = AuditReport(
         target={"base_url": "https://example.com/v1", "model": "kimi-k3"},
         summary=AuditSummary(
@@ -65,8 +65,11 @@ def test_strong_identity_match_can_be_explained_as_pass():
             result(
                 "identity.fingerprint.reference_compare",
                 "identity",
+                score=None,
+                confidence=None,
                 verdict="match",
-                identity_strength="strong",
+                identity_strength="weak",
+                weight_identity_proof=False,
             )
         ],
     )
@@ -74,7 +77,7 @@ def test_strong_identity_match_can_be_explained_as_pass():
     human = build_report_interpretation(report)
 
     assert human["decision"] == "可通过"
-    assert human["identity"]["state"] == "match"
+    assert human["identity"]["state"] == "behavioral_match"
     assert "不能证明模型权重身份" in human["identity"]["text"]
 
 
@@ -245,14 +248,16 @@ def test_fingerprint_mismatch_is_not_automatic_model_rejection():
             result(
                 "identity.fingerprint.reference_compare",
                 "identity",
-                status=ProbeStatus.FAIL,
-                score=0.0,
-                identity_strength="strong",
+                status=ProbeStatus.WARN,
+                score=None,
+                confidence=None,
+                identity_strength="weak",
+                weight_identity_proof=False,
                 verdict="mismatch",
             )
         ],
     )
     human = build_report_interpretation(report)
-    assert human["identity"]["state"] == "mismatch"
+    assert human["identity"]["state"] == "behavioral_mismatch"
     assert human["decision"] == "人工复核"
     assert "不以此单项证明换模" in human["headline"]
