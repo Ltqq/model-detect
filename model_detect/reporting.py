@@ -510,7 +510,12 @@ def _render_html(report: AuditReport) -> str:
     blocked_html = "".join(blocked_items)
 
     issues_html = []
+    deferred = []
     for item in human["issues"]:
+        # Lack of a reference / unrun Quick-only checks is not an API defect.
+        if item["status"] == "insufficient":
+            deferred.append(item)
+            continue
         action = (
             f"<div class='action-line'>建议：{html.escape(item['action'])}</div>"
             if item.get("action") else ""
@@ -534,7 +539,16 @@ def _render_html(report: AuditReport) -> str:
             """
         )
     if not issues_html:
-        issues_html.append("<div class='empty good-text'>没有需要优先处理的异常项。</div>")
+        issues_html.append("<div class='empty good-text'>没有需要优先处理的明确失败或警告项。</div>")
+    if deferred:
+        deferred_lines = "".join(
+            f"<li>{html.escape(item['title'])}：{html.escape(item['technical_summary'])}</li>"
+            for item in deferred
+        )
+        issues_html.append(
+            f"<details class='uncertain-list'><summary>另有 {len(deferred)} 项证据不足（非模型失败）</summary>"
+            f"<ul>{deferred_lines}</ul></details>"
+        )
 
     actions_html = "".join(
         f"<li>{html.escape(action)}</li>" for action in human["actions"]
@@ -610,21 +624,55 @@ a{{color:var(--blue);text-decoration:none}}a:hover{{text-decoration:underline}}c
 details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}}button{{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:8px;padding:7px 11px;cursor:pointer}}button:hover{{border-color:var(--blue)}}
 .notice{{padding:12px 14px;background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);border-radius:10px;color:#e5c07b;font-size:13px}}
 @media(max-width:900px){{.hero-grid{{grid-template-columns:1fr}}.quick-grid,.category-grid{{grid-template-columns:1fr 1fr}}}}@media(max-width:620px){{.quick-grid,.category-grid{{grid-template-columns:1fr}}.wrap{{padding:18px 12px 60px}}}}
+
+/* V2 report: evidence-first hierarchy and restrained editorial layout. */
+:root{{--bg:#f5f7fb;--panel:#fff;--panel2:#f8fafc;--border:#e3e8f0;--text:#182234;--muted:#69778b;--blue:#385fe7;--green:#12845b;--yellow:#a96b10;--red:#c73f48;--purple:#7258cc}}
+body{{background:radial-gradient(ellipse at 12% 0%,#eaf0ff,transparent 42%),var(--bg);font-size:14px;line-height:1.62}}
+.wrap{{max-width:1100px;padding:39px 24px 82px}}
+.topbar{{margin-bottom:22px;align-items:center}}.topbar h1{{font-size:30px;letter-spacing:-.6px}}
+.report-links{{display:flex;gap:19px;flex-shrink:0;font-size:13px}}
+.card{{border-radius:17px;padding:24px 27px;box-shadow:0 12px 45px rgba(29,51,96,.035);margin:16px 0}}
+.hero{{border-color:#d9e2fd!important;padding:29px;box-shadow:0 16px 65px rgba(56,95,231,.07)}}
+.hero-grid{{grid-template-columns:minmax(0,1fr) 260px;gap:25px}}
+.decision strong{{font-size:32px;letter-spacing:-.5px}}
+.headline{{color:#40506a;line-height:1.65}}
+.scorebox{{gap:9px}}.scorebox .metric{{padding:12px;background:#f8faff}}
+.metric{{border-radius:11px}}.metric b{{font-size:19px}}
+.notice{{background:#f0f4ff!important;color:#4b6392!important;border:1px solid #dae4ff!important;border-radius:9px;padding:11px 13px}}
+h2{{font-size:20px;letter-spacing:-.4px}}.section-head{{margin-bottom:13px}}
+.eyebrow{{color:var(--blue)}}.issue{{padding:16px 0}}.issue p{{color:#465670}}
+.pill{{background:#f0f3f8;color:#45566e}}.pill.ok{{background:#eaf8f1;color:#11724b}}.pill.warn{{background:#fff6e5;color:#9b6511}}.pill.bad{{background:#ffeded;color:#b93b41}}.pill.dim{{color:#65768b}}
+.action-line{{background:#f0f4ff;border-left-color:#6687ed;color:#405777}}
+.issue details>summary{{color:#4264a5;font-size:12px;cursor:pointer}}
+.report-optional{{padding:17px 23px;box-shadow:none}}
+.report-optional>summary{{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center;color:#34445d;font-size:14px;font-weight:730}}
+.report-optional>summary:after{{content:"⌄";font-size:17px;color:#8492a5}}
+.report-optional[open]>summary:after{{content:"⌃"}}
+.report-optional>summary .muted{{font-weight:400;font-size:12px}}
+.report-optional>.quick-grid,.report-optional>.section-head,.report-optional>.lead,.report-optional>.metrics,.report-optional>.filter-row,.report-optional>.table-wrap,.report-optional>.optional-body{{margin-top:18px}}
+.report-optional .card{{border:0;box-shadow:none;border-radius:11px;background:#f7f9fc;padding:18px;margin:12px 0}}
+.uncertain-list{{border-top:1px solid var(--border);margin-top:14px;padding-top:14px;color:var(--muted);font-size:13px}}
+.uncertain-list>summary{{cursor:pointer;font-weight:650;color:#53647b}}
+.uncertain-list li{{padding:4px 0}}.empty{{background:#f9fbfe}}
+.table-wrap{{overflow:auto;border:1px solid var(--border);border-radius:10px}}th{{background:#f8fafc}}
+th,td{{padding:12px}}.quick-card,.category-card{{background:#f7f9fc}}
+button{{background:#385fe7!important;color:#fff!important;border-radius:9px;font-size:13px}}
+@media(max-width:820px){{.wrap{{padding:21px 12px 45px}}.card{{padding:17px}}.hero-grid{{grid-template-columns:1fr}}.quick-grid{{grid-template-columns:1fr 1fr}}.category-grid{{grid-template-columns:1fr}}.report-links{{flex-direction:column;gap:5px}}}}
 </style>
 </head>
 <body><div class="wrap">
 <div class="topbar">
-  <div><div class="eyebrow">model-detect</div><h1>模型渠道审计报告</h1><div class="subtitle">{model} · {base_url} · {html.escape(report.profile.upper())}</div></div>
-  <div><a href="/">← 返回检测首页</a></div>
+  <div><div class="eyebrow">MODEL DETECT / AUDIT</div><h1>模型接口检测报告</h1><div class="subtitle">{model} · {base_url} · {html.escape(report.profile.upper())}</div></div>
+  <div class="report-links"><a href="/">← 返回检测</a><a href="#all-results">查看明细</a></div>
 </div>
 
 <section class="card hero {tone_class}">
   <div class="hero-grid">
     <div>
-      <div class="decision">准入建议<strong>{html.escape(human['decision'])}</strong></div>
+      <div class="decision">本次检测结论<strong>{html.escape(human['decision'])}</strong></div>
       <p class="headline" id="human-headline">{html.escape(human['headline'])}</p>
       <div style="margin-top:12px"><button onclick="copyConclusion()">复制结论</button></div>
-      <div class="notice" style="margin-top:14px">仅展示本次检测的可观察结果；协议或能力通过不能认证模型权重身份。历史加权分数保留在原始 JSON 中，不作为当前准入结论。</div>
+      <div class="notice" style="margin-top:14px">此次报告根据实际执行项形成结论。未运行的能力测试、缺少 Reference、输出预算截断均不等于模型失败；协议通过也不证明模型权重身份。</div>
     </div>
     <div class="scorebox">
       <div class="metric"><span>通过检查项</span><b>{sum(r.status == ProbeStatus.PASS for r in report.results)}</b></div>
@@ -635,31 +683,25 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
   </div>
 </section>
 
-<section class="card">
-  <div class="section-head"><div><div class="eyebrow">先看这里</div><h2>这次结果怎么理解</h2></div></div>
+<details class="card report-optional">
+  <summary>检测范围及身份限制 <span class="muted">仅在需要时展开查看</span></summary>
+  <div class="section-head"><div><h2>这次结果怎么理解</h2></div></div>
   <div class="quick-grid">
     <div class="quick-card"><small>模型身份</small><b>{html.escape(identity_state_label)}</b><p>{html.escape(identity['text'])}</p></div>
     <div class="quick-card"><small>质量保持</small><b>{html.escape(str(quality.get('label') or '未配置'))}</b><p>{html.escape(str(quality.get('text') or ''))}</p></div>
     <div class="quick-card"><small>禁止上游策略</small><b>{html.escape(policy_state_label)}</b><p>{html.escape(provider['text'])}</p></div>
     <div class="quick-card"><small>429 限流</small><b>{provider['http_429_count']} 次</b><p>429 只表示限流，本工具不会用 429 单独判断 Fireworks 或其他上游。</p></div>
   </div>
-</section>
-
-{quality_section}
-{public_benchmarks_section}
-
-<section class="card">
-  <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与异常数量</h2></div></div>
-  <div class="category-grid">{''.join(category_cards)}</div>
-</section>
+</details>
 
 <section class="card">
   <div class="section-head"><div><div class="eyebrow">优先处理</div><h2>风险与异常解读</h2></div><span class="muted">最多展示 12 项</span></div>
   {''.join(issues_html)}
 </section>
 
-<section class="card">
-  <div class="section-head"><div><div class="eyebrow">上游可观测证据</div><h2>Provider / Gateway 指纹</h2></div></div>
+<details class="card report-optional">
+  <summary>上游 / Gateway 观察信息 <span class="muted">未配置禁止上游时不影响准入</span></summary>
+  <div class="section-head"><div><h2>Provider / Gateway 指纹</h2></div></div>
   <p class="lead">{html.escape(provider['text'])}</p>
   <div class="metrics">
     <div class="metric"><span>禁止列表</span><b>{html.escape(', '.join(provider['disallowed']) or '未配置')}</b></div>
@@ -668,7 +710,7 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
   </div>
   <div style="margin-top:10px">{providers_html}</div>
   {('<div style="margin-top:14px"><div class="eyebrow">禁止上游命中证据</div>' + blocked_html + '</div>') if blocked_html else ''}
-</section>
+</details>
 
 {fingerprint_section}
 {usage_cost_section}
@@ -681,15 +723,30 @@ details{{margin:7px 0}}summary{{cursor:pointer;color:var(--blue)}}.filter-row{{d
 
 {regression_section}
 
-<section class="card" id="all-results">
-  <div class="section-head"><div><div class="eyebrow">技术明细</div><h2>全部检测项</h2></div><span class="muted">普通使用只需看上面的中文结论</span></div>
+<details class="card report-optional">
+  <summary>模型官方公开成绩、质量基准与六维度覆盖 <span class="muted">背景参考，不作直接判定</span></summary>
+  <div class="optional-body">
+{quality_section}
+{public_benchmarks_section}
+
+<section class="card">
+  <div class="section-head"><div><div class="eyebrow">六大维度</div><h2>检测覆盖与异常数量</h2></div></div>
+  <div class="category-grid">{''.join(category_cards)}</div>
+</section>
+
+  </div>
+</details>
+
+<details class="card report-optional" id="all-results">
+  <summary>完整检测明细与原始证据 <span class="muted">{len(report.results)} 个检测项，可筛选异常</span></summary>
+  <div class="section-head"><div><h2>全部检测项</h2></div></div>
   <div class="filter-row">
     <button onclick="filterRows('important')">只看异常</button>
     <button onclick="filterRows('fail')">只看失败</button>
     <button onclick="filterRows('all')">全部</button>
   </div>
   <div class="table-wrap"><table id="probe-table"><thead><tr><th>检测项</th><th>维度</th><th>状态</th><th>分数</th><th>解读 / 技术摘要</th><th>证据</th></tr></thead><tbody>{''.join(result_rows)}</tbody></table></div>
-</section>
+</details>
 
 <section class="card">
   <details><summary>高级：Adapters / Reference / 原始配置</summary>{''.join(adapter_rows)}</details>
