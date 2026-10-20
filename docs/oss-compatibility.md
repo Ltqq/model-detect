@@ -49,6 +49,22 @@
 
 已修正指纹适配器的版本可复现性：全局 `llm-fingerprint` 必须报告版本 `0.1.0`，npx 回退固定为 `llm-fingerprint-detector@0.1.0`；`oss-status` 明确区分版本不兼容和依赖网络下载。该改动只解决执行版本，不证明真实 API 运行或身份识别准确性。候选工具仍须经过正反样例与真实参考验收。
 
+### 指纹引擎的可选源码安装
+
+只有用户主动启用统计指纹时才需要安装。该项目虽有 npm `package.json`，但在 2026-10-20 对 npm registry 的真实安装测试返回 404，因此不要使用 `npx llm-fingerprint-detector`。CI 已验证以下固定源码构建可用（不调用模型 API）：
+
+```bash
+git clone https://github.com/ToseaAI/llm-fingerprint-detector.git
+cd llm-fingerprint-detector
+git checkout 94dc44686a553595581b6d06405c17f070df9b8d
+npm ci
+npm run build
+npm link
+llm-fingerprint --version  # 必须输出 0.1.0
+```
+
+此安装只验证上游 CLI 和参考目录可用。真实 API 指纹采集仍会产生额外请求费用，且必须有相同协议、可信来源的 Reference；没有参考或样本不足时不得输出身份判断。
+
 ## 4. 选型结论：少数方法真正跑起来，而不是堆更多依赖
 
 1. **协议核心**：保留当前自有 HTTP 合约胶水和 Kimi 官方专项；修正错误的协议/身份断言。
