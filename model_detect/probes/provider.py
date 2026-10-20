@@ -111,7 +111,7 @@ def evaluate_upstream_policy(
             category="provider",
             status=ProbeStatus.SKIPPED,
             score=None,
-            confidence=1.0,
+            confidence=None,
             summary="no disallowed upstream providers configured",
             metadata={"policy_violation": False},
         )
