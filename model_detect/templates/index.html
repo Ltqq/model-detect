@@ -68,7 +68,7 @@ table{font-size:12px}th,td{padding:13px}th{background:#f8fafc}
 </head>
 <body><div class="wrap">
 <div class="top">
-  <div><div class="eyebrow">model-detect</div><h1>模型渠道检测</h1><div class="muted">输入待测接口和模型，先看可用性与协议表现，再按需深入验证能力和异常。</div></div>
+  <div><div class="eyebrow">model-detect</div><h1>模型渠道检测</h1><div class="muted">输入待测接口和模型，先看接口可用性与协议表现，再按需深入验证能力和异常。</div></div>
   <nav class="top-nav"><a href="#audit-start">开始检测</a><a href="#history-list">历史记录</a><a href="/references">参考基准 <span class="nav-optional">高级</span></a></nav>
 </div>
 
@@ -93,8 +93,8 @@ table{font-size:12px}th,td{padding:13px}th{background:#f8fafc}
     <div>
       <label>检测档位</label>
       <select id="profile">
-        <option value="quick">快速检测 Quick</option>
-        <option value="standard" selected>标准检测 Standard（推荐）</option>
+        <option value="quick" selected>快速检测 Quick（建议首次使用）</option>
+        <option value="standard">标准检测 Standard（扩大覆盖）</option>
         <option value="deep">深度检测 Deep</option>
       </select>
       <div id="profile_help" class="field-help"></div>
