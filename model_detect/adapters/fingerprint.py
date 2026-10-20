@@ -53,22 +53,6 @@ def availability() -> dict[str, Any]:
     }
 
 
-def _installed_version(binary: str) -> str | None:
-    try:
-        proc = subprocess.run(
-            [binary, "--version"],
-            text=True,
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if proc.returncode != 0:
-        return None
-    return (proc.stdout or "").strip() or None
-
-
 def _prefix() -> list[str]:
     direct = shutil.which("llm-fingerprint")
     if not direct:
