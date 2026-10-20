@@ -12,6 +12,10 @@
 | YAML 回归 | [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | MIT；当前未固定并实证完整外部 CLI 版本 | 旧 YAML/历史路径仍被调用；不属于默认 Quick/Standard 主引擎 | 执行显式断言与回归；断言本身需要正反例校准，不识别真实权重 |
 | 行为分布指纹 | [ToseaAI/llm-fingerprint-detector](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；上游 package.json 当前版本 `0.1.0)，要求 Node >=18.17 | `model_detect/adapters/fingerprint.py` 当前适配此项目；本次 ZIP 状态为未运行；运行版本和 CLI 合同尚需固定/核验 | 在采样协议一致且有可信参考时，提供行为分布相似/不一致信号；不是权重证明 |
 | 多层代理异常筛查 | [Babapei/proxy-sleuth](https://github.com/Babapei/proxy-sleuth) | MIT；上游标为 Alpha，当前版本需固定 | 旧 CLI/适配器保留、默认关闭；未对本产品五型号做受控真值校准 | 候选的参数/上下文/路由/行为信号；不能直接作为真假判决 |
+| 序贯行为指纹 / 假设检验 | [Mohamed7415/fpverify](https://github.com/Mohamed7415/fpverify) | MIT；README/CITATION 标记 0.1.0；当前仓库没有 `pyproject.toml`，依赖通过 `requirements.txt` 管理 | **未集成**；代码与统计测试值得深入评估，不能直接 pip 安装成稳定依赖 | 在行为分布指纹上增加 e-process 早停与误报控制，并做参考方差标定；README 的 FPR 数字主要来自项目自身仿真/实验，复合零假设的 `delta` 标定明确是后验预测近似，不能无条件宣称真实 API FPR 已被证明 |
+| 参考校准 + 负对照的渠道审计 | [benbenlijie/llm-provider-audit](https://github.com/benbenlijie/llm-provider-audit) | MIT；Alpha，`0.1.0`；要求 Python >=3.12，与本项目 3.11 测试矩阵不兼容 | **未集成**；用于对比设计参考方差/负对照/开放集阈值，不直接作为依赖 | 提供了有价值的实验设计；与当前指纹/路由能力重叠，必须先证明独有覆盖与可复现结果 |
+| 蒸馏/模型血缘取证 | [liuxiaotong/model-audit](https://github.com/liuxiaotong/model-audit) | MIT；Alpha；README 自述 14 样本上 100% 检出，尚需独立复现 | **不进入 v0.2.0** | 面向蒸馏/血缘检测，包含需要白盒表示的路线；小样本自报准确率不足以成为 API 中转验真依据 |
+
 | 外部统计指纹候选 | [dreamor/llm-fingerprint](https://github.com/dreamor/llm-fingerprint)；[ps4398/llm_check](https://github.com/ps4398/llm_check) | 均 MIT；dreamor 工具自述有 176 模型库，参考数据 CC-BY-4.0；上游版本/参考日期需记录 | **尚未集成到当前主流程**；仅作同类候选对比，不同时维护多个重复引擎 | 同样是行为分布方法；需评估参考库覆盖、协议差异、有效样本和误报 |
 | 通用任务/Agent 评测框架候选 | [UK AI Security Institute Inspect](https://github.com/UKGovernmentBEIS/inspect_ai) | MIT；有 200+ 预构建评测 | **未集成**；作为 lm-eval 的备选，不并行引入 | 更复杂的多轮、工具和模型评分任务；需证明 lm-eval 缺口才考虑替换/补充 |
 | LLM 安全红队 | [NVIDIA/garak](https://github.com/NVIDIA/garak) | Apache-2.0 | **未集成，v0.2.0 非目标** | 注入、越狱、泄露等安全弱点；不等同模型供应商/权重身份检测 |
@@ -49,7 +53,7 @@
 
 1. **协议核心**：保留当前自有 HTTP 合约胶水和 Kimi 官方专项；修正错误的协议/身份断言。
 2. **能力主力**：保留 EleutherAI lm-eval 原生任务和评分器；Inspect AI、OpenCompass、EvalScope 是候选替代/补充，不因“功能多”并行安装。仅在已证明任务覆盖缺口后再决策。
-3. **身份/路由信号**：先评估现有 ToseaAI 指纹适配器，并与 dreamor/llm_check 的参考覆盖、许可、执行契约和成本做一次离线/受控对比；三者同属行为分布路线，不是三种独立证据。proxy-sleuth 与已有探针重叠，保持实验性关闭。
+3. **身份/路由信号**：比较 ToseaAI（易安装、固定样本 JSD）与 fpverify（序贯 e-process、参考方差校准但成本/集成更高），并审查 llm-provider-audit 的负对照设计；这些工具尚未完成本项目的真实正反端点验证，均不得直接成为默认结论。dreamor/llm_check 是同类分布指纹候选，不应同时接入。proxy-sleuth 与已有探针重叠，保持实验性关闭。
 4. **回归断言**：promptfoo 只承担现有 YAML 回归兼容，不与 lm-eval 争夺能力评分主线。
 5. **安全扫描**：garak 不属于当前产品目标；不安装、不把安全扫描报告混进模型身份结论。
 6. **新方法的准入门槛**：上游地址/许可证/固定版本 → 代码调用合同 → 已知正例/负例/未知例 → 有效样本/成本 → 误报/漏报和局限 → 报告证据来源。不能满足则保持实验性/不运行。
