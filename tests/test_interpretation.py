@@ -124,6 +124,10 @@ def test_upstream_policy_violation_becomes_plain_chinese_rejection():
     assert human["provider"]["state"] == "violation"
     assert human["provider"]["http_429_count"] == 2
     assert human["provider"]["hypotheses"][0]["label"] == "Fireworks AI"
+    assert human["provider"]["hypotheses"][0]["confidence"] is None
+    assert human["confidence_is_probability"] is False
+    assert "不是统计置信度" in human["confidence_text"]
+    assert any("生成正文" in item for item in human["limitations"])
 
 
 def test_429_is_explained_as_auxiliary_only_when_policy_clear():
