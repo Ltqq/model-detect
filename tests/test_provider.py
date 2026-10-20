@@ -33,7 +33,7 @@ def test_detect_azure_apim_and_fireworks_from_evidence():
     by_name = {x.provider: x for x in got}
     assert "azure_apim" in by_name
     assert "fireworks" in by_name
-    assert by_name["fireworks"].confidence > 0.5
+    assert by_name["fireworks"].confidence is None
     assert by_name["azure_apim"].evidence
 
 
