@@ -320,3 +320,17 @@ main 已包含 M6 工程收尾及后续 P0/D1 修复（截至 #185）：Web/SQLi
 6. **删减审查**：若新增一个工具与现有工具重复，必须说明它覆盖了哪个已证实缺口；否则不接入。
 
 **不改变的约束**：冻结产品宪章 v1 不改；不因单份 GLM 报告增加特判；不把指纹当唯一检测方法；不并行堆砌 lm-eval/Inspect/OpenCompass/EvalScope；不把安全红队、性能压测或权重认证扩入 v0.2.0。
+
+
+## D0 增量开发与自审记录（2026-10-20，未完成 CI 验收）
+
+本检查点严格遵守冻结产品宪章：仅修复通用 Provider 元数据证据和增加模型无关反例；未修改任何 GLM/Kimi/DeepSeek 的预期答案、未增加引擎、未产生模型 API 调用。
+
+- [x] [6635d53](https://github.com/Ltqq/model-detect/commit/6635d534cd85f1d1dccf2c4e7e23ce3aeca05c10)：增加品牌词在回答、reasoning、JSON 字符串、错误消息及 401/429/500 中的通用假阳性矩阵。
+- [x] [86fe821](https://github.com/Ltqq/model-detect/commit/86fe821e8581acfbc26c38538f3c998c5ed00a16)：补充空/未知/通用响应头和伪造品牌响应头反例；明确元数据提示不是模型权重认证。
+- [x] [8466660](https://github.com/Ltqq/model-detect/commit/84666601ecaf99ba6ac8f304bd1790443289c958)：修复仅存在 Header 键但值为空仍被当作供应商线索的问题；保持有值的旧规则与报告结构不变。
+- [x] [244d1bb](https://github.com/Ltqq/model-detect/commit/244d1bba4035580ef6e36630624dbd841119cd69)：新增空字符串、空格、制表符三种反例回归。
+
+**Review 结论**：这些提交只增强证据过滤与回归保护，未添加针对单次报告的特殊判断；既有带值 Header 的策略语义不变。需要继续审查的是：即使专属 Header 有值也可能由代理注入/转发，因此当前 `upstream_policy` 的 FAIL 只能解释为“配置的响应头规则命中”，**绝不可升级为模型身份不符结论**。这一限制已在现有结果字段中说明，最终报告的所有入口仍需核对。
+
+**未验收项**：当前连接环境无法克隆 GitHub 仓库，提交对应的 PR 工作流运行也未查询到；尚未获得 Python 3.11/3.12 全量测试绿灯。故 D0、P0、D2 和发布条件均**不得勾选完成**。下一小阶段优先检查 CI/可执行测试，审查 `scoring.py` 与 `reporting.py` 的 UNKNOWN/FAIL/未运行语义，再处理 D1 适配器结果契约，不引入新检测器。
