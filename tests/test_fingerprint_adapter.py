@@ -167,3 +167,37 @@ def test_fingerprint_global_binary_rejects_unknown_or_different_version(monkeypa
     )
     with pytest.raises(RuntimeError, match="version mismatch"):
         fingerprint_adapter._prefix()
+
+
+def test_fingerprint_availability_reports_version_mismatch(monkeypatch):
+    monkeypatch.setattr(
+        fingerprint_adapter.shutil,
+        "which",
+        lambda name: "/usr/local/bin/llm-fingerprint" if name == "llm-fingerprint" else None,
+    )
+    monkeypatch.setattr(
+        fingerprint_adapter.subprocess,
+        "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(
+            cmd, 0, stdout="0.9.9\\n", stderr=""
+        ),
+    )
+    status = fingerprint_adapter.availability()
+    assert status["executable_found"] is True
+    assert status["available"] is False
+    assert status["installed_version"] == "0.9.9"
+    assert status["version_compatible"] is False
+
+
+def test_fingerprint_availability_marks_pinned_npx_as_network_dependent(monkeypatch):
+    monkeypatch.setattr(
+        fingerprint_adapter.shutil,
+        "which",
+        lambda name: "/usr/bin/npx" if name == "npx" else None,
+    )
+    status = fingerprint_adapter.availability()
+    assert status["available"] is True
+    assert status["executable_found"] is True
+    assert status["version_compatible"] is None
+    assert status["pinned_package_version"] == "0.1.0"
+    assert status["requires_network_if_downloaded"] is True
