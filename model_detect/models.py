@@ -49,8 +49,8 @@ class ProbeResult(BaseModel):
     category: str
     status: ProbeStatus
     score: float | None = None
-    # Optional for categorical checks that do not have a calibrated probability.
-    confidence: float | None = 1.0
+    # Legacy JSON field; leave unset unless a probability is statistically calibrated.
+    confidence: float | None = None
     summary: str
     expected: Any = None
     observed: Any = None
