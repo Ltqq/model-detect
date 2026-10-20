@@ -242,7 +242,7 @@ def _fingerprint_section(report: AuditReport) -> str:
     return f"""
 <section class="card" id="fingerprint">
   <div class="section-head">
-    <div><div class="eyebrow">强身份依据</div><h2>统计指纹对比</h2></div>
+    <div><div class="eyebrow">行为参考信号</div><h2>统计指纹对比</h2></div>
     <span class="pill {_status_class(primary.status.value)}">{html.escape(status_label(primary.status))}</span>
   </div>
   <p class="lead">{html.escape(explanation)}</p>
