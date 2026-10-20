@@ -10,7 +10,7 @@
 | 厂商专项协议 | [MoonshotAI/Kimi-Vendor-Verifier](https://github.com/MoonshotAI/Kimi-Vendor-Verifier) | MIT；固定源码 commit `66092cf444c97356c0e11c5078c67116390615d9) | 四组 Pytest 源码已固定；源码/运行器离线检查通过；真实端点运行未证明 | 对 Kimi 适用的协议/参数测试；不是任意模型的身份认证 |
 | 通用能力 Benchmark | [EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) | MIT；当前项目配置目标为 `0.4.13)，须以运行环境版本复核 | 已验证原始评分器在本地 OpenAI 兼容 Mock 上执行并输出 JSON；真实供应商成绩未验证；默认关闭 | 在具体任务、样本、评分器、生成参数可比时，测量对应能力 |
 | YAML 回归 | [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | MIT；当前未固定并实证完整外部 CLI 版本 | 旧 YAML/历史路径仍被调用；不属于默认 Quick/Standard 主引擎 | 执行显式断言与回归；断言本身需要正反例校准，不识别真实权重 |
-| 行为分布指纹 | [ToseaAI/llm-fingerprint-detector](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；版本固定为 `0.1.0`，要求 Node >=18.17 | 适配器已固定 npx 版本并校验全局 CLI；本次 ZIP 未运行，真实端点与准确性未验证 | 有匹配条件和可信参考时提供行为分布相似/不一致信号，不证明权重身份 |
+| 行为分布指纹 | [ToseaAI/llm-fingerprint-detector](https://github.com/ToseaAI/llm-fingerprint-detector) | MIT；源码版本 `0.1.0`，要求 Node >=18.17；npm registry 实测 404 | 适配器只使用显式安装且版本匹配的 CLI；不自动调用 npx。推荐固定 GitHub commit `94dc44686a553595581b6d06405c17f070df9b8d` 构建；PR #181 的源码构建与 `references --json` smoke 已通过 | 有匹配条件和可信参考时提供行为分布相似/不一致信号，不证明权重身份 |
 | 多层代理异常筛查 | [Babapei/proxy-sleuth](https://github.com/Babapei/proxy-sleuth) | MIT；上游标为 Alpha，当前版本需固定 | 旧 CLI/适配器保留、默认关闭；未对本产品五型号做受控真值校准 | 候选的参数/上下文/路由/行为信号；不能直接作为真假判决 |
 | 序贯行为指纹 / 假设检验 | [Mohamed7415/fpverify](https://github.com/Mohamed7415/fpverify) | MIT；README/CITATION 标记 0.1.0；当前仓库没有 `pyproject.toml`，依赖通过 `requirements.txt` 管理 | **未集成**；代码与统计测试值得深入评估，不能直接 pip 安装成稳定依赖 | 在行为分布指纹上增加 e-process 早停与误报控制，并做参考方差标定；README 的 FPR 数字主要来自项目自身仿真/实验，复合零假设的 `delta` 标定明确是后验预测近似，不能无条件宣称真实 API FPR 已被证明 |
 | 参考校准 + 负对照的渠道审计 | [benbenlijie/llm-provider-audit](https://github.com/benbenlijie/llm-provider-audit) | MIT；Alpha，`0.1.0`；要求 Python >=3.12，与本项目 3.11 测试矩阵不兼容 | **未集成**；用于对比设计参考方差/负对照/开放集阈值，不直接作为依赖 | 提供了有价值的实验设计；与当前指纹/路由能力重叠，必须先证明独有覆盖与可复现结果 |
@@ -42,12 +42,28 @@
 `model-detect oss-status` 的字段含义必须保持区分：
 
 - `adapter_exists`：仓库有适配器代码。
-- `executable_found`：本机找到命令入口；若需 `npx` 下载，不能视为已安装/已锁定。
+- `executable_found`：本机找到已安装的 `llm-fingerprint` 命令；仅找到 npx 不等于该引擎可运行。本项目禁用自动 npx 下载。
 - `version_compatible`：确切版本符合已声明约束。
 - `runtime_verified`：该工具在记录的环境中真实运行并产出预期结构。
 - `result_trust_verified`：方法经过适用范围内的已知正反样例验证；**Mock 只验证调用/解析链路，不校准真实模型鉴别能力**。
 
 已修正指纹适配器的版本可复现性：全局 `llm-fingerprint` 必须报告版本 `0.1.0`，npx 回退固定为 `llm-fingerprint-detector@0.1.0`；`oss-status` 明确区分版本不兼容和依赖网络下载。该改动只解决执行版本，不证明真实 API 运行或身份识别准确性。候选工具仍须经过正反样例与真实参考验收。
+
+### 指纹引擎的可选源码安装
+
+只有用户主动启用统计指纹时才需要安装。该项目虽有 npm `package.json`，但在 2026-10-20 对 npm registry 的真实安装测试返回 404，因此不要使用 `npx llm-fingerprint-detector`。CI 已验证以下固定源码构建可用（不调用模型 API）：
+
+```bash
+git clone https://github.com/ToseaAI/llm-fingerprint-detector.git
+cd llm-fingerprint-detector
+git checkout 94dc44686a553595581b6d06405c17f070df9b8d
+npm ci
+npm run build
+npm link
+llm-fingerprint --version  # 必须输出 0.1.0
+```
+
+此安装只验证上游 CLI 和参考目录可用。真实 API 指纹采集仍会产生额外请求费用，且必须有相同协议、可信来源的 Reference；没有参考或样本不足时不得输出身份判断。
 
 ## 4. 选型结论：少数方法真正跑起来，而不是堆更多依赖
 

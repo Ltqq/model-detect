@@ -12,6 +12,7 @@ from ..models import ProbeResult, ProbeStatus
 
 
 PINNED_FINGERPRINT_VERSION = "0.1.0"
+PINNED_FINGERPRINT_COMMIT = "94dc44686a553595581b6d06405c17f070df9b8d"
 MIN_COMPARABLE_CELLS = 4
 
 
@@ -36,44 +37,39 @@ def availability() -> dict[str, Any]:
     npx = shutil.which("npx")
     direct_version = _installed_version(direct) if direct else None
     direct_compatible = bool(direct and direct_version == PINNED_FINGERPRINT_VERSION)
-    can_use_pinned_npx = bool(not direct and npx)
     return {
-        "available": direct_compatible or can_use_pinned_npx,
-        "executable_found": bool(direct or npx),
+        "available": direct_compatible,
+        "executable_found": bool(direct),
         "direct_binary": direct,
         "installed_version": direct_version,
         "version_compatible": direct_compatible if direct else None,
-        "npx": npx,
+        "npx_available": bool(npx),
+        "automatic_download": False,
         "engine": "ToseaAI/llm-fingerprint-detector",
         "pinned_package_version": PINNED_FINGERPRINT_VERSION,
-        "requires_network_if_downloaded": can_use_pinned_npx,
+        "recommended_source_commit": PINNED_FINGERPRINT_COMMIT,
+        "requires_manual_source_install": not direct_compatible,
         "structured_json": True,
     }
 
 
 def _prefix() -> list[str]:
     direct = shutil.which("llm-fingerprint")
-    if direct:
-        installed_version = _installed_version(direct)
-        if installed_version != PINNED_FINGERPRINT_VERSION:
-            raise RuntimeError(
-                "llm-fingerprint CLI version mismatch; "
-                f"required {PINNED_FINGERPRINT_VERSION}, found "
-                f"{installed_version or 'unknown'}"
-            )
-        return [direct]
-    npx = shutil.which("npx")
-    if npx:
-        # Pin the package explicitly; never resolve an unversioned latest release.
-        return [
-            npx,
-            "--yes",
-            f"llm-fingerprint-detector@{PINNED_FINGERPRINT_VERSION}",
-        ]
-    raise RuntimeError(
-        "llm-fingerprint-detector is unavailable; install Node.js/npm or "
-        f"the llm-fingerprint CLI version {PINNED_FINGERPRINT_VERSION}"
-    )
+    if not direct:
+        raise RuntimeError(
+            "llm-fingerprint-detector CLI is not installed. The upstream package "
+            "is not available from the npm registry, so automatic npx downloads "
+            "are disabled. Build the pinned GitHub source commit "
+            f"{PINNED_FINGERPRINT_COMMIT}; see docs/oss-compatibility.md."
+        )
+    installed_version = _installed_version(direct)
+    if installed_version != PINNED_FINGERPRINT_VERSION:
+        raise RuntimeError(
+            "llm-fingerprint CLI version mismatch; "
+            f"required {PINNED_FINGERPRINT_VERSION}, found "
+            f"{installed_version or 'unknown'}"
+        )
+    return [direct]
 
 
 def _run_json(
