@@ -123,7 +123,7 @@ jobs:
           cd "$RUNNER_TEMP/llm-fingerprint-detector"
           git checkout 94dc44686a553595581b6d06405c17f070df9b8d
           npm ci
-          npm run build
+          npm test
           npm link
 
       - name: Verify real OSS CLI and bundled references without model API
