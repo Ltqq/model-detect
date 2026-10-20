@@ -118,16 +118,11 @@ def evaluate_upstream_policy(
 
     evidence_list = list(evidences)
     rules = load_provider_rules()
-    by_provider = {
-        item.provider.casefold(): item
-        for item in hypotheses
-    }
     detected: list[dict[str, Any]] = []
     matched_evidence_ids: list[str] = []
 
     for provider in sorted(disallowed_set):
         rule = rules.get(provider)
-        hypothesis = by_provider.get(provider)
         provider_evidence: list[dict[str, Any]] = []
         max_signal_weight = 0.0
         if rule is not None:
