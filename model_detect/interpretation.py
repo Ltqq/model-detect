@@ -478,17 +478,46 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
     quality = _quality_summary(report)
 
     invalid_target = verdict == "invalid_target"
-    policy_violation = provider["state"] == "violation"
     identity_mismatch = identity["state"] == "behavioral_mismatch"
+
+    # Legacy reports persisted a hard FAIL for an upstream-header rule. Do
+    # not rewrite stored history, but avoid repeating an unsupported rejection
+    # in the newly rendered explanation. Genuine unrelated FAILs remain FAILs.
+    legacy_policy = report.adapters.get("upstream_policy")
+    legacy_policy = legacy_policy if isinstance(legacy_policy, dict) else {}
+    legacy_observed = legacy_policy.get("observed")
+    legacy_observed = legacy_observed if isinstance(legacy_observed, dict) else {}
+    legacy_markers = legacy_observed.get("detected")
+    legacy_header_only = (
+        verdict == "fail"
+        and legacy_policy.get("status") == "violation"
+        and isinstance(legacy_markers, list)
+        and bool(legacy_markers)
+        and all(
+            isinstance(item, dict)
+            and item.get("decision_basis") == "configured_response_header_rule"
+            for item in legacy_markers
+        )
+        and any(
+            r.probe_id == "provider.upstream_policy"
+            and r.status == ProbeStatus.FAIL
+            for r in report.results
+        )
+        and not any(
+            r.status == ProbeStatus.FAIL
+            and r.probe_id != "provider.upstream_policy"
+            for r in report.results
+        )
+    )
 
     if invalid_target:
         decision = "重新检测"
         tone = "bad"
         headline = "检测地址无效：当前请求没有正确命中模型 API。"
-    elif policy_violation:
-        decision = "拒绝准入"
-        tone = "bad"
-        headline = "不通过：检测到被禁止的上游 Provider 证据。"
+    elif legacy_header_only:
+        decision = "人工复核"
+        tone = "warn"
+        headline = "历史检测仅命中可伪造的响应头标记；需要独立证据复核，不应据此拒绝准入。"
     elif identity_mismatch:
         decision = "人工复核"
         tone = "warn"
