@@ -124,3 +124,43 @@ def test_unpinned_preflight_does_not_invoke_costly_runner(tmp_path, monkeypatch)
             api_key="fake-token",
             output_path=tmp_path,
         )
+
+
+def test_fresh_complete_profile_run_is_reported_with_provenance(tmp_path, monkeypatch):
+    output = tmp_path / "new-run"
+
+    def fake_original_runner(**kwargs):
+        root = kwargs["output_path"]
+        root.mkdir(parents=True, exist_ok=True)
+        data = {
+            "results": {"truthfulqa_gen": {"bleu_acc": 0.5}},
+            "versions": {"truthfulqa_gen": 2},
+            "configs": {
+                "truthfulqa_gen": {
+                    "dataset_path": "truthful_qa",
+                    "output_type": "generate_until",
+                }
+            },
+            "n-samples": {"truthfulqa_gen": {"original": 100, "effective": 5}},
+        }
+        (root / "results_current.json").write_text(
+            json.dumps(data), encoding="utf-8"
+        )
+        return {"returncode": 0, "stdout_tail": "", "stderr_tail": ""}
+
+    monkeypatch.setattr(lm_eval, "version", lambda _: "0.4.13")
+    monkeypatch.setattr(lm_eval, "run_builtin_profile", fake_original_runner)
+    results, metadata = lm_eval.run_builtin_profile_results(
+        profile_name="smoke",
+        base_url="https://supplier.example/v1",
+        model="generic",
+        api_key="synthetic",
+        output_path=output,
+    )
+
+    assert len(results) == 1
+    assert results[0].score == 0.5
+    assert results[0].metadata["benchmark_effective_samples"] == 5
+    assert results[0].metadata["benchmark_task_config_sha256"]
+    assert results[0].metadata["benchmark_harness_version"] == "0.4.13"
+    assert metadata["result_file"].endswith("results_current.json")
