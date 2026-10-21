@@ -34,7 +34,9 @@ def availability() -> dict:
 def _status(verdict: str) -> ProbeStatus:
     value = verdict.upper()
     if value == "MATCH":
-        return ProbeStatus.PASS
+        # A positive claim by an uncalibrated optional detector is not a
+        # verified match. Keep the raw verdict only as experimental evidence.
+        return ProbeStatus.INSUFFICIENT
     if value == "MISMATCH":
         # This optional alpha engine is not calibrated on our target models;
         # a mismatch is a review signal, never a hard failure by itself.
@@ -109,7 +111,26 @@ def run(
 
     # Diagnostic output may contain credentials, prompts or provider payloads.
     subprocess_logs_suppressed = bool(proc.stdout or proc.stderr)
-    stream_text = ""
+    if proc.returncode != 0:
+        # A partial JSON written by a failed subprocess cannot certify any
+        # positive or negative model identity claim.
+        return (
+            [ProbeResult(
+                probe_id="oss.proxy_sleuth",
+                category="identity",
+                status=ProbeStatus.ERROR,
+                score=None,
+                confidence=None,
+                summary="proxy-sleuth execution failed; partial verdict ignored",
+                metadata={"engine": "proxy-sleuth",
+                          "not_calibrated_for_model_detect_targets": True},
+            )],
+            {
+                **availability(),
+                "returncode": proc.returncode,
+                "subprocess_logs_suppressed": subprocess_logs_suppressed,
+            },
+        )
     if not isinstance(data, dict):
         return (
             [

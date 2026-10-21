@@ -67,3 +67,52 @@ def test_proxy_sleuth_overall_verdict_is_not_promoted_to_identity_strength(monke
     assert result.observed["external_score"] == 0.2
     assert result.metadata["identity_strength"] == "weak"
     assert result.metadata["weight_identity_proof"] is False
+
+
+def test_proxy_sleuth_match_remains_uncalibrated_unknown_not_pass(monkeypatch):
+    results, meta = _run_with_payload(
+        monkeypatch,
+        {
+            "verdict": "MATCH",
+            "overall_score": 0.99,
+            "layers": [{"layer": "statistical", "verdict": "MATCH", "score": 0.99}],
+        },
+    )
+    assert meta["returncode"] == 0
+    assert len(results) == 1
+    row = results[0]
+    assert row.status == ProbeStatus.INSUFFICIENT
+    assert row.score is None
+    assert row.confidence is None
+    assert row.observed["verdict"] == "MATCH"
+    assert row.observed["external_score"] == 0.99
+    assert row.metadata["weight_identity_proof"] is False
+
+
+def test_proxy_sleuth_failed_subprocess_discards_partial_positive_json(monkeypatch):
+    monkeypatch.setattr(proxy_sleuth.shutil, "which", lambda _: "/fake/proxy-sleuth")
+
+    def fake_run(cmd, **kwargs):
+        path = Path(cmd[cmd.index("--output-file") + 1])
+        path.write_text(
+            json.dumps({"verdict": "MATCH", "overall_score": 1.0}),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            cmd, 2, stdout="PRIVATE PROMPT", stderr="secret sk-12345678"
+        )
+
+    monkeypatch.setattr(proxy_sleuth.subprocess, "run", fake_run)
+    results, meta = proxy_sleuth.run(
+        base_url="https://supplier.example/v1",
+        model="synthetic",
+        api_key="private-placeholder",
+    )
+    assert len(results) == 1
+    assert results[0].status == ProbeStatus.ERROR
+    assert results[0].score is None
+    assert results[0].confidence is None
+    assert meta["returncode"] == 2
+    assert meta["subprocess_logs_suppressed"] is True
+    assert "PRIVATE PROMPT" not in json.dumps(meta)
+    assert "sk-12345678" not in json.dumps(meta)
