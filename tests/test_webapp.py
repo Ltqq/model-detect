@@ -505,7 +505,7 @@ def test_local_e2e_audit_history_reports_filter_and_delete(tmp_path, monkeypatch
     assert completed.json()["meta"]["verdict"] == "MATCH"
     assert completed.json()["meta"]["score"] == 97.5
     assert completed.json()["meta"]["human_summary"]["decision"] == "可通过"
-    assert completed.json()["meta"]["human_summary"]["confidence_label"] == "高"
+    assert completed.json()["meta"]["human_summary"]["confidence_label"] == "证据覆盖较完整"
 
     history = client.get("/")
     assert history.status_code == 200

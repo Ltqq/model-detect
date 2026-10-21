@@ -258,9 +258,17 @@ def compare_command(
         console.print_json(data=data)
         return
 
+    old_score = data["old"].get("overall_score")
+    new_score = data["new"].get("overall_score")
+    old_score_text = (
+        "无综合总分" if old_score is None else f"旧版未校准分数 {old_score}"
+    )
+    new_score_text = (
+        "无综合总分" if new_score is None else f"旧版未校准分数 {new_score}"
+    )
     console.print(
-        f"Old: {data['old']['verdict']} / {data['old']['overall_score']}  "
-        f"→ New: {data['new']['verdict']} / {data['new']['overall_score']}"
+        f"Old: {data['old']['verdict']} / {old_score_text}  "
+        f"→ New: {data['new']['verdict']} / {new_score_text}"
     )
     table = Table("Category", "Old", "New", "Delta")
     for name, item in data["category_deltas"].items():
