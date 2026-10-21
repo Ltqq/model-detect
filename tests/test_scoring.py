@@ -100,6 +100,25 @@ def test_weak_identity_failure_does_not_trigger_mismatch():
 
 
 
+
+def test_header_only_upstream_suspicion_requires_review_not_hard_fail():
+    summary = build_summary(
+        [
+            r("protocol.chat.basic", "protocol", 1.0),
+            r(
+                "provider.upstream_policy",
+                "provider",
+                None,
+                status=ProbeStatus.WARN,
+                policy_violation=False,
+                policy_suspected=True,
+                evidence_strength="weak",
+            ),
+        ]
+    )
+    assert summary.hard_cap is None
+    assert summary.final_verdict == "review"
+
 def test_disallowed_upstream_policy_violation_fails_admission():
     summary = build_summary(
         [
