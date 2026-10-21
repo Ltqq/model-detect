@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -559,7 +560,9 @@ def parse_result_payload(
             if isinstance(count_info, dict)
             else None
         )
-        if not isinstance(effective_samples, int) or effective_samples < 1:
+        if (isinstance(effective_samples, bool)
+                or not isinstance(effective_samples, int)
+                or effective_samples < 1):
             effective_samples = None
         metric_name, metric_value = _select_primary_metric(str(task), metrics)
 
@@ -652,6 +655,91 @@ def discover_result_file(output_path: str | Path) -> Path:
     )
 
 
+_PINNED_LM_EVAL_VERSION = "0.4.13"
+
+
+def _require_pinned_harness_version() -> str:
+    """Fail before any paid calls if the original scorer is not pinned."""
+    try:
+        actual = version("lm-eval")
+    except PackageNotFoundError:
+        raise RuntimeError(
+            "lm-eval==0.4.13 is not installed in this Python environment; "
+            "Deep benchmark execution cannot be verified"
+        ) from None
+    if actual != _PINNED_LM_EVAL_VERSION:
+        raise RuntimeError(
+            f"lm-eval version {actual!r} is not the pinned "
+            f"{_PINNED_LM_EVAL_VERSION!r}; no benchmark was started"
+        )
+    return actual
+
+
+def _result_artifact_snapshot(root: Path) -> dict[Path, tuple[int, int]]:
+    """Record pre-existing JSON to reject stale outputs on a later run."""
+    if not root.is_dir():
+        return {}
+    return {
+        path.resolve(): (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in root.rglob("*.json")
+        if path.is_file()
+    }
+
+
+def _validate_profile_run_results(
+    results: list[ProbeResult],
+    *,
+    requested_tasks: list[str],
+    output_path: Path,
+    log_samples: bool,
+) -> None:
+    """Strict validation for *new runs*; historical JSON remains parseable."""
+    by_task = {str(item.metadata.get("task")): item for item in results}
+    missing = sorted(set(requested_tasks) - set(by_task))
+    if missing:
+        raise RuntimeError(f"lm-eval did not produce results for tasks: {missing}")
+    for task in requested_tasks:
+        item = by_task[task]
+        observed = item.observed if isinstance(item.observed, dict) else {}
+        metric = observed.get("primary_metric")
+        score = observed.get("primary_value")
+        count = observed.get("effective_samples")
+        valid_metric = (
+            metric in _PRIMARY_METRICS.get(task, ())
+            if task in _PRIMARY_METRICS else metric is not None
+        )
+        if (
+            item.status != ProbeStatus.PASS
+            or not valid_metric
+            or isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(score)
+            or not 0.0 <= score <= 1.0
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 1
+            or observed.get("version") is None
+            or not observed.get("task_config_hash")
+        ):
+            raise RuntimeError(
+                f"lm-eval task {task!r} lacks a valid scorer, task version, "
+                "positive effective sample count or reproducible task config; "
+                "cannot mark this benchmark run complete"
+            )
+
+    if log_samples:
+        sample_files = [
+            path for path in output_path.rglob("samples_*.jsonl")
+            if path.is_file() and path.stat().st_size > 0
+        ]
+        for task in requested_tasks:
+            if not any(path.name.startswith(f"samples_{task}_") for path in sample_files):
+                raise RuntimeError(
+                    f"lm-eval requested logged samples, but task {task!r} "
+                    "has no non-empty samples JSONL artifact"
+                )
+
+
 def run_builtin_profile_results(
     *,
     profile_name: str,
@@ -670,6 +758,9 @@ def run_builtin_profile_results(
         profile_name,
         include_native_overlap=include_native_overlap,
     )
+    harness_version = _require_pinned_harness_version()
+    output_root = Path(output_path)
+    existing_artifacts = _result_artifact_snapshot(output_root)
     meta = run_builtin_profile(
         profile_name=profile_name,
         base_url=base_url,
@@ -688,12 +779,20 @@ def run_builtin_profile_results(
             "lm-eval failed: " + str(meta.get("stderr_tail") or "")[-1200:]
         )
     result_path = discover_result_file(output_path)
+    signature = (result_path.stat().st_mtime_ns, result_path.stat().st_size)
+    if existing_artifacts.get(result_path.resolve()) == signature:
+        raise RuntimeError(
+            "lm-eval returned success without updating the result JSON; "
+            "refusing to reuse a previous run's benchmark scores"
+        )
     results = parse_result_file(result_path)
+    _validate_profile_run_results(
+        results,
+        requested_tasks=profile["tasks"],
+        output_path=output_root,
+        log_samples=log_samples,
+    )
     task_meta = profile.get("task_metadata") or {}
-    try:
-        harness_version = version("lm-eval")
-    except PackageNotFoundError:
-        harness_version = "unknown"
     for result in results:
         task = str(result.metadata.get("task") or "")
         result.metadata["benchmark_profile"] = profile_name
