@@ -82,21 +82,22 @@ def test_behavioral_fingerprint_match_is_not_strong_identity_proof():
     assert "不能证明模型权重身份" in human["identity"]["text"]
 
 
-def test_upstream_policy_violation_becomes_plain_chinese_rejection():
+def test_upstream_header_match_is_explained_as_suspicion_for_review():
     report = AuditReport(
         target={"base_url": "https://example.com/v1", "model": "m"},
         summary=AuditSummary(
-            overall_score=40.0,
-            final_verdict="fail",
-            confidence="medium",
+            overall_score=None,
+            final_verdict="review",
+            confidence="low",
         ),
         results=[
             result(
                 "provider.upstream_policy",
                 "provider",
-                status=ProbeStatus.FAIL,
-                score=0.0,
-                policy_violation=True,
+                status=ProbeStatus.WARN,
+                score=None,
+                policy_violation=False,
+                policy_suspected=True,
             )
         ],
         provider_hypotheses=[
@@ -108,8 +109,9 @@ def test_upstream_policy_violation_becomes_plain_chinese_rejection():
         ],
         adapters={
             "upstream_policy": {
-                "status": "violation",
+                "status": "warn",
                 "config": {"disallowed": ["fireworks"]},
+                "metadata": {"policy_suspected": True},
                 "observed": {
                     "detected": [{"provider": "fireworks"}],
                     "http_429_count": 2,
@@ -120,8 +122,9 @@ def test_upstream_policy_violation_becomes_plain_chinese_rejection():
 
     human = build_report_interpretation(report)
 
-    assert human["decision"] == "拒绝准入"
-    assert human["provider"]["state"] == "violation"
+    assert human["decision"] == "人工复核"
+    assert human["provider"]["state"] == "suspected"
+    assert human["provider"]["label"] == "疑似命中上游标记，需复核"
     assert human["provider"]["http_429_count"] == 2
     assert human["provider"]["hypotheses"][0]["label"] == "Fireworks AI"
     assert human["provider"]["hypotheses"][0]["confidence"] is None
@@ -130,13 +133,13 @@ def test_upstream_policy_violation_becomes_plain_chinese_rejection():
     assert any("生成正文" in item for item in human["limitations"])
 
 
-def test_429_is_explained_as_auxiliary_only_when_policy_clear():
+def test_429_is_explained_as_auxiliary_only_when_no_header_signal_is_observed():
     report = AuditReport(
         target={"base_url": "https://example.com/v1", "model": "m"},
         summary=AuditSummary(final_verdict="review", confidence="low"),
         adapters={
             "upstream_policy": {
-                "status": "clear",
+                "status": "insufficient",
                 "config": {"disallowed": ["fireworks"]},
                 "observed": {"detected": [], "http_429_count": 3},
             }
@@ -145,9 +148,10 @@ def test_429_is_explained_as_auxiliary_only_when_policy_clear():
 
     human = build_report_interpretation(report)
 
-    assert human["provider"]["state"] == "clear"
+    assert human["provider"]["state"] == "unknown"
     assert human["provider"]["http_429_count"] == 3
-    assert "未观察到" in human["provider"]["text"]
+    assert "没有观察到" in human["provider"]["text"]
+    assert "不能排除" in human["provider"]["label"]
     assert any("429" in item for item in human["limitations"])
 
 
@@ -266,3 +270,53 @@ def test_fingerprint_mismatch_is_not_automatic_model_rejection():
     assert human["identity"]["state"] == "behavioral_mismatch"
     assert human["decision"] == "人工复核"
     assert "不以此单项证明换模" in human["headline"]
+
+
+def _legacy_header_policy_report(*, extra_fail=False):
+    results = [
+        result(
+            "provider.upstream_policy", "provider",
+            status=ProbeStatus.FAIL, score=0.0, policy_violation=True,
+        )
+    ]
+    if extra_fail:
+        results.append(result(
+            "protocol.chat.basic", "protocol",
+            status=ProbeStatus.FAIL, score=0.0,
+        ))
+    return AuditReport(
+        target={"base_url": "https://example.com/v1", "model": "generic"},
+        summary=AuditSummary(final_verdict="fail", confidence="low"),
+        results=results,
+        adapters={
+            "upstream_policy": {
+                "status": "violation",
+                "config": {"disallowed": ["fireworks"]},
+                "observed": {
+                    "detected": [{
+                        "provider": "fireworks",
+                        "decision_basis": "configured_response_header_rule",
+                    }],
+                },
+            },
+        },
+    )
+
+
+def test_legacy_header_only_fail_is_interpreted_as_review_without_mutating_history():
+    report = _legacy_header_policy_report()
+    human = build_report_interpretation(report)
+    assert report.summary.final_verdict == "fail"
+    assert report.results[0].status == ProbeStatus.FAIL
+    assert human["decision"] == "人工复核"
+    assert human["provider"]["state"] == "suspected"
+    assert "可伪造" in human["headline"]
+    assert "不能据此确认" in human["issues"][0]["explanation"]
+
+
+def test_real_protocol_failure_is_not_hidden_by_legacy_header_review():
+    report = _legacy_header_policy_report(extra_fail=True)
+    human = build_report_interpretation(report)
+    assert human["decision"] == "暂不准入"
+    assert human["provider"]["state"] == "suspected"
+    assert any(item["probe_id"] == "protocol.chat.basic" for item in human["issues"])

@@ -250,7 +250,7 @@ def test_detect_new_api_gateway_from_response_headers():
 
 
 
-def test_upstream_policy_rejects_disallowed_provider_on_strong_signal():
+def test_upstream_policy_header_match_is_review_signal_not_proven_violation():
     evidences = [
         Evidence(
             id="ev-fw",
@@ -269,8 +269,11 @@ def test_upstream_policy_rejects_disallowed_provider_on_strong_signal():
         disallowed=["fireworks"],
     )
 
-    assert result.status.value == "fail"
-    assert result.metadata["policy_violation"] is True
+    assert result.status.value == "warn"
+    assert result.score is None
+    assert result.metadata["policy_violation"] is False
+    assert result.metadata["policy_suspected"] is True
+    assert result.metadata["evidence_strength"] == "weak"
     assert result.observed["detected"][0]["provider"] == "fireworks"
     assert result.evidence_ids == ["ev-fw"]
 
@@ -349,9 +352,41 @@ def test_free_text_error_message_does_not_trigger_disallowed_upstream_policy():
     )
     assert result.status.value == "insufficient"
     assert result.metadata["policy_violation"] is False
+    assert result.metadata["policy_suspected"] is False
     assert result.observed["detected"] == []
     assert result.confidence is None
 
+
+
+def test_generic_request_id_does_not_identify_a_disallowed_provider():
+    evidences = [
+        Evidence(
+            id="ev-generic-id",
+            probe_id="protocol.chat.basic",
+            url="https://example.com/v1/chat/completions",
+            response_status=200,
+            response_headers={
+                "content-type": "application/json",
+                "x-request-id": "req-123",
+                "request-id": "req-456",
+            },
+            response_body={
+                "choices": [
+                    {"message": {"content": '{"provider":"ark","brand":"OpenAI"}'}}
+                ]
+            },
+        )
+    ]
+    hypotheses = detect_provider_hypotheses(evidences)
+    result = evaluate_upstream_policy(
+        evidences,
+        hypotheses,
+        disallowed=["openai", "volcengine", "fireworks"],
+    )
+    assert hypotheses == []
+    assert result.status.value == "insufficient"
+    assert result.metadata["policy_violation"] is False
+    assert result.metadata["policy_suspected"] is False
 
 def test_provider_header_hint_is_not_a_probability():
     evidence = Evidence(

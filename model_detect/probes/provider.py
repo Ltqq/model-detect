@@ -153,6 +153,8 @@ def evaluate_upstream_policy(
                     "provider": provider,
                     "confidence": None,
                     "max_signal_weight": max_signal_weight,
+                    "rule_weight": max_signal_weight,
+                    "rule_weight_is_probability": False,
                     "decision_basis": "configured_response_header_rule",
                     "not_model_identity_proof": True,
                     "evidence": provider_evidence,
@@ -164,18 +166,18 @@ def evaluate_upstream_policy(
         for evidence in evidence_list
         if evidence.response_status == 429
     ]
-    violation = bool(detected)
+    suspected = bool(detected)
     return ProbeResult(
         probe_id=probe_id,
         category="provider",
-        status=ProbeStatus.FAIL if violation else ProbeStatus.INSUFFICIENT,
-        score=0.0 if violation else None,
+        status=ProbeStatus.WARN if suspected else ProbeStatus.INSUFFICIENT,
+        score=None,
         confidence=None,
         summary=(
-            "configured disallowed-provider response-header rule matched: "
+            "configured response-header marker suggests a disallowed upstream: "
             + ", ".join(item["provider"] for item in detected)
-            + "; this is an upstream metadata signal, not model-weight identity proof"
-            if violation
+            + "; headers can be forwarded or spoofed; review with independent evidence"
+            if suspected
             else "no qualifying disallowed-provider response-header signal was observed; absence is not proof of absence"
         ),
         expected={
@@ -197,7 +199,10 @@ def evaluate_upstream_policy(
             dict.fromkeys([*matched_evidence_ids, *rate_limit_ids])
         ),
         metadata={
-            "policy_violation": violation,
+            "policy_violation": False,
+            "policy_suspected": suspected,
+            "evidence_strength": "weak",
+            "header_evidence_only": True,
             "policy_type": "disallowed_upstream",
             "rate_limit_is_auxiliary_only": True,
         },

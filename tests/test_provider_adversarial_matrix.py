@@ -76,10 +76,12 @@ def test_explicit_header_is_only_a_metadata_hint_not_model_identity():
     assert [h.provider for h in hints] == ["fireworks"]
     assert hints[0].confidence is None
     result = evaluate_upstream_policy([item], hints, disallowed=["fireworks"])
-    assert result.status.value == "fail"
+    assert result.status.value == "warn"
     assert result.confidence is None
     assert result.observed["detected"][0]["not_model_identity_proof"] is True
     assert result.observed["detected"][0]["decision_basis"] == "configured_response_header_rule"
+    assert result.metadata["policy_suspected"] is True
+    assert result.metadata["policy_violation"] is False
 
 
 def test_spoofable_provider_header_does_not_create_identity_probability():
@@ -88,10 +90,12 @@ def test_spoofable_provider_header_does_not_create_identity_probability():
     assert len(hints) == 1
     assert hints[0].confidence is None
     result = evaluate_upstream_policy([item], hints, disallowed=["fireworks"])
-    # Legacy upstream *header policy* may fail, but that is not a verified
-    # weight-identity verdict; even an injected header looks the same.
-    assert result.status.value == "fail"
+    # Header-only matches require independent review, never a hard identity
+    # verdict; an injected header looks identical to a forwarded header.
+    assert result.status.value == "warn"
     assert result.observed["detected"][0]["not_model_identity_proof"] is True
+    assert result.metadata["policy_suspected"] is True
+    assert result.metadata["policy_violation"] is False
     assert result.confidence is None
 
 
@@ -102,7 +106,7 @@ def test_no_policy_configuration_is_skipped_not_passed():
     assert result.confidence is None
 
 
-@pytest.mark.parametrize("header_value", ["", " ", "\\t"])
+@pytest.mark.parametrize("header_value", ["", " ", "\t"])
 def test_empty_header_value_is_not_provider_evidence(header_value):
     item = evidence(
         {"choices": []},

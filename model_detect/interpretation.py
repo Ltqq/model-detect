@@ -157,7 +157,7 @@ def _result_action(result: ProbeResult) -> str | None:
     if probe_id == "target.api.preflight":
         return "检查 Base URL 是否指向模型 API；OpenAI 兼容接口通常应包含 /v1。"
     if probe_id == "provider.upstream_policy":
-        return "如果命中禁止上游，请切换渠道或上游；不要用 429 单独判断供应商身份。"
+        return "如果观察到疑似禁止上游响应头标记，请结合其他独立证据核实；不能仅凭响应头或 429 判断供应商身份。"
     if probe_id == "identity.fingerprint.reference_compare":
         return "优先确认 Trusted Reference 是否来自官方 / 可信端点，并再次采样复测。"
     if probe_id.startswith("routing."):
@@ -183,6 +183,10 @@ def _result_action(result: ProbeResult) -> str | None:
 
 
 def result_explanation(result: ProbeResult) -> str:
+    if (result.probe_id == "provider.upstream_policy"
+            and result.status in {ProbeStatus.FAIL, ProbeStatus.WARN}):
+        return ("上游响应头规则观察到疑似线索，但 Header 可能被转发或伪造；"
+                "即使历史记录将此项标为失败，也不能据此确认供应商或模型权重身份。")
     if result.probe_id.startswith("capability.external.lm_eval."):
         return (
             "标准 Benchmark 已采集分数；本项“通过”仅表示评测数据有效，"
@@ -236,27 +240,29 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
     config = policy.get("config") if isinstance(policy.get("config"), dict) else {}
     observed = policy.get("observed") if isinstance(policy.get("observed"), dict) else {}
     detected = observed.get("detected") if isinstance(observed.get("detected"), list) else []
+    metadata = policy.get("metadata") if isinstance(policy.get("metadata"), dict) else {}
     disallowed = config.get("disallowed") if isinstance(config.get("disallowed"), list) else []
     rate_limit_count = int(observed.get("http_429_count") or 0)
+    # Backward-compatible handling: legacy "violation" records are reinterpreted
+    # as a header-marker suspicion, not proof that the upstream was identified.
+    policy_suspected = (
+        bool(metadata.get("policy_suspected"))
+        or bool(detected)
+        or policy.get("status") == "violation"
+    )
 
-    if policy.get("status") == "violation":
+    if policy_suspected:
         text = (
-            "匹配到配置的禁止上游响应头规则。该信号说明响应链路出现相关元数据，"
-            "不等于认证模型权重身份。"
+            "观察到与禁止上游规则匹配的响应头标记。响应头可能被转发或伪造，"
+            "因此这里只能报告疑似线索并建议复核，不能据此确认上游或模型权重身份。"
         )
-        state = "violation"
-    elif policy.get("status") == "not_observed":
+        state = "suspected"
+    elif disallowed:
         text = (
-            "本轮没有足够可归因的响应头线索。未观察到不代表证明后端不存在该上游；"
+            "本轮没有观察到符合规则的响应头标记；这不代表证明后端不存在该上游。"
             "自然语言正文不参与供应商识别。"
         )
         state = "unknown"
-    elif disallowed:
-        text = (
-            "旧版记录未观察到禁止上游的信号。"
-            "这不等于从密码学意义证明后端绝对不存在该上游。"
-        )
-        state = "clear"
     else:
         text = "未配置禁止上游策略；响应头线索只用于观察 API 链路，不证明最终模型供应商或权重身份。"
         state = "not_configured"
@@ -264,9 +270,8 @@ def _provider_summary(report: AuditReport) -> dict[str, Any]:
     return {
         "state": state,
         "label": {
-            "violation": "命中禁止上游",
-            "clear": "旧记录：未观察到禁止上游",
-            "unknown": "证据不足：无法判断",
+            "suspected": "疑似命中上游标记，需复核",
+            "unknown": "未观察到线索（不能排除）",
             "not_configured": "未配置禁止上游",
         }.get(state, state),
         "text": text,
@@ -477,17 +482,46 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
     quality = _quality_summary(report)
 
     invalid_target = verdict == "invalid_target"
-    policy_violation = provider["state"] == "violation"
     identity_mismatch = identity["state"] == "behavioral_mismatch"
+
+    # Legacy reports persisted a hard FAIL for an upstream-header rule. Do
+    # not rewrite stored history, but avoid repeating an unsupported rejection
+    # in the newly rendered explanation. Genuine unrelated FAILs remain FAILs.
+    legacy_policy = report.adapters.get("upstream_policy")
+    legacy_policy = legacy_policy if isinstance(legacy_policy, dict) else {}
+    legacy_observed = legacy_policy.get("observed")
+    legacy_observed = legacy_observed if isinstance(legacy_observed, dict) else {}
+    legacy_markers = legacy_observed.get("detected")
+    legacy_header_only = (
+        verdict == "fail"
+        and legacy_policy.get("status") == "violation"
+        and isinstance(legacy_markers, list)
+        and bool(legacy_markers)
+        and all(
+            isinstance(item, dict)
+            and item.get("decision_basis") == "configured_response_header_rule"
+            for item in legacy_markers
+        )
+        and any(
+            r.probe_id == "provider.upstream_policy"
+            and r.status == ProbeStatus.FAIL
+            for r in report.results
+        )
+        and not any(
+            r.status == ProbeStatus.FAIL
+            and r.probe_id != "provider.upstream_policy"
+            for r in report.results
+        )
+    )
 
     if invalid_target:
         decision = "重新检测"
         tone = "bad"
         headline = "检测地址无效：当前请求没有正确命中模型 API。"
-    elif policy_violation:
-        decision = "拒绝准入"
-        tone = "bad"
-        headline = "不通过：检测到被禁止的上游 Provider 证据。"
+    elif legacy_header_only:
+        decision = "人工复核"
+        tone = "warn"
+        headline = "历史检测仅命中可伪造的响应头标记；需要独立证据复核，不应据此拒绝准入。"
     elif identity_mismatch:
         decision = "人工复核"
         tone = "warn"
