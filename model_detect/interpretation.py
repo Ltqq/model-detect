@@ -25,9 +25,9 @@ VERDICT_ZH = {
 }
 
 CONFIDENCE_ZH = {
-    "high": "高",
-    "medium": "中",
-    "low": "低",
+    "high": "证据覆盖较完整",
+    "medium": "证据覆盖中等",
+    "low": "证据覆盖有限",
 }
 
 CATEGORY_ZH = {
@@ -635,6 +635,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "hard_cap": report.summary.hard_cap,
         "confidence": confidence,
         "confidence_label": confidence_label(confidence),
+        "confidence_semantics": "heuristic_coverage_only_not_statistical_confidence",
         "confidence_text": confidence_text,
         "confidence_is_probability": False,
         "identity": identity,
@@ -644,7 +645,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
         "actions": actions[:8],
         "categories": category_cards,
         "limitations": [
-            "综合分数是审计评分，不是“模型为真”的概率。",
+            "本工具不提供单一综合总分；请按协议、能力、异常和证据充分性逐项判断。",
             "Provider / Gateway 线索只来自配置的响应头/结构化元数据；生成正文、推理文本和自由文本错误不用于猜测上游，且这些线索不是密码学身份证明。",
             "无论是否存在 Reference 或统计指纹，黑盒测试均不能独立认证模型权重身份。",
             "HTTP 429 只代表限流现象，不能单独用来识别 Fireworks 或任何其他 Provider。",
