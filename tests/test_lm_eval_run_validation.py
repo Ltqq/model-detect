@@ -192,3 +192,31 @@ def test_official_metric_filter_suffix_retains_expected_primary_priority(tmp_pat
         output_path=tmp_path,
         log_samples=False,
     )
+
+
+def test_extra_task_result_cannot_be_mixed_into_requested_profile(tmp_path):
+    data = payload()
+    data["results"]["ifeval"] = {"prompt_level_strict_acc,none": 0.7}
+    with pytest.raises(RuntimeError, match="unrequested tasks"):
+        check(data, tmp_path, tasks=["gsm8k"])
+
+
+def test_preexisting_sample_log_cannot_satisfy_a_new_run(tmp_path):
+    old_log = tmp_path / "samples_gsm8k_old.jsonl"
+    old_log.write_text('{"doc_id":1}\n', encoding="utf-8")
+    before = lm_eval._result_artifact_snapshot(tmp_path)
+    rows = lm_eval.parse_result_payload(payload())
+    with pytest.raises(RuntimeError, match="no non-empty samples JSONL"):
+        lm_eval._validate_profile_run_results(
+            rows, requested_tasks=["gsm8k"],
+            output_path=tmp_path, log_samples=True,
+            existing_artifacts=before,
+        )
+    (tmp_path / "samples_gsm8k_new.jsonl").write_text(
+        '{"doc_id":2}\n', encoding="utf-8"
+    )
+    lm_eval._validate_profile_run_results(
+        rows, requested_tasks=["gsm8k"],
+        output_path=tmp_path, log_samples=True,
+        existing_artifacts=before,
+    )
