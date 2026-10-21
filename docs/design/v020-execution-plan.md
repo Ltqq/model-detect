@@ -366,3 +366,12 @@ main 已包含 M6 工程收尾及后续 P0/D1 修复（截至 #185）：Web/SQLi
 3. D2/D3/P4：真实执行、非执行、UNKNOWN、Reference 可比性与报告证据分层；再完成 Web、历史、导出、安装、恢复、费用确认的最终验收。
 
 所有以上 PR 都以现有单机项目为准；没有新增 Benchmark/scorer、第二套 web/db、模型答案特判或付费外部 API 测试。**仍未达到 v0.2.0 Release 条件。**
+
+
+## D0.4 评分覆盖率修复 Review（2026-10-21，待运行验收）
+
+- [x] [60e283a](https://github.com/Ltqq/model-detect/commit/60e283a7d209a4090f3623acecad347254d8f307)：`build_summary` 不再将 SKIPPED / INSUFFICIENT / ERROR 的残留数值 score 计入类别得分及 coverage；有效 PASS/WARN/FAIL 数值仍按原算法保留，历史 JSON schema 不变。
+- [x] [c3d3e56](https://github.com/Ltqq/model-detect/commit/c3d3e563680e2b6f1e177da3788e023ffccf4934)：增加三种无效分数反例，以及真实 FAIL 分数仍纳入类别得分的正向回归。
+- [ ] **验收门槛未满足**：这两个提交的 GitHub commit statuses 返回空列表，不能将其视为 CI PASS；需运行 Python 3.11/3.12 全量测试 + wheel E2E 后才能勾选 D0.4 完成。
+- **代码 Review**：仅更改汇总计数的有效性过滤，未更改各探针自身判定、模型特判或历史字段；修复“虽显示未运行却计入覆盖率”的通用误导。仍须核查 `reporting.py` 的计数规则和是否将纯 ERROR 统计为已测。
+- **偏移检查**：未偏离宪章；未添加依赖、引擎、性能压测或身份概率。下一小步聚焦报告覆盖语义与可靠 CI 验收，而不是继续堆检测方法。
