@@ -234,3 +234,27 @@ def test_header_only_upstream_suspicion_requires_review_not_hard_fail():
     )
     assert summary.hard_cap is None
     assert summary.final_verdict == "review"
+
+
+def test_inconclusive_and_skipped_scores_never_create_fake_coverage():
+    results = [
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("integrity.skipped", "integrity", 1.0, ProbeStatus.SKIPPED),
+        r("context.unknown", "context", 1.0, ProbeStatus.INSUFFICIENT),
+        r("capability.error", "capability", 1.0, ProbeStatus.ERROR),
+    ]
+    summary = build_summary(results)
+    assert summary.category_scores == {"protocol": 100.0}
+    assert summary.coverage["protocol"] is True
+    for category in ("integrity", "context", "capability"):
+        assert summary.coverage[category] is False
+    assert summary.overall_score is None
+
+
+def test_real_failure_with_score_remains_visible_as_failure():
+    summary = build_summary([
+        r("protocol.chat.basic", "protocol", 1.0),
+        r("protocol.json_mode", "protocol", 0.0, ProbeStatus.FAIL),
+    ])
+    assert summary.category_scores["protocol"] == 50.0
+    assert summary.final_verdict == "review"
