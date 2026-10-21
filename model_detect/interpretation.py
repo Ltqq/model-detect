@@ -183,6 +183,10 @@ def _result_action(result: ProbeResult) -> str | None:
 
 
 def result_explanation(result: ProbeResult) -> str:
+    if (result.probe_id == "provider.upstream_policy"
+            and result.status in {ProbeStatus.FAIL, ProbeStatus.WARN}):
+        return ("上游响应头规则观察到疑似线索，但 Header 可能被转发或伪造；"
+                "即使历史记录将此项标为失败，也不能据此确认供应商或模型权重身份。")
     if result.probe_id.startswith("capability.external.lm_eval."):
         return (
             "标准 Benchmark 已采集分数；本项“通过”仅表示评测数据有效，"
