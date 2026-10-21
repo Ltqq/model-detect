@@ -24,7 +24,13 @@ def build_summary(results: list[ProbeResult]) -> AuditSummary:
             result.category == "identity"
             and result.metadata.get("identity_strength") not in {"medium", "strong"}
         )
-        if result.score is not None and not weak_identity:
+        if (
+            result.score is not None
+            and not weak_identity
+            and result.status not in {
+                ProbeStatus.SKIPPED, ProbeStatus.INSUFFICIENT, ProbeStatus.ERROR
+            }
+        ):
             by_category[result.category].append(max(0.0, min(1.0, result.score)))
         if result.status in {ProbeStatus.FAIL, ProbeStatus.WARN}:
             warnings.append(f"{result.probe_id}: {result.summary}")
