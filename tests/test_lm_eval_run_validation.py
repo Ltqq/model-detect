@@ -1,0 +1,126 @@
+"""Synthetic, model-independent checks for the original lm-eval run contract.
+
+These fixtures never call a supplier endpoint, download datasets, or replace
+the upstream scoring algorithm. They validate that execution is reportable.
+"""
+import json
+
+import pytest
+
+from model_detect.adapters import lm_eval
+from model_detect.models import ProbeStatus
+
+
+def payload(*, score=0.8, samples=5, with_version=True, with_config=True):
+    data = {
+        "results": {"gsm8k": {"exact_match,flexible-extract": score}},
+        "n-samples": {"gsm8k": {"original": 100, "effective": samples}},
+    }
+    if with_version:
+        data["versions"] = {"gsm8k": 3}
+    if with_config:
+        data["configs"] = {
+            "gsm8k": {"dataset_path": "gsm8k", "output_type": "generate_until"}
+        }
+    return data
+
+
+def check(data, root, *, tasks=None, log_samples=False):
+    rows = lm_eval.parse_result_payload(data)
+    lm_eval._validate_profile_run_results(
+        rows,
+        requested_tasks=tasks or ["gsm8k"],
+        output_path=root,
+        log_samples=log_samples,
+    )
+    return rows
+
+
+def test_complete_native_task_result_is_accepted(tmp_path):
+    rows = check(payload(), tmp_path)
+    assert rows[0].status == ProbeStatus.PASS
+    assert rows[0].observed["effective_samples"] == 5
+    assert rows[0].observed["task_config_hash"]
+
+
+@pytest.mark.parametrize("tasks", [["gsm8k", "ifeval"], ["ifeval"]])
+def test_missing_expected_task_never_reports_complete(tmp_path, tasks):
+    with pytest.raises(RuntimeError, match="did not produce results for tasks"):
+        check(payload(), tmp_path, tasks=tasks)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        payload(samples=0),
+        payload(samples=None),
+        payload(samples=True),
+        payload(with_version=False),
+        payload(with_config=False),
+        payload(score=float("nan")),
+        payload(score=float("inf")),
+        payload(score=-0.2),
+    ],
+)
+def test_invalid_score_samples_version_or_config_is_not_a_success(tmp_path, data):
+    with pytest.raises(RuntimeError, match="cannot mark this benchmark run complete"):
+        check(data, tmp_path)
+
+
+def test_sample_log_is_required_only_when_explicitly_requested(tmp_path):
+    check(payload(), tmp_path, log_samples=False)
+    with pytest.raises(RuntimeError, match="has no non-empty samples JSONL"):
+        check(payload(), tmp_path, log_samples=True)
+    (tmp_path / "samples_gsm8k_20261021.jsonl").write_text(
+        '{"doc_id":1,"resps":[["42"]]}\n', encoding="utf-8"
+    )
+    check(payload(), tmp_path, log_samples=True)
+
+
+@pytest.mark.parametrize("installed", ["0.4.12", "0.4.14", "0.4.13.dev0"])
+def test_unpinned_harness_version_is_rejected(installed, monkeypatch):
+    monkeypatch.setattr(lm_eval, "version", lambda _: installed)
+    with pytest.raises(RuntimeError, match="no benchmark was started"):
+        lm_eval._require_pinned_harness_version()
+
+
+def test_correct_harness_version_is_explicit(monkeypatch):
+    monkeypatch.setattr(lm_eval, "version", lambda _: "0.4.13")
+    assert lm_eval._require_pinned_harness_version() == "0.4.13"
+
+
+def test_stale_result_json_cannot_be_reused_as_a_new_success(tmp_path, monkeypatch):
+    output = tmp_path / "results"
+    output.mkdir()
+    (output / "results_older.json").write_text(
+        json.dumps(payload()), encoding="utf-8"
+    )
+    monkeypatch.setattr(lm_eval, "_require_pinned_harness_version", lambda: "0.4.13")
+    monkeypatch.setattr(
+        lm_eval, "run_builtin_profile",
+        lambda **kwargs: {"returncode": 0, "stderr_tail": ""},
+    )
+    with pytest.raises(RuntimeError, match="refusing to reuse"):
+        lm_eval.run_builtin_profile_results(
+            profile_name="smoke",
+            base_url="https://supplier.example/v1",
+            model="generic",
+            api_key="fake-token",
+            output_path=output,
+        )
+
+
+def test_unpinned_preflight_does_not_invoke_costly_runner(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm_eval, "version", lambda _: "0.4.12")
+    monkeypatch.setattr(
+        lm_eval, "run_builtin_profile",
+        lambda **kwargs: pytest.fail("API benchmark must not have started"),
+    )
+    with pytest.raises(RuntimeError, match="no benchmark was started"):
+        lm_eval.run_builtin_profile_results(
+            profile_name="smoke",
+            base_url="https://supplier.example/v1",
+            model="generic",
+            api_key="fake-token",
+            output_path=tmp_path,
+        )
