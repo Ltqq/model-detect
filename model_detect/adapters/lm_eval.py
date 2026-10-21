@@ -509,6 +509,14 @@ def _select_primary_metric(
     for key in _PRIMARY_METRICS.get(task, []):
         if key in metrics:
             return key, metrics[key]
+        # Upstream lm-eval may suffix native metrics with a filter name,
+        # for example bleu_acc,none. Preserve the scorer's metric name.
+        if "," not in key:
+            variants = sorted(
+                name for name in metrics if name.partition(",")[0] == key
+            )
+            if variants:
+                return variants[0], metrics[variants[0]]
 
     generic_priority = ["acc", "acc_norm", "exact_match", "f1"]
     for preferred in generic_priority:
@@ -704,9 +712,14 @@ def _validate_profile_run_results(
         metric = observed.get("primary_metric")
         score = observed.get("primary_value")
         count = observed.get("effective_samples")
+        allowed_metrics = _PRIMARY_METRICS.get(task)
         valid_metric = (
-            metric in _PRIMARY_METRICS.get(task, ())
-            if task in _PRIMARY_METRICS else metric is not None
+            isinstance(metric, str)
+            and (
+                allowed_metrics is None
+                or metric in allowed_metrics
+                or metric.partition(",")[0] in allowed_metrics
+            )
         )
         if (
             item.status != ProbeStatus.PASS
