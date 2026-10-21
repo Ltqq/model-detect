@@ -621,7 +621,7 @@ def build_report_interpretation(report: AuditReport) -> dict[str, Any]:
 
     confidence = str(report.summary.confidence or "low").casefold()
     confidence_text = (
-        "旧版兼容字段：该标签由覆盖情况和旧规则推导，不是统计置信度，"
+        "证据覆盖等级来自现有启发式规则，兼容历史字段，不是统计置信度，"
         "也不是模型为真的概率。请以实际执行项、证据来源和复测结果为准。"
     )
 
