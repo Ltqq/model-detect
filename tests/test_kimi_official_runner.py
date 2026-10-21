@@ -96,3 +96,75 @@ def test_dirty_official_checkout_blocks_pytest(tmp_path, monkeypatch):
             output_xml=tmp_path / "junit.xml",
         )
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    ("junit_case", "exit_code", "expected"),
+    [
+        ("<testcase classname='x' name='one'/>", 0, "finished"),
+        ("<testcase classname='x' name='one'><skipped/></testcase>", 0, "inconclusive"),
+        ("<testcase classname='x' name='one'><failure/></testcase>", 0, "inconclusive"),
+        ("<testcase classname='x' name='one'><error/></testcase>", 0, "inconclusive"),
+        ("<testcase classname='x' name='one'/>", 1, "pytest_failed"),
+    ],
+)
+def test_official_junit_verdict_keeps_original_exit_and_statuses(
+    tmp_path, monkeypatch, junit_case, exit_code, expected
+):
+    repo = make_official_repo(tmp_path)
+    xml = tmp_path / "result.xml"
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "git":
+            return SimpleNamespace(
+                returncode=0,
+                stdout=OFFICIAL_COMMIT + "\n" if "rev-parse" in args else "",
+            )
+        xml.write_text(f"<testsuite>{junit_case}</testsuite>", encoding="utf-8")
+        return SimpleNamespace(returncode=exit_code, stdout="", stderr="")
+
+    monkeypatch.setattr(kimi_runner.subprocess, "run", fake_run)
+    result = run_official_subset(
+        repo_dir=repo, python_executable=Path("/usr/bin/python3"),
+        suite="params", model="kimi-k3",
+        base_url="https://localhost.invalid/v1", api_key="synthetic",
+        output_xml=xml,
+    )
+    assert len(calls) == 3
+    assert result["status"] == expected
+    assert result["pytest_exit_code"] == exit_code
+    assert result["source_verification"]["repository_commit"] == OFFICIAL_COMMIT
+    assert result["source_verification"]["clean_checkout_verified"] is True
+    assert sum(result["report"]["counts"].values()) == 1
+
+
+def test_mixed_pass_and_skip_is_not_a_complete_official_run(tmp_path, monkeypatch):
+    repo = make_official_repo(tmp_path)
+    xml = tmp_path / "run.xml"
+
+    def fake_run(args, **kwargs):
+        if args[0] == "git":
+            return SimpleNamespace(
+                returncode=0,
+                stdout=OFFICIAL_COMMIT + "\n" if "rev-parse" in args else "",
+            )
+        xml.write_text(
+            "<testsuite><testcase classname='a' name='pass'/>"
+            "<testcase classname='a' name='skip'><skipped/></testcase></testsuite>",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(kimi_runner.subprocess, "run", fake_run)
+    result = run_official_subset(
+        repo_dir=repo, python_executable=Path("/usr/bin/python3"),
+        suite="params", model="kimi-k3",
+        base_url="https://localhost.invalid/v1", api_key="synthetic",
+        output_xml=xml,
+    )
+    assert result["status"] == "inconclusive"
+    assert result["report"]["counts"] == {
+        "pass": 1, "fail": 0, "error": 0, "skipped": 1
+    }
