@@ -270,3 +270,53 @@ def test_fingerprint_mismatch_is_not_automatic_model_rejection():
     assert human["identity"]["state"] == "behavioral_mismatch"
     assert human["decision"] == "人工复核"
     assert "不以此单项证明换模" in human["headline"]
+
+
+def _legacy_header_policy_report(*, extra_fail=False):
+    results = [
+        result(
+            "provider.upstream_policy", "provider",
+            status=ProbeStatus.FAIL, score=0.0, policy_violation=True,
+        )
+    ]
+    if extra_fail:
+        results.append(result(
+            "protocol.chat.basic", "protocol",
+            status=ProbeStatus.FAIL, score=0.0,
+        ))
+    return AuditReport(
+        target={"base_url": "https://example.com/v1", "model": "generic"},
+        summary=AuditSummary(final_verdict="fail", confidence="low"),
+        results=results,
+        adapters={
+            "upstream_policy": {
+                "status": "violation",
+                "config": {"disallowed": ["fireworks"]},
+                "observed": {
+                    "detected": [{
+                        "provider": "fireworks",
+                        "decision_basis": "configured_response_header_rule",
+                    }],
+                },
+            },
+        },
+    )
+
+
+def test_legacy_header_only_fail_is_interpreted_as_review_without_mutating_history():
+    report = _legacy_header_policy_report()
+    human = build_report_interpretation(report)
+    assert report.summary.final_verdict == "fail"
+    assert report.results[0].status == ProbeStatus.FAIL
+    assert human["decision"] == "人工复核"
+    assert human["provider"]["state"] == "suspected"
+    assert "可伪造" in human["headline"]
+    assert "不能据此确认" in human["issues"][0]["explanation"]
+
+
+def test_real_protocol_failure_is_not_hidden_by_legacy_header_review():
+    report = _legacy_header_policy_report(extra_fail=True)
+    human = build_report_interpretation(report)
+    assert human["decision"] == "暂不准入"
+    assert human["provider"]["state"] == "suspected"
+    assert any(item["probe_id"] == "protocol.chat.basic" for item in human["issues"])
