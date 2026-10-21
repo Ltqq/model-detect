@@ -218,6 +218,10 @@ def run_regression_file(
         model=model,
     )
     result_path = root / "promptfoo-result.json"
+    # The configured directory may be reused for a later audit. Fail before
+    # billable execution instead of accidentally importing stale evidence.
+    if result_path.exists() or result_path.is_symlink():
+        raise FileExistsError("previous promptfoo result exists; refusing to reuse evidence")
     run_meta = promptfoo.run_eval(
         config_path=config_path,
         output_path=result_path,
@@ -226,9 +230,16 @@ def run_regression_file(
         binary=binary,
     )
 
-    mapped = []
-    if result_path.exists():
-        mapped = parse_promptfoo_file(result_path)
+    if run_meta.get("returncode") != 0:
+        raise RuntimeError(
+            "promptfoo subprocess did not complete successfully; "
+            "third-party diagnostic output withheld"
+        )
+    if not result_path.is_file():
+        raise RuntimeError("promptfoo finished without a result file")
+    mapped = parse_promptfoo_file(result_path)
+    if not mapped:
+        raise RuntimeError("promptfoo produced no mapped test results")
 
     return mapped, {
         **run_meta,

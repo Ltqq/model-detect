@@ -156,6 +156,10 @@ def run_eval(
         "returncode": proc.returncode,
         "config_path": str(config_path),
         "output_path": str(output),
-        "stdout_tail": (proc.stdout or "")[-4000:],
-        "stderr_tail": (proc.stderr or "")[-4000:],
+        # Third-party tool output may echo API keys, private prompts, response
+        # bodies and internal endpoints. Reports should never serialize it.
+        "stdout_tail": "",
+        "stderr_tail": "",
+        "subprocess_logs_suppressed": bool(proc.stdout or proc.stderr),
+        "log_retention_policy": "not_recorded",
     }
