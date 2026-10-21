@@ -106,7 +106,7 @@ def test_no_policy_configuration_is_skipped_not_passed():
     assert result.confidence is None
 
 
-@pytest.mark.parametrize("header_value", ["", " ", "\\t"])
+@pytest.mark.parametrize("header_value", ["", " ", "\t"])
 def test_empty_header_value_is_not_provider_evidence(header_value):
     item = evidence(
         {"choices": []},
