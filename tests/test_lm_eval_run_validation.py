@@ -164,3 +164,31 @@ def test_fresh_complete_profile_run_is_reported_with_provenance(tmp_path, monkey
     assert results[0].metadata["benchmark_task_config_sha256"]
     assert results[0].metadata["benchmark_harness_version"] == "0.4.13"
     assert metadata["result_file"].endswith("results_current.json")
+
+
+def test_official_metric_filter_suffix_retains_expected_primary_priority(tmp_path):
+    data = {
+        "results": {
+            "truthfulqa_gen": {
+                "rouge1_acc,none": 0.4,
+                "bleu_acc,none": 0.5,
+                "rougeL_acc,none": 0.6,
+            },
+        },
+        "versions": {"truthfulqa_gen": 2},
+        "configs": {
+            "truthfulqa_gen": {
+                "dataset_path": "truthful_qa",
+                "output_type": "generate_until",
+            },
+        },
+        "n-samples": {"truthfulqa_gen": {"effective": 25, "original": 100}},
+    }
+    rows = lm_eval.parse_result_payload(data)
+    assert rows[0].observed["primary_metric"] == "bleu_acc,none"
+    lm_eval._validate_profile_run_results(
+        rows,
+        requested_tasks=["truthfulqa_gen"],
+        output_path=tmp_path,
+        log_samples=False,
+    )
