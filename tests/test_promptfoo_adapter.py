@@ -95,3 +95,33 @@ def test_run_eval_passes_key_only_in_environment(monkeypatch, tmp_path):
     assert result["returncode"] == 0
     assert seen["env"]["MODEL_DETECT_PROMPTFOO_KEY"] == "sk-secret"
     assert all("sk-secret" not in arg for arg in seen["cmd"])
+
+
+def test_promptfoo_subprocess_logs_never_leak_into_report_metadata(monkeypatch, tmp_path):
+    marker_key = "sk-private-credential"
+    marker_endpoint = "https://private.internal.example/v1"
+    marker_prompt = "Confidential private customer prompt"
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs["env"][promptfoo.API_KEY_ENV] == marker_key
+        return subprocess.CompletedProcess(
+            cmd, 1,
+            stdout=f"Bearer {marker_key} {marker_prompt}",
+            stderr=f"request failed at {marker_endpoint}: {marker_key}",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    report_meta = promptfoo.run_eval(
+        config_path=tmp_path / "private.yaml",
+        output_path=tmp_path / "private-result.json",
+        api_key=marker_key,
+        binary="/usr/bin/promptfoo",
+    )
+    import json
+    public_text = json.dumps(report_meta)
+    assert report_meta["returncode"] == 1
+    assert report_meta["stdout_tail"] == ""
+    assert report_meta["stderr_tail"] == ""
+    assert report_meta["subprocess_logs_suppressed"] is True
+    for secret in (marker_key, marker_endpoint, marker_prompt):
+        assert secret not in public_text
