@@ -13,7 +13,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from model_detect.adapters.lm_eval import build_command
+from model_detect.adapters.lm_eval import (
+    build_command, parse_result_payload, _validate_profile_run_results,
+)
 
 
 class FakeChatHandler(BaseHTTPRequestHandler):
@@ -93,6 +95,14 @@ def main() -> None:
             if not candidates:
                 raise AssertionError("Original upstream did not emit results JSON")
             payload = json.loads(candidates[0].read_text(encoding="utf-8"))
+            # Validate the exact same reportability contract on a real run of
+            # the original upstream scorer, not just on synthetic parsed JSON.
+            _validate_profile_run_results(
+                parse_result_payload(payload),
+                requested_tasks=["md_offline_harness_smoke"],
+                output_path=root / "results",
+                log_samples=False,
+            )
             scores = payload["results"]["md_offline_harness_smoke"]
             exact_values = [v for k, v in scores.items() if k.startswith("exact_match") and isinstance(v, (float, int))]
             assert exact_values and max(exact_values) == 1.0, scores
