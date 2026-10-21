@@ -684,12 +684,12 @@ def _require_pinned_harness_version() -> str:
 
 
 def _result_artifact_snapshot(root: Path) -> dict[Path, tuple[int, int]]:
-    """Record pre-existing JSON to reject stale outputs on a later run."""
+    """Record old JSON and sample logs so neither can be reused as new evidence."""
     if not root.is_dir():
         return {}
     return {
         path.resolve(): (path.stat().st_mtime_ns, path.stat().st_size)
-        for path in root.rglob("*.json")
+        for path in (*root.rglob("*.json"), *root.rglob("samples_*.jsonl"))
         if path.is_file()
     }
 
@@ -700,12 +700,16 @@ def _validate_profile_run_results(
     requested_tasks: list[str],
     output_path: Path,
     log_samples: bool,
+    existing_artifacts: dict[Path, tuple[int, int]] | None = None,
 ) -> None:
     """Strict validation for *new runs*; historical JSON remains parseable."""
     by_task = {str(item.metadata.get("task")): item for item in results}
     missing = sorted(set(requested_tasks) - set(by_task))
     if missing:
         raise RuntimeError(f"lm-eval did not produce results for tasks: {missing}")
+    unexpected = sorted(set(by_task) - set(requested_tasks))
+    if unexpected:
+        raise RuntimeError(f"lm-eval output contains unrequested tasks: {unexpected}")
     for task in requested_tasks:
         item = by_task[task]
         observed = item.observed if isinstance(item.observed, dict) else {}
@@ -741,9 +745,14 @@ def _validate_profile_run_results(
             )
 
     if log_samples:
+        previous = existing_artifacts or {}
         sample_files = [
             path for path in output_path.rglob("samples_*.jsonl")
-            if path.is_file() and path.stat().st_size > 0
+            if path.is_file()
+            and path.stat().st_size > 0
+            and previous.get(path.resolve()) != (
+                path.stat().st_mtime_ns, path.stat().st_size
+            )
         ]
         for task in requested_tasks:
             if not any(path.name.startswith(f"samples_{task}_") for path in sample_files):
@@ -804,6 +813,7 @@ def run_builtin_profile_results(
         requested_tasks=profile["tasks"],
         output_path=output_root,
         log_samples=log_samples,
+        existing_artifacts=existing_artifacts,
     )
     task_meta = profile.get("task_metadata") or {}
     for result in results:
