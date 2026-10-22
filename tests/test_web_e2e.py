@@ -138,6 +138,12 @@ def test_local_web_audit_history_report_filter_and_delete(
     html = client.get(f"/reports/{job_id}")
     assert html.status_code == 200
     assert "E2E protocol probe passed" in html.text
+    # The browser must navigate to the actual Evidence API, not a broken
+    # relative /reports/evidence/... URL. Test rendered HTML, not just the API.
+    evidence_link = f"/api/audits/{job_id}/evidence/ev_e2e"
+    assert f'href="{evidence_link}"' in html.text
+    assert 'href="evidence/ev_e2e.json"' not in html.text
+    assert client.get(evidence_link).status_code == 200
 
     report_json = client.get(f"/api/audits/{job_id}/report")
     assert report_json.status_code == 200
