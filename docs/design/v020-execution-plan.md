@@ -375,3 +375,11 @@ main 已包含 M6 工程收尾及后续 P0/D1 修复（截至 #185）：Web/SQLi
 - [ ] **验收门槛未满足**：这两个提交的 GitHub commit statuses 返回空列表，不能将其视为 CI PASS；需运行 Python 3.11/3.12 全量测试 + wheel E2E 后才能勾选 D0.4 完成。
 - **代码 Review**：仅更改汇总计数的有效性过滤，未更改各探针自身判定、模型特判或历史字段；修复“虽显示未运行却计入覆盖率”的通用误导。仍须核查 `reporting.py` 的计数规则和是否将纯 ERROR 统计为已测。
 - **偏移检查**：未偏离宪章；未添加依赖、引擎、性能压测或身份概率。下一小步聚焦报告覆盖语义与可靠 CI 验收，而不是继续堆检测方法。
+
+
+## D3 报告覆盖计数检查点（2026-10-22，待 CI）
+
+- [x] [020627f](https://github.com/Ltqq/model-detect/commit/020627f576bc29fe87c019faf374f9440a98f4a4)：HTML 类别卡片不再把 ERROR、INSUFFICIENT 计作已完成；独立展示已完成（PASS/FAIL/WARN）、异常/警告、错误/证据不足、未运行/不适用。
+- [x] [81dde40](https://github.com/Ltqq/model-detect/commit/81dde4005327693afc467deb38f5af33fdccd34d)：新增混合状态和只有 SKIPPED 两组离线报告回归，连带验证类别分数和 coverage。
+- **Review**：改动只在展示层和测试层，不涉及模型专属知识或检测规则；旧 JSON / SQLite 结构未迁移，既有历史报告可读取。特别注意“已完成”描述状态有效，**不等于**模型能力或供应商真实性已得到认证。
+- **验收尚缺**：需要 Python 3.11/3.12 的 pytest、wheel 与 Web/CLI 端到端检查通过；当前无法仅凭 GitHub 文件更新确认 CI 成功。D3 不得勾选完成。
