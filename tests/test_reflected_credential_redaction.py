@@ -91,7 +91,7 @@ def test_reflected_credential_is_removed_from_stream_preview(monkeypatch, stream
         })
         return httpx.Response(
             200,
-            text=f"data: {event}\\n\\ndata: [DONE]\\n\\n",
+            text=f"data: {event}\n\ndata: [DONE]\n\n",
             headers={"content-type": "text/event-stream"},
         )
 
