@@ -442,7 +442,7 @@ def create_app(
             raise HTTPException(404, "报告文件不存在")
         content = path.read_text(encoding="utf-8")
         content = re.sub(
-            r'href="evidence/(ev_[A-Za-z0-9_-]+)\\.json"',
+            r'href="evidence/(ev_[A-Za-z0-9_-]+)\.json"',
             lambda m: f'href="/api/audits/{job_id}/evidence/{m.group(1)}"',
             content,
         )
