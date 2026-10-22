@@ -448,13 +448,27 @@ def _render_html(report: AuditReport) -> str:
     category_cards = []
     for item in human["categories"]:
         category_results = [r for r in report.results if r.category == item["id"]]
-        observed = sum(r.status not in {ProbeStatus.SKIPPED} for r in category_results)
-        abnormal = sum(
-            r.status in {ProbeStatus.FAIL, ProbeStatus.WARN, ProbeStatus.ERROR,
-                         ProbeStatus.INSUFFICIENT}
+        # A skipped, errored or inconclusive probe is not a completed test.
+        # Report it separately instead of inflating tested coverage.
+        completed = sum(
+            r.status in {ProbeStatus.PASS, ProbeStatus.FAIL, ProbeStatus.WARN}
             for r in category_results
         )
-        coverage_text = f"已测 {observed} 项 · 异常/不确定 {abnormal} 项" if observed else "本次未覆盖"
+        failed_or_warned = sum(
+            r.status in {ProbeStatus.FAIL, ProbeStatus.WARN}
+            for r in category_results
+        )
+        uncertain = sum(
+            r.status in {ProbeStatus.ERROR, ProbeStatus.INSUFFICIENT}
+            for r in category_results
+        )
+        skipped = sum(r.status == ProbeStatus.SKIPPED for r in category_results)
+        parts = [f"已完成 {completed} 项", f"异常/警告 {failed_or_warned} 项"]
+        if uncertain:
+            parts.append(f"错误/证据不足 {uncertain} 项")
+        if skipped:
+            parts.append(f"未运行/不适用 {skipped} 项")
+        coverage_text = " · ".join(parts) if category_results else "本次未覆盖"
         category_cards.append(
             f"""
             <div class="category-card">
