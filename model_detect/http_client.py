@@ -12,7 +12,7 @@ import httpx
 from .models import Evidence
 from .usage_meter import UsageRecord, usage_from_response
 from .native_budget import NativeTokenBudget
-from .redaction import redact_headers, redact_payload, redact_url
+from .redaction import redact_headers, redact_payload, redact_text, redact_url
 from .rules import apply_request_constraints
 
 
@@ -80,6 +80,10 @@ class AuditHttpClient:
         budget: NativeTokenBudget | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        # Response bodies can reflect credentials even when request headers
+        # have been masked. All persisted/returned response previews must scrub
+        # this known value; no secrets are written into the report metadata.
+        self._evidence_secrets = (api_key,) if api_key else ()
         self.timeout = timeout_seconds
         self.model = model
         self.budget = budget
@@ -120,7 +124,7 @@ class AuditHttpClient:
                 evidence = Evidence(
                     id="ev_" + uuid.uuid4().hex[:16],
                     probe_id=probe_id, method="POST",
-                    url=redact_url(self._url(path)),
+                    url=redact_url(self._url(path), secrets=self._evidence_secrets),
                     error="NativeTokenBudgetExceeded: request not sent",
                 )
                 return CallResult(evidence=evidence)
@@ -159,9 +163,9 @@ class AuditHttpClient:
             id="ev_" + uuid.uuid4().hex[:16],
             probe_id=probe_id,
             method="POST",
-            url=redact_url(url),
-            request_headers=redact_headers(self.headers),
-            request_body=redact_payload(actual_payload),
+            url=redact_url(url, secrets=self._evidence_secrets),
+            request_headers=redact_headers(self.headers, secrets=self._evidence_secrets),
+            request_body=redact_payload(actual_payload, secrets=self._evidence_secrets),
         )
         try:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
@@ -188,10 +192,14 @@ class AuditHttpClient:
                             if len(lines) >= line_limit or bytes_seen >= byte_limit:
                                 truncated = True
                                 break
-                    text = "\n".join(lines)
-                    parsed = _parse_sse_preview(lines)
+                    text = redact_text("\n".join(lines), secrets=self._evidence_secrets)
+                    parsed = redact_payload(
+                        _parse_sse_preview(lines), secrets=self._evidence_secrets
+                    )
                     evidence.response_status = status_code
-                    evidence.response_headers = redact_headers(response_headers)
+                    evidence.response_headers = redact_headers(
+                        response_headers, secrets=self._evidence_secrets
+                    )
                     evidence.error_category = _classify_http_status(
                         status_code or 0, response_headers.get("content-type", "")
                     )
@@ -226,13 +234,17 @@ class AuditHttpClient:
                     return CallResult(evidence=evidence, json_body=parsed, text_body=text)
 
                 response = await client.post(url, headers=self.headers, json=actual_payload)
-                text = response.text
+                text = redact_text(response.text, secrets=self._evidence_secrets)
                 try:
-                    parsed = response.json()
-                except Exception:
+                    parsed = redact_payload(
+                        response.json(), secrets=self._evidence_secrets
+                    )
+                except (ValueError, TypeError):
                     parsed = None
                 evidence.response_status = response.status_code
-                evidence.response_headers = redact_headers(dict(response.headers))
+                evidence.response_headers = redact_headers(
+                    dict(response.headers), secrets=self._evidence_secrets
+                )
                 evidence.error_category = _classify_http_status(
                     response.status_code, response.headers.get("content-type", "")
                 )
