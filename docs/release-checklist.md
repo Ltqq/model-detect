@@ -2,6 +2,16 @@
 
 > 2026-10-19。产品定位与范围以 [冻结宪章](design/product-charter-v1.md) 为准；任务状态以 [唯一执行计划](design/v020-execution-plan.md) 为准。本清单只描述**如何验证**，不新增功能方向。0.2.0 是开发版本号，未通过本清单前不应宣称正式 Release。
 
+## 2026-10-22 工程候选版验收状态（可追溯）
+
+- [x] [PR #202](https://github.com/Ltqq/model-detect/pull/202)：冻结 v0.2.0 版范围，离线 handoff 用真实 PASS/ERROR/FAIL/SKIPPED 验证报告而非空报告；[CI #39714796543](https://github.com/Ltqq/model-detect/actions/runs/39714796543) 三个 job 全绿。
+- [x] [PR #203](https://github.com/Ltqq/model-detect/pull/203)：原生 HTTP 在 JSON、SSE 和 HTML 错误中收到 API Key 回显时执行脱敏；新增真实报告文件回归；[CI #39729178696](https://github.com/Ltqq/model-detect/actions/runs/39729178696) 三个 job 全绿，Python 3.11 显示 613 passed。
+- [x] [PR #204](https://github.com/Ltqq/model-detect/pull/204)：修复 Web 报告证据链接正则转义问题，并在 Web E2E 中点击证据 API；[CI #39729565094](https://github.com/Ltqq/model-detect/actions/runs/39729565094) 三个 job 全绿。
+- [ ] **最新 main 提交验收**：每次合并后以对应 HEAD 的 Actions 日志为准，不能借用旧 PR 的通过记录。本分支已新增完整读取 ZIP（报告 JSON/HTML/Evidence）及合成密钥排查的 E2E，正式合并仍需确认对应 HEAD 的 CI。
+- [ ] **用户机器验收**：实际环境的 Web 启停、同一套历史与 ZIP 下载、SQLite + Reference + 报告文件的备份恢复演练，以及授权供应商端点实测。CI 的临时目录和 Mock 不能替代这些动作。
+
+**安全边界**：报告和 ZIP 应作为私有审计材料保存，尤其是显式启用的第三方回归工具可能打包原始 Prompt/输出或上游生成的运行文件。原生 HTTP 反射 Key 脱敏测试不代表所有外部工具产物都已自动脱敏；未经检查不得公开上传 ZIP。工程候选版不等于认证真实模型身份。
+
 ## A. 无 API Key 即可执行的工程交付测试
 
 在 Python 3.11 / 3.12 环境：

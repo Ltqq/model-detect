@@ -1,5 +1,7 @@
 import asyncio
+import io
 import json
+import zipfile
 
 from fastapi.testclient import TestClient
 
@@ -158,6 +160,13 @@ def test_local_web_audit_history_report_filter_and_delete(
     assert archive.status_code == 200
     assert archive.headers["content-type"].startswith("application/zip")
     assert archive.content[:2] == b"PK"
+    # A ZIP magic header alone does not prove an export can be inspected.
+    with zipfile.ZipFile(io.BytesIO(archive.content)) as bundle:
+        names = set(bundle.namelist())
+        assert {"report.html", "report.json", "evidence/ev_e2e.json"} <= names
+        for item in ("report.html", "report.json", "evidence/ev_e2e.json"):
+            assert b"sk-e2e-secret" not in bundle.read(item)
+        assert b"ev_e2e" in bundle.read("report.json")
 
     report_root = tmp_path / "out" / job_id
     archive_path = tmp_path / "state" / f"{job_id}-report.zip"
