@@ -303,3 +303,61 @@ def test_report_json_does_not_publish_partial_overall_score(tmp_path):
     assert "本工具不提供单一综合总分" in html
     assert "证据覆盖" in data["human_interpretation"]["confidence_text"]
     assert data["human_interpretation"]["confidence_semantics"] == "heuristic_coverage_only_not_statistical_confidence"
+
+
+def test_report_distinguishes_completed_uncertain_and_skipped_coverage(tmp_path):
+    """Coverage cannot imply that skipped or errored probes completed."""
+    items = [
+        ("protocol.chat.basic", ProbeStatus.PASS, 1.0),
+        ("protocol.json_mode", ProbeStatus.WARN, None),
+        ("protocol.tools.basic", ProbeStatus.ERROR, 1.0),
+        ("protocol.reasoning.invalid_field", ProbeStatus.INSUFFICIENT, 1.0),
+        ("protocol.thinking.disable", ProbeStatus.SKIPPED, 1.0),
+    ]
+    results = [
+        ProbeResult(
+            probe_id=probe_id,
+            category="protocol",
+            status=status,
+            score=score,
+            summary="synthetic fixture",
+        )
+        for probe_id, status, score in items
+    ]
+    report = AuditReport(
+        target={"base_url": "https://example.invalid/v1", "model": "unknown"},
+        results=results,
+        summary=build_summary(results),
+    )
+    root = write_report(report, tmp_path / "coverage")
+    html = (root / "report.html").read_text(encoding="utf-8")
+    assert "已完成 2 项" in html
+    assert "异常/警告 1 项" in html
+    assert "错误/证据不足 2 项" in html
+    assert "未运行/不适用 1 项" in html
+    assert "已测 4 项" not in html
+    data = json.loads((root / "report.json").read_text(encoding="utf-8"))
+    assert data["summary"]["category_scores"]["protocol"] == 100.0
+    assert data["summary"]["overall_score"] is None
+
+
+def test_report_skipped_only_category_is_not_presented_as_executed(tmp_path):
+    results = [
+        ProbeResult(
+            probe_id="protocol.tools.basic",
+            category="protocol",
+            status=ProbeStatus.SKIPPED,
+            score=1.0,
+            summary="not supported",
+        )
+    ]
+    report = AuditReport(
+        target={"base_url": "https://example.invalid/v1", "model": "unknown"},
+        results=results,
+        summary=build_summary(results),
+    )
+    root = write_report(report, tmp_path / "skipped")
+    html = (root / "report.html").read_text(encoding="utf-8")
+    assert "已完成 0 项" in html
+    assert "未运行/不适用 1 项" in html
+    assert report.summary.coverage["protocol"] is False
